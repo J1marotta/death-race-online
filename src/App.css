@@ -103,6 +103,10 @@ code {
   align-items: stretch;
 }
 
+.hero-panel.game-focused {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .state-card {
   display: flex;
   flex-direction: column;

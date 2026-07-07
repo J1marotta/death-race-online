@@ -21,7 +21,7 @@ const HUMAN_COLORS = ['red', 'blue', 'green', 'yellow']
 const LANES = Array.from({ length: 20 }, (_, index) => ({
   id: index + 1,
   archetype: ARCHETYPES[index % ARCHETYPES.length],
-  progress: 13 + (index % 5) * 8 + Math.floor(index / 5) * 3,
+  progress: 8 + (index % 5),
   depth: Math.floor(index / 5),
 }))
 
@@ -140,7 +140,6 @@ function App() {
   const [bullets, setBullets] = useState(() =>
     Object.fromEntries(PLAYERS.map((player) => [player, true])),
   )
-  const [lastShot, setLastShot] = useState(null)
   const [shotRacerIds, setShotRacerIds] = useState([])
   const [roundWinner, setRoundWinner] = useState(null)
   const [currentRound, setCurrentRound] = useState(1)
@@ -154,6 +153,7 @@ function App() {
   const lobbyInProgress = !['menu', 'lobby'].includes(state)
   const activePlayers = lobbyInProgress ? PLAYERS : WAITING_PLAYERS
   const movementLocked = state === 'countdown'
+  const gameFocused = state === 'playing'
   const roundRacers = useMemo(
     () =>
       LANES.map((lane) => {
@@ -426,7 +426,6 @@ function App() {
     setNpcTick(0)
     setNpcProgressByLane(createNpcProgressByLane())
     setBullets(Object.fromEntries(PLAYERS.map((player) => [player, true])))
-    setLastShot(null)
     setShotRacerIds([])
     setRoundWinner(null)
     setAim({ x: 68, laneId: controlledRacerId })
@@ -507,10 +506,6 @@ function App() {
       ...current,
       [localPlayerName]: false,
     }))
-    setLastShot({
-      player: localPlayerName,
-      laneId: nextAim.laneId,
-    })
     setShotRacerIds((current) =>
       current.includes(nextAim.laneId) ? current : [...current, nextAim.laneId],
     )
@@ -639,113 +634,81 @@ function App() {
         ))}
       </section>
 
-      <section className="hero-panel" aria-labelledby="state-title">
-        <div className="state-card">
-          <p className="eyebrow">{activeStateCopy.eyebrow}</p>
-          <h2 id="state-title">{activeStateCopy.title}</h2>
-          <p>{activeStateCopy.body}</p>
-          {state === 'countdown' ? (
-            <div className="countdown-panel" aria-label="Countdown">
-              <span>{COUNTDOWN_STEPS[countdownIndex]}</span>
-              <p>Movement and shooting are locked until go.</p>
-              <button type="button" onClick={advanceCountdown}>
-                Advance countdown
-              </button>
-            </div>
-          ) : null}
-          {state !== 'menu' ? (
-            <div className="assignment-summary" aria-label="Round setup">
-              <span>Round setup</span>
-              <strong>{roundRacers.length} racers</strong>
-              <p>
-                {humansAssigned.length} hidden humans, {npcCount} NPCs.
-              </p>
-            </div>
-          ) : null}
-          {state === 'playing' ? (
-            <div className="npc-summary" aria-label="NPC behavior">
-              <span>NPC behavior</span>
-              <strong>{npcCount} racers thinking</strong>
-              <p>Lane-locked walk and pause patterns. NPCs never shoot.</p>
-            </div>
-          ) : null}
-          {state === 'playing' ? (
-            <div className="bullet-panel" aria-label="Bullet indicators">
-              <span>Bullets</span>
-              <div className="bullet-list">
-                {humansAssigned.map((racer) => (
-                  <strong
-                    className={`bullet-chip crosshair-${racer.controller.color}`}
-                    key={racer.controller.name}
-                  >
-                    {racer.controller.name}:{' '}
-                    {bullets[racer.controller.name] ? 'loaded' : 'spent'}
-                  </strong>
-                ))}
+      <section
+        className={`hero-panel${gameFocused ? ' game-focused' : ''}`}
+        aria-label="Game area"
+      >
+        {gameFocused ? null : (
+          <div className="state-card">
+            <p className="eyebrow">{activeStateCopy.eyebrow}</p>
+            <h2 id="state-title">{activeStateCopy.title}</h2>
+            <p>{activeStateCopy.body}</p>
+            {state === 'countdown' ? (
+              <div className="countdown-panel" aria-label="Countdown">
+                <span>{COUNTDOWN_STEPS[countdownIndex]}</span>
+                <p>Movement and shooting are locked until go.</p>
+                <button type="button" onClick={advanceCountdown}>
+                  Advance countdown
+                </button>
               </div>
-              {lastShot ? (
+            ) : null}
+            {state !== 'menu' ? (
+              <div className="assignment-summary" aria-label="Round setup">
+                <span>Round setup</span>
+                <strong>{roundRacers.length} racers</strong>
                 <p>
-                  {lastShot.player} fired at lane {lastShot.laneId}.
+                  {humansAssigned.length} hidden humans, {npcCount} NPCs.
                 </p>
-              ) : (
-                <p>Mouse aims. Mouse 1 fires once. Shot racers stay down.</p>
-              )}
-            </div>
-          ) : null}
-          {state === 'roundOver' && roundWinner ? (
-            <div className="winner-panel" aria-label="Winner reveal">
-              <span>Winner</span>
-              <strong>
-                Lane {roundWinner.id}: {roundWinner.controller.name}
-              </strong>
-              <p>
-                {roundWinner.controller.type === 'npc'
-                  ? 'NPC shame moment. Human-controlled racers are revealed.'
-                  : 'Human winner. All human-controlled racers are revealed.'}
-              </p>
-            </div>
-          ) : null}
-          {state === 'scoreboard' || state === 'gameOver' ? (
-            <div className="scoreboard-panel" aria-label="Scoreboard">
-              <span>{state === 'gameOver' ? 'Final scores' : 'Scoreboard'}</span>
-              <div className="score-list">
-                {rankedPlayers.map((player) => (
-                  <div className="score-row" key={player}>
-                    <strong>{player}</strong>
-                    <span>{scores[player]}</span>
-                  </div>
-                ))}
               </div>
-              <div className="round-history" aria-label="Round history">
-                {roundHistory.map((round) => (
-                  <p key={round.round}>
-                    Round {round.round}: lane {round.laneId},{' '}
-                    {round.winnerName}{' '}
-                    {round.winnerType === 'human' ? '+1' : '+0'}
-                  </p>
-                ))}
+            ) : null}
+            {state === 'roundOver' && roundWinner ? (
+              <div className="winner-panel" aria-label="Winner reveal">
+                <span>Winner</span>
+                <strong>
+                  Lane {roundWinner.id}: {roundWinner.controller.name}
+                </strong>
+                <p>
+                  {roundWinner.controller.type === 'npc'
+                    ? 'NPC shame moment. Human-controlled racers are revealed.'
+                    : 'Human winner. All human-controlled racers are revealed.'}
+                </p>
               </div>
-            </div>
-          ) : null}
-          {state !== 'menu' ? renderLobby() : null}
-          {state === 'lobby' || state === 'countdown' ? null : (
-            <div className="actions">
-              {state === 'playing' ? null : (
+            ) : null}
+            {state === 'scoreboard' || state === 'gameOver' ? (
+              <div className="scoreboard-panel" aria-label="Scoreboard">
+                <span>{state === 'gameOver' ? 'Final scores' : 'Scoreboard'}</span>
+                <div className="score-list">
+                  {rankedPlayers.map((player) => (
+                    <div className="score-row" key={player}>
+                      <strong>{player}</strong>
+                      <span>{scores[player]}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="round-history" aria-label="Round history">
+                  {roundHistory.map((round) => (
+                    <p key={round.round}>
+                      Round {round.round}: lane {round.laneId},{' '}
+                      {round.winnerName}{' '}
+                      {round.winnerType === 'human' ? '+1' : '+0'}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {state !== 'menu' ? renderLobby() : null}
+            {state === 'lobby' || state === 'countdown' ? null : (
+              <div className="actions">
                 <button
                   type="button"
                   onClick={() => moveToState(activeStateCopy.next)}
                 >
                   {activeStateCopy.action}
                 </button>
-              )}
-              {state === 'playing' ? (
-                <button type="button" onClick={() => moveToState('paused')}>
-                  Pause
-                </button>
-              ) : null}
-            </div>
-          )}
-        </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div
           className="playfield"

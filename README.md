@@ -9,6 +9,27 @@ npm run dev
 npm run lint
 npm run build
 npm run preview
+npm run preview:cloudflare
+npm run deploy:cloudflare
+```
+
+## Cloudflare Pages
+
+Use Cloudflare Pages for the hosted build of `J1marotta/death-race-online`.
+
+Dashboard setup:
+
+- Project name: `death-race-online`
+- Framework preset: Vite
+- Build command: `npm run build`
+- Build output directory: `dist`
+- Root directory: `/`
+
+CLI deploy:
+
+```powershell
+npx wrangler login
+npm run deploy:cloudflare
 ```
 
 ## Project Docs

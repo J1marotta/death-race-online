@@ -284,3 +284,11 @@ Last updated: 2026-07-07
 - Deployed the backend worker to `https://death-race-rooms.james-marotta.workers.dev`.
 - Verified with `npm run test`; `npm run lint`; `npm run build`.
 - /usage: tokensUsed 1415598, timeUsedSeconds 2438.
+
+### task 21 : Wire Lobby To Multiplayer API
+
+- Added client-side room API calls for create room, update settings, and countdown sync.
+- Added backend sync status and room snapshot display to the HUD.
+- Kept the local play loop intact while connecting the lobby controls to the shared backend room.
+- Verified with `npm run test`; `npm run lint`; `npm run build`.
+- /usage: tokensUsed 1473021, timeUsedSeconds 2514.

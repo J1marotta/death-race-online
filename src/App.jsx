@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
+import {
+  createRoom,
+  getRoom,
+  startCountdown as apiStartCountdown,
+  updateRoom,
+} from './multiplayer/api'
 
 const STATES = [
   'menu',
@@ -168,6 +174,8 @@ function App() {
     Object.fromEntries(PLAYERS.map(player => [player, 0]))
   )
   const [roundHistory, setRoundHistory] = useState([])
+  const [roomSnapshot, setRoomSnapshot] = useState(null)
+  const [roomSyncState, setRoomSyncState] = useState('local')
   const playfieldRef = useRef(null)
   const pressedKeys = useRef({ run: false, walk: false })
   const activeState = STATE_COPY[state]
@@ -437,11 +445,33 @@ function App() {
     () => [
       ['Room', 'DR-2048'],
       ['Mode', 'Local prototype'],
+      ['Sync', roomSyncState],
       ['Rounds', `${currentRound} / ${roundCount}`],
       ['Racers', roundRacers.length]
     ],
-    [currentRound, roundCount, roundRacers.length]
+    [currentRound, roomSyncState, roundCount, roundRacers.length]
   )
+
+  const syncRoom = useCallback(async (action, payload = {}) => {
+    try {
+      let result
+      if (action === 'create') {
+        result = await createRoom(ROOM_CODE, payload)
+      } else if (action === 'settings') {
+        result = await updateRoom(ROOM_CODE, payload)
+      } else if (action === 'countdown') {
+        result = await apiStartCountdown(ROOM_CODE)
+      } else {
+        result = await getRoom(ROOM_CODE)
+      }
+      setRoomSnapshot(result.room)
+      setRoomSyncState('connected')
+      return result.room
+    } catch {
+      setRoomSyncState('offline')
+      return null
+    }
+  }, [])
 
   const resetRoundState = () => {
     setCountdownIndex(0)
@@ -459,6 +489,7 @@ function App() {
       setState('gameOver')
       return
     }
+    void syncRoom('settings', { privacy, roundCount })
     setCurrentRound(round => round + 1)
     resetRoundState()
     setState('countdown')
@@ -474,6 +505,11 @@ function App() {
         setCurrentRound(1)
         setScores(Object.fromEntries(PLAYERS.map(player => [player, 0])))
         setRoundHistory([])
+        void syncRoom('create', {
+          hostName: PLAYERS[0],
+          privacy,
+          roundCount,
+        })
       }
       resetRoundState()
     }
@@ -482,12 +518,18 @@ function App() {
       setScores(Object.fromEntries(PLAYERS.map(player => [player, 0])))
       setRoundHistory([])
       resetRoundState()
+      void syncRoom('create', {
+        hostName: PLAYERS[0],
+        privacy,
+        roundCount,
+      })
     }
     setState(nextState)
   }
   const advanceCountdown = () => {
     const nextIndex = countdownIndex + 1
     if (nextIndex >= COUNTDOWN_STEPS.length) {
+      void syncRoom('countdown')
       moveToState('playing')
       return
     }
@@ -575,7 +617,10 @@ function App() {
               key={option}
               type='button'
               className={privacy === option ? 'active' : ''}
-              onClick={() => setPrivacy(option)}
+              onClick={() => {
+                setPrivacy(option)
+                void syncRoom('settings', { privacy: option, roundCount })
+              }}
             >
               {option}
             </button>
@@ -591,7 +636,10 @@ function App() {
               key={option}
               type='button'
               className={roundCount === option ? 'active' : ''}
-              onClick={() => setRoundCount(option)}
+              onClick={() => {
+                setRoundCount(option)
+                void syncRoom('settings', { privacy, roundCount: option })
+              }}
             >
               {option}
             </button>
@@ -675,9 +723,18 @@ function App() {
       >
         {gameFocused ? null : (
           <div className='state-card'>
-            <p className='eyebrow'>{activeStateCopy.eyebrow}</p>
-            <h2 id='state-title'>{activeStateCopy.title}</h2>
-            <p>{activeStateCopy.body}</p>
+          <p className='eyebrow'>{activeStateCopy.eyebrow}</p>
+          <h2 id='state-title'>{activeStateCopy.title}</h2>
+          <p>{activeStateCopy.body}</p>
+          {roomSnapshot ? (
+            <div className='assignment-summary' aria-label='Room sync'>
+              <span>Room sync</span>
+              <strong>{roomSnapshot.phase}</strong>
+              <p>
+                {roomSnapshot.players.length} connected, {roomSnapshot.spectators.length} spectating.
+              </p>
+            </div>
+          ) : null}
             {state === 'lobby' || state === 'countdown' ? null : (
               <div className='actions'>
                 <button

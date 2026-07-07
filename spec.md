@@ -111,8 +111,8 @@ Running has no stamina, cooldown, noise meter, or extra UI. The risk is behavior
 - Do not add a backend, websocket server, persistence layer, or deployment-specific code until the playable loop exists and the backend/deployment target is chosen.
 - Use a renderer that can support 20 visible pixel-art lanes, mouse crosshairs, dead bodies, and reveal highlights at the `1200px` target.
 - Keep all gameplay constants easy to tune.
-- Defender integration must wait until Defender source files and entry points are located and documented.
+- Defender integration must wait until the user provides or identifies Defender source files. No Defender source was found in the active repo or old workspace.
 
 ## Open Design Decisions
 
-- Exact Defender source location and whether it should connect to this MVP at all.
+- Whether Defender should connect to this MVP at all if the user later provides its source.

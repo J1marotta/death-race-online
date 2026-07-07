@@ -2,10 +2,6 @@
 
 This file tracks what is left to do. Design decisions live in `spec.md`; completed work lives in `progress.md`.
 
-## Next Decisions
-
-- Locate or confirm the protected Defender source, if it exists outside this repo.
-
 ## Setup And Documentation
 
 - Add a manual QA checklist once gameplay exists.
@@ -104,9 +100,8 @@ This file tracks what is left to do. Design decisions live in `spec.md`; complet
 
 ## Defender Safety
 
-- Search for Defender source before any Defender integration work.
-- Document exact Defender source paths and entry points if found.
-- Do not add a Defender adapter until the source is located or the user approves a clean-room placeholder.
+- No Defender source was found in the active repo or old workspace.
+- Do not add a Defender adapter until the user provides/identifies Defender source or approves a clean-room placeholder.
 - Preserve original Defender files.
 
 ## Parking Lot

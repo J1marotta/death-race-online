@@ -99,10 +99,11 @@ const ROOM_CODE = 'DR-2048'
 const ROOM_LINK = `deathrace.local/join/${ROOM_CODE}`
 const ROUND_OPTIONS = [3, 5, 7]
 const COUNTDOWN_STEPS = ['3', '2', '1', 'go']
-const WALK_SPEED = 0.018
-const RUN_SPEED = 0.045
+const WALK_SPEED = 0.035
+const RUN_SPEED = 0.075
 const TICK_MS = 80
 const FINISH_PROGRESS = 88
+const HIT_WINDOW_PERCENT = 3.5
 const NPC_MAX_PROGRESS = 82
 const NPC_PATTERNS = [
   ['walk', 'walk', 'stop', 'walk', 'walk', 'stop', 'idle'],
@@ -501,14 +502,22 @@ function App() {
       return
     }
     const nextAim = getAimFromPointer(event)
+    const targetRacer = roundRacers.find((racer) => racer.id === nextAim.laneId)
+    const targetProgress = targetRacer ? getLiveProgress(targetRacer) : null
+    const shotHits =
+      targetProgress !== null &&
+      Math.abs(targetProgress - nextAim.x) <= HIT_WINDOW_PERCENT
+
     setAim(nextAim)
     setBullets((current) => ({
       ...current,
       [localPlayerName]: false,
     }))
-    setShotRacerIds((current) =>
-      current.includes(nextAim.laneId) ? current : [...current, nextAim.laneId],
-    )
+    if (shotHits) {
+      setShotRacerIds((current) =>
+        current.includes(nextAim.laneId) ? current : [...current, nextAim.laneId],
+      )
+    }
   }
 
   const renderLobby = () => (
@@ -524,6 +533,15 @@ function App() {
               : ROOM_LINK}
         </code>
       </div>
+
+      <button
+        type="button"
+        className="host-start"
+        onClick={() => moveToState('countdown')}
+        disabled={lobbyInProgress}
+      >
+        {lobbyInProgress ? `${STATE_LABELS[state]} in progress` : 'Start round'}
+      </button>
 
       <div className="control-group">
         <span>Privacy</span>
@@ -593,14 +611,6 @@ function App() {
         )}
       </div>
 
-      <button
-        type="button"
-        className="host-start"
-        onClick={() => moveToState('countdown')}
-        disabled={lobbyInProgress}
-      >
-        {lobbyInProgress ? `${STATE_LABELS[state]} in progress` : 'Start round'}
-      </button>
     </div>
   )
 
@@ -643,6 +653,16 @@ function App() {
             <p className="eyebrow">{activeStateCopy.eyebrow}</p>
             <h2 id="state-title">{activeStateCopy.title}</h2>
             <p>{activeStateCopy.body}</p>
+            {state === 'lobby' || state === 'countdown' ? null : (
+              <div className="actions">
+                <button
+                  type="button"
+                  onClick={() => moveToState(activeStateCopy.next)}
+                >
+                  {activeStateCopy.action}
+                </button>
+              </div>
+            )}
             {state === 'countdown' ? (
               <div className="countdown-panel" aria-label="Countdown">
                 <span>{COUNTDOWN_STEPS[countdownIndex]}</span>
@@ -697,16 +717,6 @@ function App() {
               </div>
             ) : null}
             {state !== 'menu' ? renderLobby() : null}
-            {state === 'lobby' || state === 'countdown' ? null : (
-              <div className="actions">
-                <button
-                  type="button"
-                  onClick={() => moveToState(activeStateCopy.next)}
-                >
-                  {activeStateCopy.action}
-                </button>
-              </div>
-            )}
           </div>
         )}
 
@@ -747,6 +757,7 @@ function App() {
                   .filter(Boolean)
                   .join(' ')}
                 key={lane.id}
+                data-testid={`lane-${lane.id}`}
                 style={{
                   '--depth': lane.depth,
                   '--racer-progress': `${racerProgress}%`,
@@ -767,6 +778,7 @@ function App() {
                     .filter(Boolean)
                     .join(' ')}
                   style={{ '--racer-progress': `${racerProgress}%` }}
+                  data-testid={`racer-${lane.id}`}
                   title={lane.archetype}
                 >
                   <span className="racer-head" />
@@ -778,17 +790,15 @@ function App() {
                 {isHuman && isRevealed ? (
                   <span className="reveal-tag">{lane.controller.name}</span>
                 ) : null}
-                {isHuman &&
-                state === 'playing' &&
-                bullets[lane.controller.name] &&
-                !isEliminated ? (
+                {state === 'playing' &&
+                localHasBullet &&
+                lane.id === aim.laneId &&
+                !controlledRacerEliminated ? (
                   <span
-                    className={`crosshair crosshair-${lane.controller.color}`}
+                    className={`crosshair crosshair-${HUMAN_COLORS[0]}`}
+                    data-testid="local-crosshair"
                     style={{
-                      left:
-                        lane.id === controlledRacerId
-                          ? `${aim.x}%`
-                          : `${62 + lane.id * 3}%`,
+                      left: `${aim.x}%`,
                     }}
                   />
                 ) : null}

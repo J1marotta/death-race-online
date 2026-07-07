@@ -148,11 +148,9 @@ describe('game controls', () => {
 
   it('lets the join button use the room code field', async () => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
-
     const roomCodeField = screen.getByLabelText('Room code')
     fireEvent.change(roomCodeField, { target: { value: 'WXYZ' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Join' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Join lobby' }))
 
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(

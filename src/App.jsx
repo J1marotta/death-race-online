@@ -853,6 +853,47 @@ function App() {
     </div>
   )
 
+  const renderMenuActions = () => (
+    <div className='menu-actions'>
+      <div className='actions'>
+        <button
+          type='button'
+          onClick={() => moveToState('lobby')}
+        >
+          Create lobby
+        </button>
+      </div>
+      <div className='control-group'>
+        <span>Join room</span>
+        <div className='join-row'>
+          <input
+            aria-label='Player name'
+            value={joinName}
+            onChange={(event) => setJoinName(event.target.value)}
+            placeholder='Player name'
+          />
+          <input
+            aria-label='Room code'
+            value={roomCodeInput}
+            onChange={(event) => setRoomCodeInput(event.target.value.toUpperCase())}
+            placeholder='Room code'
+          />
+          <button
+            type='button'
+            onClick={() => {
+              const targetRoomCode = roomCodeInput.trim().toUpperCase() || roomCode
+              setRoomCode(targetRoomCode)
+              void syncRoom('join', { playerName: joinName || PLAYERS[0] }, targetRoomCode)
+              setState('lobby')
+            }}
+          >
+            Join lobby
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <main className='app-shell'>
       <header className='top-bar'>
@@ -905,7 +946,7 @@ function App() {
                 <small>Latest input: {latestInputSummary}</small>
               </div>
             ) : null}
-            {state === 'lobby' || state === 'countdown' ? null : (
+            {state === 'menu' ? null : state === 'lobby' || state === 'countdown' ? null : (
               <div className='actions'>
                 <button
                   type='button'
@@ -981,7 +1022,7 @@ function App() {
                 </div>
               </div>
             ) : null}
-            {state !== 'menu' ? renderLobby() : null}
+            {state === 'menu' ? renderMenuActions() : renderLobby()}
           </div>
         )}
 

@@ -4,7 +4,6 @@ This file tracks what is left to do. Design decisions live in `spec.md`; complet
 
 ## Next Decisions
 
-- Decide deployment target.
 - Decide whether mobile/tablet support matters for MVP.
 - Decide exact scoreboard point values.
 - Locate or confirm the protected Defender source, if it exists outside this repo.

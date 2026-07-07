@@ -71,3 +71,12 @@ Last updated: 2026-07-07
 - Updated `spec.md` and `todo.md` to reflect the decision.
 - Tests run: `npm run lint`; `npm run build`.
 - /usage: tokensUsed 206144, timeUsedSeconds 152.
+
+### task 03 : Decide Deployment Target
+
+- Decision: use no deployment target for the first playable loop; develop and verify locally with Vite dev/preview.
+- Reason: deployment should follow the playable loop and backend/networking decisions, not lead them.
+- Architecture note: keep the app as a normal Vite build so a static host or later full-stack host can be chosen without reshaping the game.
+- Updated `spec.md` and `todo.md` to reflect the decision.
+- Tests run: `npm run lint`; `npm run build`.
+- /usage: tokensUsed 212065, timeUsedSeconds 198.

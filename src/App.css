@@ -2,7 +2,7 @@
   width: min(1200px, calc(100vw - 32px));
   min-height: 100svh;
   margin: 0 auto;
-  padding: 28px 0 40px;
+  padding: 20px 0 28px;
 }
 
 .top-bar {
@@ -81,7 +81,7 @@ code {
 }
 
 .status-strip div {
-  padding: 14px 16px;
+  padding: 12px 16px;
   background: var(--panel);
 }
 
@@ -98,7 +98,7 @@ code {
 
 .hero-panel {
   display: grid;
-  grid-template-columns: 340px minmax(0, 1fr);
+  grid-template-columns: 320px minmax(0, 1fr);
   gap: 18px;
   align-items: stretch;
 }
@@ -107,9 +107,11 @@ code {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 20px;
+  gap: 14px;
+  height: min(560px, calc(100svh - 156px));
   min-height: 520px;
-  padding: 24px;
+  padding: 18px;
+  overflow: auto;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel);
@@ -117,7 +119,7 @@ code {
 
 .state-card h2 {
   color: var(--text-h);
-  font-size: 34px;
+  font-size: 30px;
 }
 
 .state-card p:not(.eyebrow) {
@@ -290,12 +292,24 @@ code {
 
 .bullet-chip {
   --crosshair-color: var(--text);
+  display: flex;
+  gap: 6px;
+  align-items: center;
   min-height: 28px;
   padding: 7px 8px;
   border: 1px solid var(--crosshair-color);
   border-radius: 4px;
   color: var(--text-h);
   font: 800 11px/1 var(--mono);
+}
+
+.bullet-chip::before {
+  content: '';
+  width: 7px;
+  height: 14px;
+  border-radius: 2px 2px 5px 5px;
+  background: var(--crosshair-color);
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.28);
 }
 
 .host-start {
@@ -318,7 +332,8 @@ code {
 .playfield {
   display: grid;
   grid-template-rows: repeat(20, 1fr);
-  min-height: 560px;
+  height: min(560px, calc(100svh - 156px));
+  min-height: 520px;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -333,7 +348,7 @@ code {
 
 .lane {
   position: relative;
-  min-height: 28px;
+  min-height: 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   background:
     linear-gradient(90deg, transparent 0 13%, rgba(255, 255, 255, 0.04) 13% 13.4%, transparent 13.4% 100%),
@@ -364,12 +379,14 @@ code {
 
 .lane.revealed-human {
   background:
-    linear-gradient(90deg, rgba(96, 165, 250, 0.16), transparent 34%),
+    linear-gradient(90deg, rgba(96, 165, 250, 0.24), transparent 38%),
     rgba(255, 255, 255, calc(0.02 + var(--depth) * 0.006));
 }
 
 .lane.winner {
-  box-shadow: inset 0 0 0 2px rgba(250, 204, 21, 0.72);
+  box-shadow:
+    inset 0 0 0 2px rgba(250, 204, 21, 0.82),
+    inset 0 0 22px rgba(250, 204, 21, 0.12);
 }
 
 .lane::after {
@@ -424,7 +441,9 @@ code {
   width: 10px;
   height: 8px;
   margin-top: 2px;
-  background: var(--head);
+  background:
+    linear-gradient(90deg, transparent 0 3px, #111 3px 4px, transparent 4px 6px, #111 6px 7px, transparent 7px),
+    var(--head);
   box-shadow:
     -4px 2px 0 var(--trim),
     4px 2px 0 var(--trim);
@@ -457,9 +476,10 @@ code {
 
 .racer.dead {
   height: 15px;
-  opacity: 0.68;
+  opacity: 0.74;
   transform: translate(-50%, -10%) rotate(90deg);
   animation: none;
+  filter: saturate(0.55);
 }
 
 .racer.dead .racer-head {
@@ -475,7 +495,7 @@ code {
   top: 50%;
   left: calc(var(--racer-progress, 28%) + 30px);
   transform: translateY(-50%);
-  color: #fca5a5;
+  color: #fecaca;
   font: 800 10px/1 var(--mono);
   text-transform: uppercase;
 }
@@ -539,11 +559,14 @@ code {
   position: absolute;
   top: 50%;
   --crosshair-color: #f87171;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   transform: translateY(-50%);
   border: 2px solid var(--crosshair-color);
   border-radius: 50%;
+  box-shadow:
+    0 0 0 1px #101217,
+    0 0 12px var(--crosshair-color);
 }
 
 .crosshair::before,
@@ -554,17 +577,17 @@ code {
 }
 
 .crosshair::before {
-  top: 7px;
+  top: 8px;
   left: -5px;
-  width: 24px;
+  width: 26px;
   height: 2px;
 }
 
 .crosshair::after {
   top: -5px;
-  left: 7px;
+  left: 8px;
   width: 2px;
-  height: 24px;
+  height: 26px;
 }
 
 .crosshair-red {

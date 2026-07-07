@@ -7,15 +7,6 @@ This file tracks what is left to do. Design decisions live in `spec.md`; complet
 - Keep `npm run lint` passing.
 - Keep `npm run build` passing.
 
-## Implementation Tasks
-
-### Polish
-
-- Improve pixel-art racers, lanes, crosshairs, bullet indicator, dead bodies, and reveal highlight.
-- Keep all 20 lanes visible without scrolling.
-- Keep text and UI readable at `1200px`.
-- Replace placeholder Vite/React assets with Death Race assets.
-
 ## Defender Safety
 
 - No Defender source was found in the active repo or old workspace.

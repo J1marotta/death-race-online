@@ -49,6 +49,7 @@ Last updated: 2026-07-07
 - Added finish-line winner detection with human/NPC winner flows, NPC shame copy, and post-round human reveal highlighting.
 - Added scoreboard, round history, human-only scoring, next-round flow, and game-over flow after the host-selected round count.
 - Added a README manual QA checklist for the playable loop.
+- Polished the 1200px presentation, Death Race favicon/title, racer/crosshair/bullet/body/reveal visuals, and removed unused Vite/React assets.
 
 ## Verification
 
@@ -243,3 +244,16 @@ Last updated: 2026-07-07
 - Updated `todo.md` so the completed manual QA checklist work is no longer listed as remaining work.
 - Tests run: `npm run lint`; `npm run build`.
 - /usage: tokensUsed 890114, timeUsedSeconds 2022.
+
+### task 18 : Polish Playable Loop
+
+- Replaced the browser title and favicon with Death Race branding.
+- Removed unused Vite/React starter assets.
+- Tightened the 1200px layout so the 20-lane playfield stays visible with fixed-format lane rows.
+- Improved pixel-art racers with face detail and clearer movement/dead-body states.
+- Improved crosshair visibility with glow and stronger color treatment.
+- Improved bullet indicators with shell-shaped chips.
+- Strengthened dead body, reveal highlight, and winner lane visuals.
+- Updated `todo.md` so the completed polish work is no longer listed as remaining work.
+- Tests run: `npm run lint`; `npm run build`.
+- /usage: tokensUsed 942757, timeUsedSeconds 2198.

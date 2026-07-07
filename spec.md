@@ -102,6 +102,7 @@ Running has no stamina, cooldown, noise meter, or extra UI. The risk is behavior
 - React should own shell UI, lobby, scoreboard, and top-level state.
 - High-frequency gameplay should be isolated from ordinary React UI rendering where practical.
 - MVP implementation scope: start as a local/single-browser prototype with mocked lobby UI and local simulated players.
+- MVP backend choice: no backend for the first playable loop; use local in-memory state only.
 - Keep lobby, player, and round state behind small modules so real-time networking can replace the local/mock transport later.
 - Do not add a backend, websocket server, persistence layer, or deployment-specific code until the playable loop exists and the backend/deployment target is chosen.
 - Use a renderer that can support 20 visible pixel-art lanes, mouse crosshairs, dead bodies, and reveal highlights at the `1200px` target.
@@ -110,7 +111,6 @@ Running has no stamina, cooldown, noise meter, or extra UI. The risk is behavior
 
 ## Open Design Decisions
 
-- Backend choice.
 - Deployment target.
 - Whether mobile/tablet support matters for MVP.
 - Exact scoreboard point values beyond multi-round results.

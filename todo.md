@@ -4,7 +4,6 @@ This file tracks what is left to do. Design decisions live in `spec.md`; complet
 
 ## Next Decisions
 
-- Decide backend choice.
 - Decide deployment target.
 - Decide whether mobile/tablet support matters for MVP.
 - Decide exact scoreboard point values.
@@ -118,4 +117,4 @@ This file tracks what is left to do. Design decisions live in `spec.md`; complet
 - Mobile/tablet controls.
 - Advanced art pipeline.
 - Sound.
-- Real backend, real-time networking, and deployment work until the local/single-browser MVP loop exists.
+- Backend, persistence, real-time networking, and deployment work until the local/single-browser MVP loop exists.

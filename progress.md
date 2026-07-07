@@ -62,3 +62,12 @@ Last updated: 2026-07-07
 - Updated `spec.md` and `todo.md` to reflect the decision.
 - Tests run: `npm run lint`; `npm run build`.
 - /usage: tokensUsed 196662, timeUsedSeconds 85.
+
+### task 02 : Decide Backend Choice
+
+- Decision: use no backend for the first playable loop; keep MVP state local and in-memory.
+- Reason: this matches the local/single-browser prototype scope and keeps the team focused on validating the hidden-identity racing loop before selecting backend, websocket, persistence, or deployment architecture.
+- Architecture note: lobby, player, and round state should still be modular so a backend transport can replace the local state layer later.
+- Updated `spec.md` and `todo.md` to reflect the decision.
+- Tests run: `npm run lint`; `npm run build`.
+- /usage: tokensUsed 206144, timeUsedSeconds 152.

@@ -208,7 +208,8 @@ code {
 .assignment-summary,
 .npc-summary,
 .bullet-panel,
-.winner-panel {
+.winner-panel,
+.scoreboard-panel {
   display: grid;
   gap: 8px;
   padding: 12px;
@@ -227,7 +228,8 @@ code {
 .assignment-summary p,
 .npc-summary p,
 .bullet-panel p,
-.winner-panel p {
+.winner-panel p,
+.round-history p {
   margin: 0;
   color: var(--text);
   font-size: 13px;
@@ -236,7 +238,8 @@ code {
 .assignment-summary span,
 .npc-summary span,
 .bullet-panel span,
-.winner-panel span {
+.winner-panel span,
+.scoreboard-panel > span {
   color: var(--text);
   font: 700 11px/1 var(--mono);
   text-transform: uppercase;
@@ -247,6 +250,36 @@ code {
 .winner-panel strong {
   color: var(--text-h);
   font: 800 20px/1 var(--mono);
+}
+
+.score-list,
+.round-history {
+  display: grid;
+  gap: 6px;
+}
+
+.score-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  min-height: 30px;
+  padding: 7px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.score-row strong {
+  color: var(--text-h);
+}
+
+.score-row span {
+  color: var(--accent);
+  font: 900 15px/1 var(--mono);
+}
+
+.round-history {
+  padding-top: 4px;
 }
 
 .bullet-list {

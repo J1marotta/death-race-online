@@ -120,6 +120,11 @@ function App() {
   const [lastShot, setLastShot] = useState(null)
   const [shotRacerIds, setShotRacerIds] = useState([])
   const [roundWinner, setRoundWinner] = useState(null)
+  const [currentRound, setCurrentRound] = useState(1)
+  const [scores, setScores] = useState(() =>
+    Object.fromEntries(PLAYERS.map((player) => [player, 0])),
+  )
+  const [roundHistory, setRoundHistory] = useState([])
   const playfieldRef = useRef(null)
   const pressedKeys = useRef({ run: false, walk: false })
   const activeState = STATE_COPY[state]
@@ -167,6 +172,7 @@ function App() {
     ? [...LATE_JOINERS, ...eliminatedHumans.map((racer) => racer.controller.name)]
     : []
   const controlledRacerEliminated = shotRacerIds.includes(controlledRacerId)
+  const matchComplete = currentRound >= roundCount
   const getLiveProgress = useCallback(
     (racer) => {
       if (shotRacerIds.includes(racer.id)) {
@@ -187,6 +193,9 @@ function App() {
     },
     [controlledProgress, controlledRacerId, npcTick, shotRacerIds, state],
   )
+  const rankedPlayers = [...PLAYERS].sort(
+    (a, b) => scores[b] - scores[a] || PLAYERS.indexOf(a) - PLAYERS.indexOf(b),
+  )
   const activeStateCopy =
     state === 'roundOver' && roundWinner
       ? {
@@ -204,7 +213,23 @@ function App() {
               ? `Lane ${roundWinner.id} was secretly ${roundWinner.controller.name}. All human racers are now revealed.`
               : `Lane ${roundWinner.id} was ${roundWinner.controller.name}. No human points, and every human racer is exposed.`,
         }
-      : activeState
+      : state === 'scoreboard' && roundWinner
+        ? {
+            ...activeState,
+            title: `Scoreboard after round ${currentRound}.`,
+            body:
+              roundWinner.controller.type === 'human'
+                ? `${roundWinner.controller.name} gained 1 point. Host can start the next round.`
+                : `${roundWinner.controller.name} was an NPC, so no human points were awarded.`,
+            action: matchComplete ? 'Show final scores' : 'Next round',
+          }
+        : state === 'gameOver'
+          ? {
+              ...activeState,
+              title: `${rankedPlayers[0]} wins the match.`,
+              body: `Final scores are locked after ${roundCount} rounds.`,
+            }
+          : activeState
 
   useEffect(() => {
     if (state !== 'playing' || controlledRacerEliminated) {
@@ -309,14 +334,32 @@ function App() {
         !shotRacerIds.includes(racer.id) && getLiveProgress(racer) >= FINISH_PROGRESS,
     )
     if (winner) {
-      setRoundWinner({
+      const resolvedWinner = {
         ...winner,
         finalProgress: getLiveProgress(winner),
-      })
+      }
+      setRoundWinner(resolvedWinner)
+      setRoundHistory((current) => [
+        ...current,
+        {
+          round: currentRound,
+          winnerName: resolvedWinner.controller.name,
+          winnerType: resolvedWinner.controller.type,
+          laneId: resolvedWinner.id,
+        },
+      ])
+      if (resolvedWinner.controller.type === 'human') {
+        setScores((current) => ({
+          ...current,
+          [resolvedWinner.controller.name]:
+            current[resolvedWinner.controller.name] + 1,
+        }))
+      }
       setState('roundOver')
     }
   }, [
     controlledProgress,
+    currentRound,
     getLiveProgress,
     npcTick,
     roundRacers,
@@ -329,26 +372,54 @@ function App() {
     () => [
       ['Room', 'DR-2048'],
       ['Mode', 'Local prototype'],
-      ['Rounds', `1 / ${roundCount}`],
+      ['Rounds', `${currentRound} / ${roundCount}`],
       ['Racers', roundRacers.length],
     ],
-    [roundCount, roundRacers.length],
+    [currentRound, roundCount, roundRacers.length],
   )
+
+  const resetRoundState = () => {
+    setCountdownIndex(0)
+    setControlledProgress(0)
+    setNpcTick(0)
+    setBullets(Object.fromEntries(PLAYERS.map((player) => [player, true])))
+    setLastShot(null)
+    setShotRacerIds([])
+    setRoundWinner(null)
+    setAim({ x: 68, laneId: controlledRacerId })
+  }
+
+  const startNextRound = () => {
+    if (matchComplete) {
+      setState('gameOver')
+      return
+    }
+    setCurrentRound((round) => round + 1)
+    resetRoundState()
+    setState('countdown')
+  }
 
   const moveToState = (nextState) => {
     if (nextState === 'countdown') {
-      setCountdownIndex(0)
-      setControlledProgress(0)
-      setNpcTick(0)
-      setBullets(Object.fromEntries(PLAYERS.map((player) => [player, true])))
-      setLastShot(null)
-      setShotRacerIds([])
-      setRoundWinner(null)
-      setAim({ x: 68, laneId: controlledRacerId })
+      if (state === 'scoreboard') {
+        startNextRound()
+        return
+      }
+      if (state === 'lobby') {
+        setCurrentRound(1)
+        setScores(Object.fromEntries(PLAYERS.map((player) => [player, 0])))
+        setRoundHistory([])
+      }
+      resetRoundState()
+    }
+    if (nextState === 'lobby') {
+      setCurrentRound(1)
+      setScores(Object.fromEntries(PLAYERS.map((player) => [player, 0])))
+      setRoundHistory([])
+      resetRoundState()
     }
     setState(nextState)
   }
-
   const advanceCountdown = () => {
     const nextIndex = countdownIndex + 1
     if (nextIndex >= COUNTDOWN_STEPS.length) {
@@ -583,12 +654,37 @@ function App() {
               </p>
             </div>
           ) : null}
+          {state === 'scoreboard' || state === 'gameOver' ? (
+            <div className="scoreboard-panel" aria-label="Scoreboard">
+              <span>{state === 'gameOver' ? 'Final scores' : 'Scoreboard'}</span>
+              <div className="score-list">
+                {rankedPlayers.map((player) => (
+                  <div className="score-row" key={player}>
+                    <strong>{player}</strong>
+                    <span>{scores[player]}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="round-history" aria-label="Round history">
+                {roundHistory.map((round) => (
+                  <p key={round.round}>
+                    Round {round.round}: lane {round.laneId},{' '}
+                    {round.winnerName}{' '}
+                    {round.winnerType === 'human' ? '+1' : '+0'}
+                  </p>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {state !== 'menu' ? renderLobby() : null}
           {state === 'lobby' || state === 'countdown' ? null : (
             <div className="actions">
               {state === 'playing' ? null : (
-                <button type="button" onClick={() => moveToState(activeState.next)}>
-                  {activeState.action}
+                <button
+                  type="button"
+                  onClick={() => moveToState(activeStateCopy.next)}
+                >
+                  {activeStateCopy.action}
                 </button>
               )}
               {state === 'playing' ? (

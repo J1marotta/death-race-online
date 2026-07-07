@@ -47,6 +47,7 @@ Last updated: 2026-07-07
 - Added mouse aiming, visible human bullet indicators, and one-shot local firing with crosshair hiding after the shot.
 - Added shot-racer elimination with visible bodies and eliminated-human spectator status while the round keeps running.
 - Added finish-line winner detection with human/NPC winner flows, NPC shame copy, and post-round human reveal highlighting.
+- Added scoreboard, round history, human-only scoring, next-round flow, and game-over flow after the host-selected round count.
 
 ## Verification
 
@@ -221,3 +222,16 @@ Last updated: 2026-07-07
 - Updated `todo.md` so the completed winner and reveal work is no longer listed as remaining work.
 - Tests run: `npm run lint`; `npm run build`.
 - /usage: tokensUsed 793749, timeUsedSeconds 1751.
+
+### task 16 : Build Scoreboard And Rounds
+
+- Added current-round tracking against the host-selected round count.
+- Added player score state and visible scoreboard rows with player names.
+- Awarded 1 point only when a human-controlled racer wins.
+- Awarded no human points when an NPC wins.
+- Added round history after each round.
+- Let the host advance from scoreboard to the next round with a reset countdown.
+- Ended the match after the selected number of rounds and showed final scores.
+- Updated `todo.md` so the completed scoreboard and rounds work is no longer listed as remaining work.
+- Tests run: `npm run lint`; `npm run build`.
+- /usage: tokensUsed 848306, timeUsedSeconds 1933.

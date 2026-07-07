@@ -44,6 +44,7 @@ Last updated: 2026-07-07
 - Added deterministic round setup with hidden human assignments, NPC-filled lanes, countdown gating, and reveal-only player names.
 - Added keyboard movement for the local hidden racer with `Space` walking, `Left Shift` running, stop-on-release, and stale-input clearing.
 - Added local NPC walk/stop/run simulation that can advance NPC racers without giving them shooting behavior.
+- Added mouse aiming, visible human bullet indicators, and one-shot local firing with crosshair hiding after the shot.
 
 ## Verification
 
@@ -180,3 +181,16 @@ Last updated: 2026-07-07
 - Updated `todo.md` so the completed NPC work is no longer listed as remaining work.
 - Tests run: `npm run lint`; `npm run build`.
 - /usage: tokensUsed 657097, timeUsedSeconds 1205.
+
+### task 13 : Build Aiming And Shooting
+
+- Added mouse-relative aiming over the playfield during `playing`.
+- Kept color-coded crosshairs visible for loaded human-controlled racers.
+- Added visible bullet indicators for every human assignment.
+- Implemented Mouse 1 firing for the local player.
+- Enforced one local bullet per round and reset bullets when a new countdown starts.
+- Allowed the shot target to be any lane, including the local player's own lane.
+- Hid the local player's crosshair after firing.
+- Updated `todo.md` so the completed aiming and shooting work is no longer listed as remaining work.
+- Tests run: `npm run lint`; `npm run build`.
+- /usage: tokensUsed 690184, timeUsedSeconds 1352.

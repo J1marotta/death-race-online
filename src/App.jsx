@@ -17,6 +17,7 @@ const WAITING_PLAYERS = ['James', 'Mia', 'Noah', 'Ava', 'Theo']
 const LATE_JOINERS = ['Riley']
 const ARCHETYPES = ['Driver', 'Runner', 'Mask', 'Coat', 'Cap']
 const HUMAN_ASSIGNMENTS = [7, 2, 15, 11]
+const HUMAN_COLORS = ['red', 'blue', 'green', 'yellow']
 const LANES = Array.from({ length: 20 }, (_, index) => ({
   id: index + 1,
   archetype: ARCHETYPES[index % ARCHETYPES.length],
@@ -110,6 +111,12 @@ function App() {
   const [movementMode, setMovementMode] = useState('stopped')
   const [controlledProgress, setControlledProgress] = useState(0)
   const [npcTick, setNpcTick] = useState(0)
+  const [aim, setAim] = useState({ x: 68, laneId: controlledRacerId })
+  const [bullets, setBullets] = useState(() =>
+    Object.fromEntries(PLAYERS.map((player) => [player, true])),
+  )
+  const [lastShot, setLastShot] = useState(null)
+  const playfieldRef = useRef(null)
   const pressedKeys = useRef({ run: false, walk: false })
   const activeState = STATE_COPY[state]
   const lobbyInProgress = !['menu', 'lobby'].includes(state)
@@ -129,7 +136,7 @@ function App() {
               ? {
                   type: 'human',
                   name: PLAYERS[playerIndex],
-                  color: ['red', 'blue', 'green', 'yellow'][playerIndex],
+                  color: HUMAN_COLORS[playerIndex],
                 }
               : {
                   type: 'npc',
@@ -149,6 +156,8 @@ function App() {
     (racer) => racer.controller.type === 'human',
   )
   const npcCount = roundRacers.length - humansAssigned.length
+  const localPlayerName = PLAYERS[0]
+  const localHasBullet = bullets[localPlayerName]
 
   useEffect(() => {
     if (state !== 'playing') {
@@ -255,6 +264,9 @@ function App() {
       setCountdownIndex(0)
       setControlledProgress(0)
       setNpcTick(0)
+      setBullets(Object.fromEntries(PLAYERS.map((player) => [player, true])))
+      setLastShot(null)
+      setAim({ x: 68, laneId: controlledRacerId })
     }
     setState(nextState)
   }
@@ -266,6 +278,47 @@ function App() {
       return
     }
     setCountdownIndex(nextIndex)
+  }
+
+  const getAimFromPointer = (event) => {
+    if (!playfieldRef.current) {
+      return aim
+    }
+    const bounds = playfieldRef.current.getBoundingClientRect()
+    const x = ((event.clientX - bounds.left) / bounds.width) * 100
+    const y = event.clientY - bounds.top
+    const laneHeight = bounds.height / roundRacers.length
+    const laneId = Math.min(
+      roundRacers.length,
+      Math.max(1, Math.floor(y / laneHeight) + 1),
+    )
+    return {
+      x: Math.min(96, Math.max(6, x)),
+      laneId,
+    }
+  }
+
+  const updateAimFromPointer = (event) => {
+    if (state !== 'playing') {
+      return
+    }
+    setAim(getAimFromPointer(event))
+  }
+
+  const fireLocalShot = (event) => {
+    if (state !== 'playing' || !localHasBullet) {
+      return
+    }
+    const nextAim = getAimFromPointer(event)
+    setAim(nextAim)
+    setBullets((current) => ({
+      ...current,
+      [localPlayerName]: false,
+    }))
+    setLastShot({
+      player: localPlayerName,
+      laneId: nextAim.laneId,
+    })
   }
 
   const renderLobby = () => (
@@ -409,6 +462,29 @@ function App() {
               <p>Walk, pause, and occasional run patterns. NPCs never shoot.</p>
             </div>
           ) : null}
+          {state === 'playing' ? (
+            <div className="bullet-panel" aria-label="Bullet indicators">
+              <span>Bullets</span>
+              <div className="bullet-list">
+                {humansAssigned.map((racer) => (
+                  <strong
+                    className={`bullet-chip crosshair-${racer.controller.color}`}
+                    key={racer.controller.name}
+                  >
+                    {racer.controller.name}:{' '}
+                    {bullets[racer.controller.name] ? 'loaded' : 'spent'}
+                  </strong>
+                ))}
+              </div>
+              {lastShot ? (
+                <p>
+                  {lastShot.player} fired at lane {lastShot.laneId}.
+                </p>
+              ) : (
+                <p>Mouse aims. Mouse 1 fires once.</p>
+              )}
+            </div>
+          ) : null}
           {state !== 'menu' ? renderLobby() : null}
           {state === 'lobby' || state === 'countdown' ? null : (
             <div className="actions">
@@ -424,7 +500,13 @@ function App() {
           )}
         </div>
 
-        <div className="playfield" aria-label="20 lane race playfield">
+        <div
+          className="playfield"
+          aria-label="20 lane race playfield"
+          onMouseMove={updateAimFromPointer}
+          onMouseDown={fireLocalShot}
+          ref={playfieldRef}
+        >
           {roundRacers.map((lane) => {
             const isHuman = lane.controller.type === 'human'
             const isControlled = lane.id === controlledRacerId
@@ -474,10 +556,17 @@ function App() {
                 {isHuman && isRevealed ? (
                   <span className="reveal-tag">{lane.controller.name}</span>
                 ) : null}
-                {isHuman && state === 'playing' ? (
+                {isHuman &&
+                state === 'playing' &&
+                bullets[lane.controller.name] ? (
                   <span
                     className={`crosshair crosshair-${lane.controller.color}`}
-                    style={{ left: `${62 + lane.id * 3}%` }}
+                    style={{
+                      left:
+                        lane.id === controlledRacerId
+                          ? `${aim.x}%`
+                          : `${62 + lane.id * 3}%`,
+                    }}
                   />
                 ) : null}
               </div>

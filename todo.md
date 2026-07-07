@@ -10,16 +10,6 @@ This file tracks what is left to do. Design decisions live in `spec.md`; complet
 
 ## Implementation Tasks
 
-### Aiming And Shooting
-
-- Add mouse aiming.
-- Add visible color-coded crosshairs for loaded human players.
-- Add single-bullet indicator.
-- Implement Mouse 1 firing.
-- Enforce exactly one bullet per human player per round.
-- Allow shooting any racer/lane, including self.
-- Hide a player's crosshair after firing.
-
 ### Elimination And Spectating
 
 - Eliminate shot racers.

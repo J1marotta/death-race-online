@@ -206,7 +206,8 @@ code {
 
 .countdown-panel,
 .assignment-summary,
-.npc-summary {
+.npc-summary,
+.bullet-panel {
   display: grid;
   gap: 8px;
   padding: 12px;
@@ -223,14 +224,16 @@ code {
 
 .countdown-panel p,
 .assignment-summary p,
-.npc-summary p {
+.npc-summary p,
+.bullet-panel p {
   margin: 0;
   color: var(--text);
   font-size: 13px;
 }
 
 .assignment-summary span,
-.npc-summary span {
+.npc-summary span,
+.bullet-panel span {
   color: var(--text);
   font: 700 11px/1 var(--mono);
   text-transform: uppercase;
@@ -240,6 +243,22 @@ code {
 .npc-summary strong {
   color: var(--text-h);
   font: 800 20px/1 var(--mono);
+}
+
+.bullet-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.bullet-chip {
+  --crosshair-color: var(--text);
+  min-height: 28px;
+  padding: 7px 8px;
+  border: 1px solid var(--crosshair-color);
+  border-radius: 4px;
+  color: var(--text-h);
+  font: 800 11px/1 var(--mono);
 }
 
 .host-start {
@@ -271,6 +290,8 @@ code {
     linear-gradient(90deg, rgba(0, 0, 0, 0.18), transparent 18% 84%, rgba(225, 61, 53, 0.16)),
     var(--track);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035);
+  cursor: crosshair;
+  user-select: none;
 }
 
 .lane {

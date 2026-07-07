@@ -4,7 +4,6 @@ This file tracks what is left to do. Design decisions live in `spec.md`; complet
 
 ## Next Decisions
 
-- Decide whether MVP must be real-time networked immediately or can start as a local/single-browser prototype with mocked lobby UI.
 - Decide backend choice.
 - Decide deployment target.
 - Decide whether mobile/tablet support matters for MVP.
@@ -119,4 +118,4 @@ This file tracks what is left to do. Design decisions live in `spec.md`; complet
 - Mobile/tablet controls.
 - Advanced art pipeline.
 - Sound.
-- Real backend/deployment work if not chosen for MVP.
+- Real backend, real-time networking, and deployment work until the local/single-browser MVP loop exists.

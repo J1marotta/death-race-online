@@ -7,13 +7,15 @@ Last updated: 2026-07-07
 - Active workspace: `C:\Users\James\Documents\Code\deathRace`
 - Old workspace: `C:\Users\James\Documents\death race`
 - Stack: React + Vite + JavaScript modules + npm + Oxlint
-- Git branch: `master`
+- Git branch: `codex/task-01-network-scope`
 - Initial commit: `45b2434 Initial Death Race project setup`
+- Planning cleanup commit: `d59ecfb Clean up project planning docs`
 - The app still shows the default Vite starter UI.
 - Dependencies are installed locally.
 - Build output goes to `dist`, which is ignored by git.
 - The old workspace currently contains only a `.git` folder.
 - No Defender source files have been found in the active repo.
+- Remote origin is `https://github.com/J1marotta/death-race-online.git`.
 
 ## Completed
 
@@ -33,6 +35,7 @@ Last updated: 2026-07-07
 - Recorded the `1200px` laptop presentation target.
 - Recorded the Defender preservation guardrail.
 - Made the initial baseline commit.
+- Added GitHub remote origin.
 
 ## Verification
 
@@ -48,3 +51,14 @@ Last updated: 2026-07-07
 - If Defender code exists elsewhere, locate it and document its source files before changing gameplay code.
 - Keep generated folders and logs out of commits unless there is a specific reason to include them.
 - Keep commits small and stable after the baseline.
+
+## Task Log
+
+### task 01 : Decide Network Scope Before Multiplayer Code
+
+- Decision: implement the MVP first as a local/single-browser prototype with mocked lobby UI and local simulated players.
+- Reason: the playable hidden-identity loop can be built and tested without prematurely choosing backend, deployment, websocket, or persistence architecture.
+- Architecture note: keep lobby/player/round state modular so a real-time transport can replace the mock/local layer later.
+- Updated `spec.md` and `todo.md` to reflect the decision.
+- Tests run: `npm run lint`; `npm run build`.
+- /usage: tokensUsed 196662, timeUsedSeconds 85.

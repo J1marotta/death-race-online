@@ -101,13 +101,15 @@ Running has no stamina, cooldown, noise meter, or extra UI. The risk is behavior
 - Current app stack is React + Vite + JavaScript + npm + Oxlint.
 - React should own shell UI, lobby, scoreboard, and top-level state.
 - High-frequency gameplay should be isolated from ordinary React UI rendering where practical.
+- MVP implementation scope: start as a local/single-browser prototype with mocked lobby UI and local simulated players.
+- Keep lobby, player, and round state behind small modules so real-time networking can replace the local/mock transport later.
+- Do not add a backend, websocket server, persistence layer, or deployment-specific code until the playable loop exists and the backend/deployment target is chosen.
 - Use a renderer that can support 20 visible pixel-art lanes, mouse crosshairs, dead bodies, and reveal highlights at the `1200px` target.
 - Keep all gameplay constants easy to tune.
 - Defender integration must wait until Defender source files and entry points are located and documented.
 
 ## Open Design Decisions
 
-- Whether the first implementation must be genuinely real-time networked or can begin as a local/single-browser prototype with mocked lobby UI.
 - Backend choice.
 - Deployment target.
 - Whether mobile/tablet support matters for MVP.

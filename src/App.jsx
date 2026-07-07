@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
 const STATES = [
@@ -51,8 +51,8 @@ const STATE_COPY = {
     eyebrow: 'Live round',
     title: 'Walk, run, aim, fire once.',
     body: 'Space walks, Left Shift runs, mouse aims, Mouse 1 fires. Crosshairs remain visible until the shot is spent.',
-    action: 'Declare winner',
-    next: 'roundOver',
+    action: 'Waiting for finish',
+    next: 'playing',
   },
   paused: {
     eyebrow: 'Paused',
@@ -91,6 +91,7 @@ const COUNTDOWN_STEPS = ['3', '2', '1', 'go']
 const WALK_SPEED = 0.35
 const RUN_SPEED = 0.85
 const TICK_MS = 80
+const FINISH_PROGRESS = 88
 const NPC_PATTERNS = [
   ['walk', 'walk', 'stop', 'walk', 'run', 'walk', 'stop'],
   ['stop', 'walk', 'walk', 'run', 'walk', 'stop', 'walk'],
@@ -118,6 +119,7 @@ function App() {
   )
   const [lastShot, setLastShot] = useState(null)
   const [shotRacerIds, setShotRacerIds] = useState([])
+  const [roundWinner, setRoundWinner] = useState(null)
   const playfieldRef = useRef(null)
   const pressedKeys = useRef({ run: false, walk: false })
   const activeState = STATE_COPY[state]
@@ -165,6 +167,44 @@ function App() {
     ? [...LATE_JOINERS, ...eliminatedHumans.map((racer) => racer.controller.name)]
     : []
   const controlledRacerEliminated = shotRacerIds.includes(controlledRacerId)
+  const getLiveProgress = useCallback(
+    (racer) => {
+      if (shotRacerIds.includes(racer.id)) {
+        return racer.progress
+      }
+      if (racer.id === controlledRacerId) {
+        return racer.progress + controlledProgress
+      }
+      if (racer.controller.type === 'npc' && state === 'playing') {
+        const npcStep =
+          racer.npc.pattern[
+            (Math.floor(npcTick / 7) + racer.npc.offset) %
+              racer.npc.pattern.length
+          ]
+        return racer.progress + Math.min(npcTick * NPC_SPEEDS[npcStep], 78)
+      }
+      return racer.progress
+    },
+    [controlledProgress, controlledRacerId, npcTick, shotRacerIds, state],
+  )
+  const activeStateCopy =
+    state === 'roundOver' && roundWinner
+      ? {
+          ...activeState,
+          eyebrow:
+            roundWinner.controller.type === 'human'
+              ? `${roundWinner.controller.name} wins`
+              : 'NPC wins',
+          title:
+            roundWinner.controller.type === 'human'
+              ? `${roundWinner.controller.name} crossed first.`
+              : 'Everyone gets shamed.',
+          body:
+            roundWinner.controller.type === 'human'
+              ? `Lane ${roundWinner.id} was secretly ${roundWinner.controller.name}. All human racers are now revealed.`
+              : `Lane ${roundWinner.id} was ${roundWinner.controller.name}. No human points, and every human racer is exposed.`,
+        }
+      : activeState
 
   useEffect(() => {
     if (state !== 'playing' || controlledRacerEliminated) {
@@ -245,7 +285,7 @@ function App() {
     }
     const speed = movementMode === 'running' ? RUN_SPEED : WALK_SPEED
     const intervalId = window.setInterval(() => {
-      setControlledProgress((current) => Math.min(current + speed, 28))
+      setControlledProgress((current) => Math.min(current + speed, 78))
     }, TICK_MS)
     return () => window.clearInterval(intervalId)
   }, [controlledRacerEliminated, movementMode, state])
@@ -259,6 +299,31 @@ function App() {
     }, TICK_MS)
     return () => window.clearInterval(intervalId)
   }, [state])
+
+  useEffect(() => {
+    if (state !== 'playing' || roundWinner) {
+      return
+    }
+    const winner = roundRacers.find(
+      (racer) =>
+        !shotRacerIds.includes(racer.id) && getLiveProgress(racer) >= FINISH_PROGRESS,
+    )
+    if (winner) {
+      setRoundWinner({
+        ...winner,
+        finalProgress: getLiveProgress(winner),
+      })
+      setState('roundOver')
+    }
+  }, [
+    controlledProgress,
+    getLiveProgress,
+    npcTick,
+    roundRacers,
+    roundWinner,
+    shotRacerIds,
+    state,
+  ])
 
   const statusItems = useMemo(
     () => [
@@ -278,6 +343,7 @@ function App() {
       setBullets(Object.fromEntries(PLAYERS.map((player) => [player, true])))
       setLastShot(null)
       setShotRacerIds([])
+      setRoundWinner(null)
       setAim({ x: 68, laneId: controlledRacerId })
     }
     setState(nextState)
@@ -453,9 +519,9 @@ function App() {
 
       <section className="hero-panel" aria-labelledby="state-title">
         <div className="state-card">
-          <p className="eyebrow">{activeState.eyebrow}</p>
-          <h2 id="state-title">{activeState.title}</h2>
-          <p>{activeState.body}</p>
+          <p className="eyebrow">{activeStateCopy.eyebrow}</p>
+          <h2 id="state-title">{activeStateCopy.title}</h2>
+          <p>{activeStateCopy.body}</p>
           {state === 'countdown' ? (
             <div className="countdown-panel" aria-label="Countdown">
               <span>{COUNTDOWN_STEPS[countdownIndex]}</span>
@@ -504,12 +570,27 @@ function App() {
               )}
             </div>
           ) : null}
+          {state === 'roundOver' && roundWinner ? (
+            <div className="winner-panel" aria-label="Winner reveal">
+              <span>Winner</span>
+              <strong>
+                Lane {roundWinner.id}: {roundWinner.controller.name}
+              </strong>
+              <p>
+                {roundWinner.controller.type === 'npc'
+                  ? 'NPC shame moment. Human-controlled racers are revealed.'
+                  : 'Human winner. All human-controlled racers are revealed.'}
+              </p>
+            </div>
+          ) : null}
           {state !== 'menu' ? renderLobby() : null}
           {state === 'lobby' || state === 'countdown' ? null : (
             <div className="actions">
-              <button type="button" onClick={() => moveToState(activeState.next)}>
-                {activeState.action}
-              </button>
+              {state === 'playing' ? null : (
+                <button type="button" onClick={() => moveToState(activeState.next)}>
+                  {activeState.action}
+                </button>
+              )}
               {state === 'playing' ? (
                 <button type="button" onClick={() => moveToState('paused')}>
                   Pause
@@ -531,23 +612,17 @@ function App() {
             const isControlled = lane.id === controlledRacerId
             const isEliminated = shotRacerIds.includes(lane.id)
             const isRevealed = state === 'roundOver' || state === 'scoreboard'
+            const isWinner = roundWinner?.id === lane.id
             const archetypeClass = lane.archetype.toLowerCase()
             const npcStep =
               lane.npc.pattern[
                 (Math.floor(npcTick / 7) + lane.npc.offset) %
                   lane.npc.pattern.length
               ]
-            const npcProgress =
-              !isHuman && state === 'playing' && !isEliminated
-                ? Math.min(npcTick * NPC_SPEEDS[npcStep], 34)
-                : 0
             const racerProgress =
-              lane.progress +
-              (isEliminated
-                ? 0
-                : isControlled
-                  ? controlledProgress
-                  : npcProgress)
+              isWinner && roundWinner.finalProgress
+                ? roundWinner.finalProgress
+                : getLiveProgress(lane)
             return (
               <div
                 className={[
@@ -555,6 +630,8 @@ function App() {
                   movementLocked ? 'locked' : '',
                   isControlled ? 'controlled' : '',
                   isEliminated ? 'eliminated' : '',
+                  isHuman && isRevealed ? 'revealed-human' : '',
+                  isWinner ? 'winner' : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}
@@ -586,6 +663,7 @@ function App() {
                   <span className="racer-shadow" />
                 </span>
                 {isEliminated ? <span className="body-marker">down</span> : null}
+                {isWinner ? <span className="winner-marker">winner</span> : null}
                 {isHuman && isRevealed ? (
                   <span className="reveal-tag">{lane.controller.name}</span>
                 ) : null}

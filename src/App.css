@@ -207,7 +207,8 @@ code {
 .countdown-panel,
 .assignment-summary,
 .npc-summary,
-.bullet-panel {
+.bullet-panel,
+.winner-panel {
   display: grid;
   gap: 8px;
   padding: 12px;
@@ -225,7 +226,8 @@ code {
 .countdown-panel p,
 .assignment-summary p,
 .npc-summary p,
-.bullet-panel p {
+.bullet-panel p,
+.winner-panel p {
   margin: 0;
   color: var(--text);
   font-size: 13px;
@@ -233,14 +235,16 @@ code {
 
 .assignment-summary span,
 .npc-summary span,
-.bullet-panel span {
+.bullet-panel span,
+.winner-panel span {
   color: var(--text);
   font: 700 11px/1 var(--mono);
   text-transform: uppercase;
 }
 
 .assignment-summary strong,
-.npc-summary strong {
+.npc-summary strong,
+.winner-panel strong {
   color: var(--text-h);
   font: 800 20px/1 var(--mono);
 }
@@ -323,6 +327,16 @@ code {
   background:
     linear-gradient(90deg, rgba(248, 113, 113, 0.12), transparent 24%),
     rgba(255, 255, 255, calc(0.02 + var(--depth) * 0.006));
+}
+
+.lane.revealed-human {
+  background:
+    linear-gradient(90deg, rgba(96, 165, 250, 0.16), transparent 34%),
+    rgba(255, 255, 255, calc(0.02 + var(--depth) * 0.006));
+}
+
+.lane.winner {
+  box-shadow: inset 0 0 0 2px rgba(250, 204, 21, 0.72);
 }
 
 .lane::after {
@@ -430,6 +444,16 @@ code {
   transform: translateY(-50%);
   color: #fca5a5;
   font: 800 10px/1 var(--mono);
+  text-transform: uppercase;
+}
+
+.winner-marker {
+  position: absolute;
+  top: 50%;
+  right: 56px;
+  transform: translateY(-50%);
+  color: #facc15;
+  font: 900 11px/1 var(--mono);
   text-transform: uppercase;
 }
 

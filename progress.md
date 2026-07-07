@@ -46,6 +46,7 @@ Last updated: 2026-07-07
 - Added local NPC walk/stop/run simulation that can advance NPC racers without giving them shooting behavior.
 - Added mouse aiming, visible human bullet indicators, and one-shot local firing with crosshair hiding after the shot.
 - Added shot-racer elimination with visible bodies and eliminated-human spectator status while the round keeps running.
+- Added finish-line winner detection with human/NPC winner flows, NPC shame copy, and post-round human reveal highlighting.
 
 ## Verification
 
@@ -207,3 +208,16 @@ Last updated: 2026-07-07
 - Updated `todo.md` so the completed elimination and spectating work is no longer listed as remaining work.
 - Tests run: `npm run lint`; `npm run build`.
 - /usage: tokensUsed 735190, timeUsedSeconds 1527.
+
+### task 15 : Build Winner And Reveal
+
+- Replaced the manual live-round winner shortcut with finish-line detection.
+- Ended the round only when a non-eliminated racer reaches the finish threshold.
+- Added human winner copy and NPC winner shame copy.
+- Preserved the winner's finish position after the app transitions to `roundOver`.
+- Revealed and highlighted all human-controlled racers after the winner is declared.
+- Added a winner panel and winner lane marker.
+- Fixed the hook dependency warning in winner detection by stabilizing live progress calculation.
+- Updated `todo.md` so the completed winner and reveal work is no longer listed as remaining work.
+- Tests run: `npm run lint`; `npm run build`.
+- /usage: tokensUsed 793749, timeUsedSeconds 1751.

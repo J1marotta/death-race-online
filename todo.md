@@ -10,14 +10,6 @@ This file tracks what is left to do. Design decisions live in `spec.md`; complet
 
 ## Implementation Tasks
 
-### Winner And Reveal
-
-- End the round only when a racer wins.
-- Support human winner flow.
-- Support NPC winner flow.
-- Show NPC shame messaging if an NPC wins.
-- Reveal/highlight all human-controlled racers after the winner is declared.
-
 ### Scoreboard And Rounds
 
 - Track the host-selected number of rounds.

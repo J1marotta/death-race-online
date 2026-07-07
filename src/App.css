@@ -363,7 +363,6 @@ code {
   background:
     linear-gradient(90deg, transparent 0 13%, rgba(255, 255, 255, 0.04) 13% 13.4%, transparent 13.4% 100%),
     rgba(255, 255, 255, calc(0.02 + var(--depth) * 0.006));
-  transform: translateX(calc(var(--depth) * 8px));
 }
 
 .lane.locked {
@@ -372,31 +371,6 @@ code {
 
 .lane.locked .racer {
   opacity: 0.72;
-}
-
-.lane.controlled {
-  background:
-    linear-gradient(90deg, transparent 0 13%, rgba(255, 255, 255, 0.04) 13% 13.4%, transparent 13.4% 100%),
-    linear-gradient(90deg, rgba(225, 61, 53, 0.09), transparent 30%),
-    rgba(255, 255, 255, calc(0.02 + var(--depth) * 0.006));
-}
-
-.lane.eliminated {
-  background:
-    linear-gradient(90deg, rgba(248, 113, 113, 0.12), transparent 24%),
-    rgba(255, 255, 255, calc(0.02 + var(--depth) * 0.006));
-}
-
-.lane.revealed-human {
-  background:
-    linear-gradient(90deg, rgba(96, 165, 250, 0.24), transparent 38%),
-    rgba(255, 255, 255, calc(0.02 + var(--depth) * 0.006));
-}
-
-.lane.winner {
-  box-shadow:
-    inset 0 0 0 2px rgba(250, 204, 21, 0.82),
-    inset 0 0 22px rgba(250, 204, 21, 0.12);
 }
 
 .lane::after {
@@ -459,6 +433,138 @@ code {
     4px 2px 0 var(--trim);
 }
 
+.shape-0 .racer-head {
+  width: 11px;
+}
+
+.shape-0 .racer-body {
+  width: 15px;
+}
+
+.shape-0::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 4px;
+  width: 14px;
+  height: 4px;
+  background: var(--trim);
+  border-radius: 4px 4px 0 0;
+}
+
+.shape-1 {
+  border-radius: 2px;
+}
+
+.shape-1 .racer-head {
+  margin-top: 0;
+  width: 8px;
+  height: 10px;
+  border-radius: 3px 3px 1px 1px;
+}
+
+.shape-1 .racer-body {
+  width: 12px;
+  height: 13px;
+  border-radius: 2px;
+}
+
+.shape-1::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 6px;
+  width: 10px;
+  height: 3px;
+  background: var(--trim);
+  border-radius: 2px;
+}
+
+.shape-2 .racer-head {
+  width: 12px;
+  height: 7px;
+  margin-top: 3px;
+}
+
+.shape-2 .racer-body {
+  width: 13px;
+  height: 10px;
+  clip-path: polygon(0 0, 100% 0, 86% 100%, 14% 100%);
+}
+
+.shape-2 .racer-shadow {
+  left: 2px;
+  width: 18px;
+}
+
+.shape-2::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: 2px;
+  width: 18px;
+  height: 4px;
+  background:
+    linear-gradient(90deg, transparent 0 4px, var(--trim) 4px 14px, transparent 14px),
+    transparent;
+}
+
+.shape-3 {
+  border-radius: 4px 4px 2px 2px;
+}
+
+.shape-3 .racer-head {
+  width: 9px;
+  height: 9px;
+  box-shadow:
+    -3px 2px 0 var(--trim),
+    3px 2px 0 var(--trim);
+}
+
+.shape-3 .racer-body {
+  width: 15px;
+  height: 10px;
+  border-radius: 0 0 4px 4px;
+}
+
+.shape-3::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 5px;
+  width: 12px;
+  height: 5px;
+  background: var(--trim);
+  clip-path: polygon(0 100%, 50% 0, 100% 100%);
+}
+
+.shape-4 .racer-head {
+  width: 8px;
+  height: 8px;
+  margin-top: 1px;
+  border-radius: 50%;
+  box-shadow:
+    -3px 2px 0 var(--trim),
+    3px 2px 0 var(--trim);
+}
+
+.shape-4 .racer-body {
+  width: 11px;
+  height: 14px;
+  border-radius: 5px 5px 3px 3px;
+}
+
+.shape-4::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 5px;
+  width: 12px;
+  height: 4px;
+  background: var(--trim);
+  border-radius: 50% 50% 0 0;
+}
+
 .racer-body {
   width: 14px;
   height: 11px;
@@ -477,11 +583,11 @@ code {
 }
 
 .racer.walking {
-  animation: step-bob 360ms steps(2) infinite;
+  animation: step-bob 520ms ease-in-out infinite;
 }
 
 .racer.running {
-  animation: step-bob 180ms steps(2) infinite;
+  animation: step-bob 360ms ease-in-out infinite;
 }
 
 .racer.dead {
@@ -521,8 +627,13 @@ code {
 }
 
 @keyframes step-bob {
+  0%,
+  100% {
+    transform: translate(-50%, -50%);
+  }
+
   50% {
-    margin-top: -2px;
+    transform: translate(-50%, -52%);
   }
 }
 

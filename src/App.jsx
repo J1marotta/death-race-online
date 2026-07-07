@@ -9,7 +9,7 @@ const STATES = [
   'paused',
   'roundOver',
   'scoreboard',
-  'gameOver',
+  'gameOver'
 ]
 
 const PLAYERS = ['James', 'Mia', 'Noah', 'Ava']
@@ -18,11 +18,31 @@ const LATE_JOINERS = ['Riley']
 const ARCHETYPES = ['Driver', 'Runner', 'Mask', 'Coat', 'Cap']
 const HUMAN_ASSIGNMENTS = [7, 2, 15, 11]
 const HUMAN_COLORS = ['red', 'blue', 'green', 'yellow']
+const START_POSITIONS = [
+  7.2, 9.6, 8.4, 10.8, 7.9, 9.1, 8.8, 10.3, 7.5, 9.9,
+  8.1, 10.6, 7.7, 9.2, 8.6, 10.1, 7.4, 9.4, 8.9, 10.4,
+]
+
+const shuffleStartPositions = (count) => {
+  const pool = [...START_POSITIONS]
+  const result = []
+  for (let index = 0; index < count; index += 1) {
+    const pick = (index * 3 + 2) % pool.length
+    result.push(pool.splice(pick, 1)[0])
+  }
+  return result
+}
+
+const laneShapeSeed = (index) => `shape-${(index * 5 + Math.floor(index / 3)) % 5}`
+
+const laneStartPositions = shuffleStartPositions(20)
+
 const LANES = Array.from({ length: 20 }, (_, index) => ({
   id: index + 1,
   archetype: ARCHETYPES[index % ARCHETYPES.length],
-  progress: 8 + (index % 5),
+  progress: laneStartPositions[index],
   depth: Math.floor(index / 5),
+  shapeClass: laneShapeSeed(index)
 }))
 
 const STATE_COPY = {
@@ -31,57 +51,57 @@ const STATE_COPY = {
     title: 'Hidden-identity racing with one shot each.',
     body: 'Create a room, fill the grid to 20 racers, and start reading movement tells before anyone reads yours.',
     action: 'Create lobby',
-    next: 'lobby',
+    next: 'lobby'
   },
   lobby: {
     eyebrow: 'Lobby DR-2048',
     title: 'Public room, 4 humans, 16 NPCs.',
     body: 'Host chooses 5 rounds. Names stay here and on the scoreboard, never attached to racers during play.',
     action: 'Start countdown',
-    next: 'countdown',
+    next: 'countdown'
   },
   countdown: {
     eyebrow: 'Round 1',
     title: '3, 2, 1, go.',
     body: 'Assignments are secret. Movement and shooting unlock when the countdown clears.',
     action: 'Go',
-    next: 'playing',
+    next: 'playing'
   },
   playing: {
     eyebrow: 'Live round',
     title: 'Walk, run, aim, fire once.',
     body: 'Space walks, Left shift runs, mouse aims, Mouse 1 fires. Crosshairs remain visible until the shot is spent.',
     action: 'Waiting for finish',
-    next: 'playing',
+    next: 'playing'
   },
   paused: {
     eyebrow: 'Paused',
     title: 'Simulation stopped.',
     body: 'The live state remains visible while action is paused.',
     action: 'Resume',
-    next: 'playing',
+    next: 'playing'
   },
   roundOver: {
     eyebrow: 'NPC wins',
     title: 'Everyone gets shamed.',
     body: 'Human-controlled racers are revealed and highlighted before the scoreboard appears.',
     action: 'Next round',
-    next: 'countdown',
+    next: 'countdown'
   },
   scoreboard: {
     eyebrow: 'Scoreboard',
     title: 'Round winner earns 1 point.',
     body: 'NPC wins award no human points. Host can instantly start the next round.',
     action: 'Next round',
-    next: 'countdown',
+    next: 'countdown'
   },
   gameOver: {
     eyebrow: 'Match complete',
     title: 'Final scores are locked.',
     body: 'Return to the lobby to change players or round count.',
     action: 'Back to lobby',
-    next: 'lobby',
-  },
+    next: 'lobby'
+  }
 }
 
 const STATE_LABELS = {
@@ -92,15 +112,15 @@ const STATE_LABELS = {
   paused: 'Paused',
   roundOver: 'Round over',
   scoreboard: 'Scoreboard',
-  gameOver: 'Game over',
+  gameOver: 'Game over'
 }
 
 const ROOM_CODE = 'DR-2048'
 const ROOM_LINK = `deathrace.local/join/${ROOM_CODE}`
 const ROUND_OPTIONS = [3, 5, 7]
 const COUNTDOWN_STEPS = ['3', '2', '1', 'go']
-const WALK_SPEED = 0.035
-const RUN_SPEED = 0.075
+const WALK_SPEED = 0.5
+const RUN_SPEED = 1
 const TICK_MS = 80
 const FINISH_PROGRESS = 88
 const HIT_WINDOW_PERCENT = 3.5
@@ -109,20 +129,20 @@ const NPC_PATTERNS = [
   ['walk', 'walk', 'stop', 'walk', 'walk', 'stop', 'idle'],
   ['stop', 'walk', 'walk', 'idle', 'walk', 'stop', 'walk'],
   ['walk', 'idle', 'walk', 'walk', 'stop', 'walk', 'idle'],
-  ['walk', 'walk', 'idle', 'stop', 'walk', 'walk', 'stop'],
+  ['walk', 'walk', 'idle', 'stop', 'walk', 'walk', 'stop']
 ]
 const NPC_SPEEDS = {
   idle: 0.006,
   stop: 0,
-  walk: 0.018,
+  walk: 0.018
 }
 
 const createNpcProgressByLane = () =>
   Object.fromEntries(
     LANES.filter((lane) => !HUMAN_ASSIGNMENTS.includes(lane.id)).map((lane) => [
       lane.id,
-      lane.progress,
-    ]),
+      lane.progress
+    ])
   )
 
 function App() {
@@ -135,17 +155,17 @@ function App() {
   const [controlledProgress, setControlledProgress] = useState(0)
   const [npcTick, setNpcTick] = useState(0)
   const [npcProgressByLane, setNpcProgressByLane] = useState(
-    createNpcProgressByLane,
+    createNpcProgressByLane
   )
   const [aim, setAim] = useState({ x: 68, laneId: controlledRacerId })
   const [bullets, setBullets] = useState(() =>
-    Object.fromEntries(PLAYERS.map((player) => [player, true])),
+    Object.fromEntries(PLAYERS.map(player => [player, true]))
   )
   const [shotRacerIds, setShotRacerIds] = useState([])
   const [roundWinner, setRoundWinner] = useState(null)
   const [currentRound, setCurrentRound] = useState(1)
   const [scores, setScores] = useState(() =>
-    Object.fromEntries(PLAYERS.map((player) => [player, 0])),
+    Object.fromEntries(PLAYERS.map(player => [player, 0]))
   )
   const [roundHistory, setRoundHistory] = useState([])
   const playfieldRef = useRef(null)
@@ -157,9 +177,10 @@ function App() {
   const gameFocused = state === 'playing'
   const roundRacers = useMemo(
     () =>
-      LANES.map((lane) => {
+      LANES.map(lane => {
         const playerIndex = HUMAN_ASSIGNMENTS.indexOf(lane.id)
-        const npcPattern = NPC_PATTERNS[(lane.id + lane.depth) % NPC_PATTERNS.length]
+        const npcPattern =
+          NPC_PATTERNS[(lane.id + lane.depth) % NPC_PATTERNS.length]
         return {
           ...lane,
           controller:
@@ -167,53 +188,53 @@ function App() {
               ? {
                   type: 'human',
                   name: PLAYERS[playerIndex],
-                  color: HUMAN_COLORS[playerIndex],
+                  color: HUMAN_COLORS[playerIndex]
                 }
               : {
                   type: 'npc',
                   name: `NPC ${lane.id}`,
-                  color: 'npc',
+                  color: 'npc'
                 },
           npc: {
             pattern: npcPattern,
             offset: lane.id % npcPattern.length,
-            progress: 0,
-          },
+            progress: 0
+          }
         }
       }),
-    [],
+    []
   )
   const humansAssigned = roundRacers.filter(
-    (racer) => racer.controller.type === 'human',
+    racer => racer.controller.type === 'human'
   )
   const npcCount = roundRacers.length - humansAssigned.length
   const localPlayerName = PLAYERS[0]
   const localHasBullet = bullets[localPlayerName]
-  const eliminatedHumans = humansAssigned.filter((racer) =>
-    shotRacerIds.includes(racer.id),
+  const eliminatedHumans = humansAssigned.filter(racer =>
+    shotRacerIds.includes(racer.id)
   )
   const spectators = lobbyInProgress
-    ? [...LATE_JOINERS, ...eliminatedHumans.map((racer) => racer.controller.name)]
+    ? [...LATE_JOINERS, ...eliminatedHumans.map(racer => racer.controller.name)]
     : []
   const controlledRacerEliminated = shotRacerIds.includes(controlledRacerId)
   const matchComplete = currentRound >= roundCount
   const getLiveProgress = useCallback(
-    (racer) => {
+    racer => {
       if (shotRacerIds.includes(racer.id)) {
         return racer.progress
       }
       if (racer.id === controlledRacerId) {
-        return racer.progress + controlledProgress
+        return Math.min(racer.progress + controlledProgress, 99)
       }
       if (racer.controller.type === 'npc') {
         return npcProgressByLane[racer.id] ?? racer.progress
       }
       return racer.progress
     },
-    [controlledProgress, controlledRacerId, npcProgressByLane, shotRacerIds],
+    [controlledProgress, controlledRacerId, npcProgressByLane, shotRacerIds]
   )
   const rankedPlayers = [...PLAYERS].sort(
-    (a, b) => scores[b] - scores[a] || PLAYERS.indexOf(a) - PLAYERS.indexOf(b),
+    (a, b) => scores[b] - scores[a] || PLAYERS.indexOf(a) - PLAYERS.indexOf(b)
   )
   const activeStateCopy =
     state === 'roundOver' && roundWinner
@@ -230,7 +251,7 @@ function App() {
           body:
             roundWinner.controller.type === 'human'
               ? `Lane ${roundWinner.id} was secretly ${roundWinner.controller.name}. All human racers are now revealed.`
-              : `Lane ${roundWinner.id} was ${roundWinner.controller.name}. No human points, and every human racer is exposed.`,
+              : `Lane ${roundWinner.id} was ${roundWinner.controller.name}. No human points, and every human racer is exposed.`
         }
       : state === 'scoreboard' && roundWinner
         ? {
@@ -240,13 +261,13 @@ function App() {
               roundWinner.controller.type === 'human'
                 ? `${roundWinner.controller.name} gained 1 point. Host can start the next round.`
                 : `${roundWinner.controller.name} was an NPC, so no human points were awarded.`,
-            action: matchComplete ? 'Show final scores' : 'Next round',
+            action: matchComplete ? 'Show final scores' : 'Next round'
           }
         : state === 'gameOver'
           ? {
               ...activeState,
               title: `${rankedPlayers[0]} wins the match.`,
-              body: `Final scores are locked after ${roundCount} rounds.`,
+              body: `Final scores are locked after ${roundCount} rounds.`
             }
           : activeState
 
@@ -271,7 +292,7 @@ function App() {
       setMovementMode('stopped')
     }
 
-    const handleKeyDown = (event) => {
+    const handleKeyDown = event => {
       if (event.code !== 'Space' && event.code !== 'ShiftLeft') {
         return
       }
@@ -288,7 +309,7 @@ function App() {
       syncMovement()
     }
 
-    const handleKeyUp = (event) => {
+    const handleKeyUp = event => {
       if (event.code !== 'Space' && event.code !== 'ShiftLeft') {
         return
       }
@@ -329,7 +350,7 @@ function App() {
     }
     const speed = movementMode === 'running' ? RUN_SPEED : WALK_SPEED
     const intervalId = window.setInterval(() => {
-      setControlledProgress((current) => Math.min(current + speed, 78))
+      setControlledProgress(current => Math.min(current + speed, 86))
     }, TICK_MS)
     return () => window.clearInterval(intervalId)
   }, [controlledRacerEliminated, movementMode, state])
@@ -339,13 +360,13 @@ function App() {
       return undefined
     }
     const intervalId = window.setInterval(() => {
-      setNpcTick((current) => {
+      setNpcTick(current => {
         const nextTick = current + 1
-        setNpcProgressByLane((progressByLane) =>
+        setNpcProgressByLane(progressByLane =>
           Object.fromEntries(
             roundRacers
-              .filter((racer) => racer.controller.type === 'npc')
-              .map((racer) => {
+              .filter(racer => racer.controller.type === 'npc')
+              .map(racer => {
                 if (shotRacerIds.includes(racer.id)) {
                   return [racer.id, progressByLane[racer.id] ?? racer.progress]
                 }
@@ -359,8 +380,8 @@ function App() {
                   (progressByLane[racer.id] ?? racer.progress) +
                   NPC_SPEEDS[step] * laneDrag
                 return [racer.id, Math.min(nextProgress, NPC_MAX_PROGRESS)]
-              }),
-          ),
+              })
+          )
         )
         return nextTick
       })
@@ -373,29 +394,30 @@ function App() {
       return
     }
     const winner = roundRacers.find(
-      (racer) =>
-        !shotRacerIds.includes(racer.id) && getLiveProgress(racer) >= FINISH_PROGRESS,
+      racer =>
+        !shotRacerIds.includes(racer.id) &&
+        getLiveProgress(racer) >= FINISH_PROGRESS
     )
     if (winner) {
       const resolvedWinner = {
         ...winner,
-        finalProgress: getLiveProgress(winner),
+        finalProgress: getLiveProgress(winner)
       }
       setRoundWinner(resolvedWinner)
-      setRoundHistory((current) => [
+      setRoundHistory(current => [
         ...current,
         {
           round: currentRound,
           winnerName: resolvedWinner.controller.name,
           winnerType: resolvedWinner.controller.type,
-          laneId: resolvedWinner.id,
-        },
+          laneId: resolvedWinner.id
+        }
       ])
       if (resolvedWinner.controller.type === 'human') {
-        setScores((current) => ({
+        setScores(current => ({
           ...current,
           [resolvedWinner.controller.name]:
-            current[resolvedWinner.controller.name] + 1,
+            current[resolvedWinner.controller.name] + 1
         }))
       }
       setState('roundOver')
@@ -408,7 +430,7 @@ function App() {
     roundRacers,
     roundWinner,
     shotRacerIds,
-    state,
+    state
   ])
 
   const statusItems = useMemo(
@@ -416,9 +438,9 @@ function App() {
       ['Room', 'DR-2048'],
       ['Mode', 'Local prototype'],
       ['Rounds', `${currentRound} / ${roundCount}`],
-      ['Racers', roundRacers.length],
+      ['Racers', roundRacers.length]
     ],
-    [currentRound, roundCount, roundRacers.length],
+    [currentRound, roundCount, roundRacers.length]
   )
 
   const resetRoundState = () => {
@@ -426,7 +448,7 @@ function App() {
     setControlledProgress(0)
     setNpcTick(0)
     setNpcProgressByLane(createNpcProgressByLane())
-    setBullets(Object.fromEntries(PLAYERS.map((player) => [player, true])))
+    setBullets(Object.fromEntries(PLAYERS.map(player => [player, true])))
     setShotRacerIds([])
     setRoundWinner(null)
     setAim({ x: 68, laneId: controlledRacerId })
@@ -437,12 +459,12 @@ function App() {
       setState('gameOver')
       return
     }
-    setCurrentRound((round) => round + 1)
+    setCurrentRound(round => round + 1)
     resetRoundState()
     setState('countdown')
   }
 
-  const moveToState = (nextState) => {
+  const moveToState = nextState => {
     if (nextState === 'countdown') {
       if (state === 'roundOver' || state === 'scoreboard') {
         startNextRound()
@@ -450,14 +472,14 @@ function App() {
       }
       if (state === 'lobby') {
         setCurrentRound(1)
-        setScores(Object.fromEntries(PLAYERS.map((player) => [player, 0])))
+        setScores(Object.fromEntries(PLAYERS.map(player => [player, 0])))
         setRoundHistory([])
       }
       resetRoundState()
     }
     if (nextState === 'lobby') {
       setCurrentRound(1)
-      setScores(Object.fromEntries(PLAYERS.map((player) => [player, 0])))
+      setScores(Object.fromEntries(PLAYERS.map(player => [player, 0])))
       setRoundHistory([])
       resetRoundState()
     }
@@ -472,7 +494,7 @@ function App() {
     setCountdownIndex(nextIndex)
   }
 
-  const getAimFromPointer = (event) => {
+  const getAimFromPointer = event => {
     if (!playfieldRef.current) {
       return aim
     }
@@ -482,47 +504,49 @@ function App() {
     const laneHeight = bounds.height / roundRacers.length
     const laneId = Math.min(
       roundRacers.length,
-      Math.max(1, Math.floor(y / laneHeight) + 1),
+      Math.max(1, Math.floor(y / laneHeight) + 1)
     )
     return {
       x: Math.min(96, Math.max(6, x)),
-      laneId,
+      laneId
     }
   }
 
-  const updateAimFromPointer = (event) => {
+  const updateAimFromPointer = event => {
     if (state !== 'playing') {
       return
     }
     setAim(getAimFromPointer(event))
   }
 
-  const fireLocalShot = (event) => {
+  const fireLocalShot = event => {
     if (state !== 'playing' || !localHasBullet) {
       return
     }
     const nextAim = getAimFromPointer(event)
-    const targetRacer = roundRacers.find((racer) => racer.id === nextAim.laneId)
+    const targetRacer = roundRacers.find(racer => racer.id === nextAim.laneId)
     const targetProgress = targetRacer ? getLiveProgress(targetRacer) : null
     const shotHits =
       targetProgress !== null &&
       Math.abs(targetProgress - nextAim.x) <= HIT_WINDOW_PERCENT
 
     setAim(nextAim)
-    setBullets((current) => ({
+    setBullets(current => ({
       ...current,
-      [localPlayerName]: false,
+      [localPlayerName]: false
     }))
     if (shotHits) {
-      setShotRacerIds((current) =>
-        current.includes(nextAim.laneId) ? current : [...current, nextAim.laneId],
+      setShotRacerIds(current =>
+        current.includes(nextAim.laneId)
+          ? current
+          : [...current, nextAim.laneId]
       )
     }
   }
 
   const renderLobby = () => (
-    <div className="lobby-panel" aria-label="Lobby controls">
-      <div className="room-card">
+    <div className='lobby-panel' aria-label='Lobby controls'>
+      <div className='room-card'>
         <span>{lobbyInProgress ? 'Room status' : 'Room code'}</span>
         <strong>{ROOM_CODE}</strong>
         <code>
@@ -535,21 +559,21 @@ function App() {
       </div>
 
       <button
-        type="button"
-        className="host-start"
+        type='button'
+        className='host-start'
         onClick={() => moveToState('countdown')}
         disabled={lobbyInProgress}
       >
         {lobbyInProgress ? `${STATE_LABELS[state]} in progress` : 'Start round'}
       </button>
 
-      <div className="control-group">
+      <div className='control-group'>
         <span>Privacy</span>
-        <div className="segmented-control" aria-label="Lobby privacy">
-          {['public', 'private'].map((option) => (
+        <div className='segmented-control' aria-label='Lobby privacy'>
+          {['public', 'private'].map(option => (
             <button
               key={option}
-              type="button"
+              type='button'
               className={privacy === option ? 'active' : ''}
               onClick={() => setPrivacy(option)}
             >
@@ -559,13 +583,13 @@ function App() {
         </div>
       </div>
 
-      <div className="control-group">
+      <div className='control-group'>
         <span>Rounds</span>
-        <div className="round-options" aria-label="Round count">
-          {ROUND_OPTIONS.map((option) => (
+        <div className='round-options' aria-label='Round count'>
+          {ROUND_OPTIONS.map(option => (
             <button
               key={option}
-              type="button"
+              type='button'
               className={roundCount === option ? 'active' : ''}
               onClick={() => setRoundCount(option)}
             >
@@ -575,13 +599,13 @@ function App() {
         </div>
       </div>
 
-      <div className="player-list" aria-label="Lobby players">
-        <div className="list-heading">
+      <div className='player-list' aria-label='Lobby players'>
+        <div className='list-heading'>
           <span>Players</span>
           <strong>{activePlayers.length}/20</strong>
         </div>
         {activePlayers.map((player, index) => (
-          <div className="player-row" key={player}>
+          <div className='player-row' key={player}>
             <span>{player}</span>
             <small>
               {index === 0 ? 'Host' : lobbyInProgress ? 'In round' : 'Ready'}
@@ -590,17 +614,19 @@ function App() {
         ))}
       </div>
 
-      <div className="player-list spectator-list" aria-label="Spectators">
-        <div className="list-heading">
+      <div className='player-list spectator-list' aria-label='Spectators'>
+        <div className='list-heading'>
           <span>Spectators</span>
           <strong>{spectators.length}</strong>
         </div>
         {spectators.length > 0 ? (
-          spectators.map((player) => (
-            <div className="player-row" key={player}>
+          spectators.map(player => (
+            <div className='player-row' key={player}>
               <span>{player}</span>
               <small>
-                {eliminatedHumans.some((racer) => racer.controller.name === player)
+                {eliminatedHumans.some(
+                  racer => racer.controller.name === player
+                )
                   ? 'Eliminated'
                   : 'Next round'}
               </small>
@@ -610,22 +636,21 @@ function App() {
           <p>No late joiners yet.</p>
         )}
       </div>
-
     </div>
   )
 
   return (
-    <main className="app-shell">
-      <header className="top-bar">
+    <main className='app-shell'>
+      <header className='top-bar'>
         <div>
-          <p className="eyebrow">Death race</p>
+          <p className='eyebrow'>Death race</p>
           <h1>Read the racer, hide the tell.</h1>
         </div>
-        <div className="state-tabs" aria-label="Game state controls">
-          {STATES.map((item) => (
+        <div className='state-tabs' aria-label='Game state controls'>
+          {STATES.map(item => (
             <button
               key={item}
-              type="button"
+              type='button'
               className={item === state ? 'active' : ''}
               onClick={() => moveToState(item)}
             >
@@ -635,7 +660,7 @@ function App() {
         </div>
       </header>
 
-      <section className="status-strip" aria-label="Round status">
+      <section className='status-strip' aria-label='Round status'>
         {statusItems.map(([label, value]) => (
           <div key={label}>
             <span>{label}</span>
@@ -646,17 +671,17 @@ function App() {
 
       <section
         className={`hero-panel${gameFocused ? ' game-focused' : ''}`}
-        aria-label="Game area"
+        aria-label='Game area'
       >
         {gameFocused ? null : (
-          <div className="state-card">
-            <p className="eyebrow">{activeStateCopy.eyebrow}</p>
-            <h2 id="state-title">{activeStateCopy.title}</h2>
+          <div className='state-card'>
+            <p className='eyebrow'>{activeStateCopy.eyebrow}</p>
+            <h2 id='state-title'>{activeStateCopy.title}</h2>
             <p>{activeStateCopy.body}</p>
             {state === 'lobby' || state === 'countdown' ? null : (
-              <div className="actions">
+              <div className='actions'>
                 <button
-                  type="button"
+                  type='button'
                   onClick={() => moveToState(activeStateCopy.next)}
                 >
                   {activeStateCopy.action}
@@ -664,16 +689,16 @@ function App() {
               </div>
             )}
             {state === 'countdown' ? (
-              <div className="countdown-panel" aria-label="Countdown">
+              <div className='countdown-panel' aria-label='Countdown'>
                 <span>{COUNTDOWN_STEPS[countdownIndex]}</span>
                 <p>Movement and shooting are locked until go.</p>
-                <button type="button" onClick={advanceCountdown}>
+                <button type='button' onClick={advanceCountdown}>
                   Advance countdown
                 </button>
               </div>
             ) : null}
             {state !== 'menu' ? (
-              <div className="assignment-summary" aria-label="Round setup">
+              <div className='assignment-summary' aria-label='Round setup'>
                 <span>Round setup</span>
                 <strong>{roundRacers.length} racers</strong>
                 <p>
@@ -682,7 +707,7 @@ function App() {
               </div>
             ) : null}
             {state === 'roundOver' && roundWinner ? (
-              <div className="winner-panel" aria-label="Winner reveal">
+              <div className='winner-panel' aria-label='Winner reveal'>
                 <span>Winner</span>
                 <strong>
                   Lane {roundWinner.id}: {roundWinner.controller.name}
@@ -695,18 +720,20 @@ function App() {
               </div>
             ) : null}
             {state === 'scoreboard' || state === 'gameOver' ? (
-              <div className="scoreboard-panel" aria-label="Scoreboard">
-                <span>{state === 'gameOver' ? 'Final scores' : 'Scoreboard'}</span>
-                <div className="score-list">
-                  {rankedPlayers.map((player) => (
-                    <div className="score-row" key={player}>
+              <div className='scoreboard-panel' aria-label='Scoreboard'>
+                <span>
+                  {state === 'gameOver' ? 'Final scores' : 'Scoreboard'}
+                </span>
+                <div className='score-list'>
+                  {rankedPlayers.map(player => (
+                    <div className='score-row' key={player}>
                       <strong>{player}</strong>
                       <span>{scores[player]}</span>
                     </div>
                   ))}
                 </div>
-                <div className="round-history" aria-label="Round history">
-                  {roundHistory.map((round) => (
+                <div className='round-history' aria-label='Round history'>
+                  {roundHistory.map(round => (
                     <p key={round.round}>
                       Round {round.round}: lane {round.laneId},{' '}
                       {round.winnerName}{' '}
@@ -721,13 +748,13 @@ function App() {
         )}
 
         <div
-          className="playfield"
-          aria-label="20 lane race playfield"
+          className='playfield'
+          aria-label='20 lane race playfield'
           onMouseMove={updateAimFromPointer}
           onMouseDown={fireLocalShot}
           ref={playfieldRef}
         >
-          {roundRacers.map((lane) => {
+          {roundRacers.map(lane => {
             const isHuman = lane.controller.type === 'human'
             const isControlled = lane.id === controlledRacerId
             const isEliminated = shotRacerIds.includes(lane.id)
@@ -740,6 +767,7 @@ function App() {
                   lane.npc.pattern.length
               ]
             const npcMotionClass = npcStep === 'walk' ? 'walking' : ''
+            const shapeClass = lane.shapeClass
             const racerProgress =
               isWinner && roundWinner.finalProgress
                 ? roundWinner.finalProgress
@@ -749,10 +777,10 @@ function App() {
                 className={[
                   'lane',
                   movementLocked ? 'locked' : '',
-                  isControlled ? 'controlled' : '',
-                  isEliminated ? 'eliminated' : '',
-                  isHuman && isRevealed ? 'revealed-human' : '',
-                  isWinner ? 'winner' : '',
+                  isControlled ? '' : '',
+                  isEliminated ? '' : '',
+                  isHuman && isRevealed ? '' : '',
+                  isWinner ? '' : ''
                 ]
                   .filter(Boolean)
                   .join(' ')}
@@ -760,20 +788,21 @@ function App() {
                 data-testid={`lane-${lane.id}`}
                 style={{
                   '--depth': lane.depth,
-                  '--racer-progress': `${racerProgress}%`,
+                  '--racer-progress': `${racerProgress}%`
                 }}
               >
-                <span className="lane-number">{lane.id}</span>
-                <span className="lane-stripe" />
+                <span className='lane-number'>{lane.id}</span>
+                <span className='lane-stripe' />
                 <span
                   className={[
-                    'racer',
-                    `archetype-${archetypeClass}`,
-                    isEliminated ? 'dead' : '',
-                    isControlled && !isEliminated ? movementMode : '',
-                    !isHuman && state === 'playing' && !isEliminated
+                  'racer',
+                  `archetype-${archetypeClass}`,
+                  shapeClass,
+                  isEliminated ? 'dead' : '',
+                  isControlled && !isEliminated ? movementMode : '',
+                  !isHuman && state === 'playing' && !isEliminated
                       ? npcMotionClass
-                      : '',
+                      : ''
                   ]
                     .filter(Boolean)
                     .join(' ')}
@@ -781,14 +810,18 @@ function App() {
                   data-testid={`racer-${lane.id}`}
                   title={lane.archetype}
                 >
-                  <span className="racer-head" />
-                  <span className="racer-body" />
-                  <span className="racer-shadow" />
+                  <span className='racer-head' />
+                  <span className='racer-body' />
+                  <span className='racer-shadow' />
                 </span>
-                {isEliminated ? <span className="body-marker">down</span> : null}
-                {isWinner ? <span className="winner-marker">winner</span> : null}
+                {isEliminated ? (
+                  <span className='body-marker'>down</span>
+                ) : null}
+                {isWinner ? (
+                  <span className='winner-marker'>winner</span>
+                ) : null}
                 {isHuman && isRevealed ? (
-                  <span className="reveal-tag">{lane.controller.name}</span>
+                  <span className='reveal-tag'>{lane.controller.name}</span>
                 ) : null}
                 {state === 'playing' &&
                 localHasBullet &&
@@ -796,9 +829,9 @@ function App() {
                 !controlledRacerEliminated ? (
                   <span
                     className={`crosshair crosshair-${HUMAN_COLORS[0]}`}
-                    data-testid="local-crosshair"
+                    data-testid='local-crosshair'
                     style={{
-                      left: `${aim.x}%`,
+                      left: `${aim.x}%`
                     }}
                   />
                 ) : null}

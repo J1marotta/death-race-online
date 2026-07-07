@@ -64,9 +64,16 @@ describe('game controls', () => {
   it('eliminates a racer only when the shot is near that racer', () => {
     const playfield = startPlaying()
 
-    fireEvent.mouseDown(playfield, { clientX: 100, clientY: 925 })
+    const lane19 = screen.getByTestId('lane-19')
+    const racer19 = screen.getByTestId('racer-19')
+    const progress = Number.parseFloat(racer19.style.getPropertyValue('--racer-progress'))
 
-    expect(within(screen.getByTestId('lane-19')).getByText('down')).toBeTruthy()
+    fireEvent.mouseDown(playfield, {
+      clientX: (progress / 100) * 1000,
+      clientY: 925,
+    })
+
+    expect(within(lane19).getByText('down')).toBeTruthy()
   })
 
   it('advances the controlled racer while the walk key is held', () => {

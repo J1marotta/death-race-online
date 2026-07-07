@@ -10,13 +10,6 @@ This file tracks what is left to do. Design decisions live in `spec.md`; complet
 
 ## Implementation Tasks
 
-### NPCs
-
-- Add NPC walk/stop/occasional-run behavior.
-- Tune NPCs to imitate human hesitation and intent.
-- Ensure NPCs never shoot.
-- Ensure NPCs can plausibly win.
-
 ### Aiming And Shooting
 
 - Add mouse aiming.

@@ -205,7 +205,8 @@ code {
 }
 
 .countdown-panel,
-.assignment-summary {
+.assignment-summary,
+.npc-summary {
   display: grid;
   gap: 8px;
   padding: 12px;
@@ -221,19 +222,22 @@ code {
 }
 
 .countdown-panel p,
-.assignment-summary p {
+.assignment-summary p,
+.npc-summary p {
   margin: 0;
   color: var(--text);
   font-size: 13px;
 }
 
-.assignment-summary span {
+.assignment-summary span,
+.npc-summary span {
   color: var(--text);
   font: 700 11px/1 var(--mono);
   text-transform: uppercase;
 }
 
-.assignment-summary strong {
+.assignment-summary strong,
+.npc-summary strong {
   color: var(--text-h);
   font: 800 20px/1 var(--mono);
 }

@@ -90,6 +90,17 @@ const COUNTDOWN_STEPS = ['3', '2', '1', 'go']
 const WALK_SPEED = 0.35
 const RUN_SPEED = 0.85
 const TICK_MS = 80
+const NPC_PATTERNS = [
+  ['walk', 'walk', 'stop', 'walk', 'run', 'walk', 'stop'],
+  ['stop', 'walk', 'walk', 'run', 'walk', 'stop', 'walk'],
+  ['walk', 'stop', 'walk', 'walk', 'stop', 'run', 'walk'],
+  ['walk', 'run', 'walk', 'stop', 'walk', 'walk', 'stop'],
+]
+const NPC_SPEEDS = {
+  stop: 0,
+  walk: 0.18,
+  run: 0.52,
+}
 
 function App() {
   const [state, setState] = useState('menu')
@@ -98,6 +109,7 @@ function App() {
   const [countdownIndex, setCountdownIndex] = useState(0)
   const [movementMode, setMovementMode] = useState('stopped')
   const [controlledProgress, setControlledProgress] = useState(0)
+  const [npcTick, setNpcTick] = useState(0)
   const pressedKeys = useRef({ run: false, walk: false })
   const activeState = STATE_COPY[state]
   const lobbyInProgress = !['menu', 'lobby'].includes(state)
@@ -109,6 +121,7 @@ function App() {
     () =>
       LANES.map((lane) => {
         const playerIndex = HUMAN_ASSIGNMENTS.indexOf(lane.id)
+        const npcPattern = NPC_PATTERNS[(lane.id + lane.depth) % NPC_PATTERNS.length]
         return {
           ...lane,
           controller:
@@ -123,6 +136,11 @@ function App() {
                   name: `NPC ${lane.id}`,
                   color: 'npc',
                 },
+          npc: {
+            pattern: npcPattern,
+            offset: lane.id % npcPattern.length,
+            progress: 0,
+          },
         }
       }),
     [],
@@ -130,6 +148,7 @@ function App() {
   const humansAssigned = roundRacers.filter(
     (racer) => racer.controller.type === 'human',
   )
+  const npcCount = roundRacers.length - humansAssigned.length
 
   useEffect(() => {
     if (state !== 'playing') {
@@ -211,6 +230,16 @@ function App() {
     return () => window.clearInterval(intervalId)
   }, [movementMode, state])
 
+  useEffect(() => {
+    if (state !== 'playing') {
+      return undefined
+    }
+    const intervalId = window.setInterval(() => {
+      setNpcTick((current) => current + 1)
+    }, TICK_MS)
+    return () => window.clearInterval(intervalId)
+  }, [state])
+
   const statusItems = useMemo(
     () => [
       ['Room', 'DR-2048'],
@@ -225,6 +254,7 @@ function App() {
     if (nextState === 'countdown') {
       setCountdownIndex(0)
       setControlledProgress(0)
+      setNpcTick(0)
     }
     setState(nextState)
   }
@@ -368,9 +398,15 @@ function App() {
               <span>Round setup</span>
               <strong>{roundRacers.length} racers</strong>
               <p>
-                {humansAssigned.length} hidden humans,{' '}
-                {roundRacers.length - humansAssigned.length} NPCs.
+                {humansAssigned.length} hidden humans, {npcCount} NPCs.
               </p>
+            </div>
+          ) : null}
+          {state === 'playing' ? (
+            <div className="npc-summary" aria-label="NPC behavior">
+              <span>NPC behavior</span>
+              <strong>{npcCount} racers thinking</strong>
+              <p>Walk, pause, and occasional run patterns. NPCs never shoot.</p>
             </div>
           ) : null}
           {state !== 'menu' ? renderLobby() : null}
@@ -394,8 +430,17 @@ function App() {
             const isControlled = lane.id === controlledRacerId
             const isRevealed = state === 'roundOver' || state === 'scoreboard'
             const archetypeClass = lane.archetype.toLowerCase()
+            const npcStep =
+              lane.npc.pattern[
+                (Math.floor(npcTick / 7) + lane.npc.offset) %
+                  lane.npc.pattern.length
+              ]
+            const npcProgress =
+              !isHuman && state === 'playing'
+                ? Math.min(npcTick * NPC_SPEEDS[npcStep], 34)
+                : 0
             const racerProgress =
-              lane.progress + (isControlled ? controlledProgress : 0)
+              lane.progress + (isControlled ? controlledProgress : npcProgress)
             return (
               <div
                 className={[
@@ -415,6 +460,7 @@ function App() {
                     'racer',
                     `archetype-${archetypeClass}`,
                     isControlled ? movementMode : '',
+                    !isHuman && state === 'playing' ? npcStep : '',
                   ]
                     .filter(Boolean)
                     .join(' ')}

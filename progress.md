@@ -43,6 +43,7 @@ Last updated: 2026-07-07
 - Upgraded the race preview into a 20-lane playfield with five repeated pixel-art archetypes and depth styling.
 - Added deterministic round setup with hidden human assignments, NPC-filled lanes, countdown gating, and reveal-only player names.
 - Added keyboard movement for the local hidden racer with `Space` walking, `Left Shift` running, stop-on-release, and stale-input clearing.
+- Added local NPC walk/stop/run simulation that can advance NPC racers without giving them shooting behavior.
 
 ## Verification
 
@@ -168,3 +169,14 @@ Last updated: 2026-07-07
 - Updated `todo.md` so the completed movement work is no longer listed as remaining work.
 - Tests run: `npm run lint`; `npm run build`.
 - /usage: tokensUsed 616955, timeUsedSeconds 1107.
+
+### task 12 : Build NPC Behavior
+
+- Added deterministic NPC behavior patterns with walk, stop, and occasional run states.
+- Advanced NPC racers during `playing` so they can plausibly reach the finish in later winner logic.
+- Reused movement animation classes so NPC hesitation and running are visible on the track.
+- Added a live NPC summary that states NPCs never shoot.
+- Kept NPCs out of all crosshair and shooting affordances.
+- Updated `todo.md` so the completed NPC work is no longer listed as remaining work.
+- Tests run: `npm run lint`; `npm run build`.
+- /usage: tokensUsed 657097, timeUsedSeconds 1205.

@@ -10,7 +10,7 @@ Last updated: 2026-07-07
 - Git branch: `codex/task-01-network-scope`
 - Initial commit: `45b2434 Initial Death Race project setup`
 - Planning cleanup commit: `d59ecfb Clean up project planning docs`
-- The app shows the playable Death Race shell with a 20-lane track, local controls, and a mock lobby shell.
+- The app shows the playable Death Race shell with a 20-lane track, local controls, and a lobby shell that now syncs room state to the backend API.
 - Dependencies are installed locally.
 - Build output goes to `dist`, which is ignored by git.
 - The old workspace currently contains only a `.git` folder.
@@ -18,6 +18,7 @@ Last updated: 2026-07-07
 - Remote origin is `https://github.com/J1marotta/death-race-online.git`.
 - Cloudflare Pages is deployed for the front end.
 - A separate Cloudflare Worker is deployed for room coordination.
+- The front end currently syncs lobby create/settings/countdown actions to the backend API and shows room sync status in the HUD.
 
 ## Completed
 

@@ -42,6 +42,7 @@ Last updated: 2026-07-07
 - Added a local mock lobby with room code/link, privacy choice, player roster, round count host controls, start action, and late-joiner spectator display.
 - Upgraded the race preview into a 20-lane playfield with five repeated pixel-art archetypes and depth styling.
 - Added deterministic round setup with hidden human assignments, NPC-filled lanes, countdown gating, and reveal-only player names.
+- Added keyboard movement for the local hidden racer with `Space` walking, `Left Shift` running, stop-on-release, and stale-input clearing.
 
 ## Verification
 
@@ -156,3 +157,14 @@ Last updated: 2026-07-07
 - Updated `todo.md` so the completed round setup work is no longer listed as remaining work.
 - Tests run: `npm run lint`; `npm run build`.
 - /usage: tokensUsed 500440, timeUsedSeconds 1009.
+
+### task 11 : Build Movement
+
+- Added global keyboard handling for `Space` walk and `Left Shift` run during the `playing` state.
+- Moved the local player's secretly assigned racer forward while movement keys are held.
+- Stopped the racer when movement keys are released.
+- Cleared movement on non-playing states, window blur, and visibility changes to prevent stale input.
+- Made running faster than walking without adding stamina, cooldown, noise UI, or extra indicators.
+- Updated `todo.md` so the completed movement work is no longer listed as remaining work.
+- Tests run: `npm run lint`; `npm run build`.
+- /usage: tokensUsed 616955, timeUsedSeconds 1107.

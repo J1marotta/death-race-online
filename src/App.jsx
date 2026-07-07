@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
 const STATES = [
@@ -87,17 +87,24 @@ const ROOM_CODE = 'DR-2048'
 const ROOM_LINK = `deathrace.local/join/${ROOM_CODE}`
 const ROUND_OPTIONS = [3, 5, 7]
 const COUNTDOWN_STEPS = ['3', '2', '1', 'go']
+const WALK_SPEED = 0.35
+const RUN_SPEED = 0.85
+const TICK_MS = 80
 
 function App() {
   const [state, setState] = useState('menu')
   const [privacy, setPrivacy] = useState('public')
   const [roundCount, setRoundCount] = useState(5)
   const [countdownIndex, setCountdownIndex] = useState(0)
+  const [movementMode, setMovementMode] = useState('stopped')
+  const [controlledProgress, setControlledProgress] = useState(0)
+  const pressedKeys = useRef({ run: false, walk: false })
   const activeState = STATE_COPY[state]
   const lobbyInProgress = !['menu', 'lobby'].includes(state)
   const activePlayers = lobbyInProgress ? PLAYERS : WAITING_PLAYERS
   const spectators = lobbyInProgress ? LATE_JOINERS : []
   const movementLocked = state === 'countdown'
+  const controlledRacerId = HUMAN_ASSIGNMENTS[0]
   const roundRacers = useMemo(
     () =>
       LANES.map((lane) => {
@@ -124,6 +131,86 @@ function App() {
     (racer) => racer.controller.type === 'human',
   )
 
+  useEffect(() => {
+    if (state !== 'playing') {
+      pressedKeys.current = { run: false, walk: false }
+      setMovementMode('stopped')
+    }
+  }, [state])
+
+  useEffect(() => {
+    const syncMovement = () => {
+      const { run, walk } = pressedKeys.current
+      if (run) {
+        setMovementMode('running')
+        return
+      }
+      if (walk) {
+        setMovementMode('walking')
+        return
+      }
+      setMovementMode('stopped')
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.code !== 'Space' && event.code !== 'ShiftLeft') {
+        return
+      }
+      event.preventDefault()
+      if (state !== 'playing') {
+        return
+      }
+      if (event.code === 'Space') {
+        pressedKeys.current.walk = true
+      }
+      if (event.code === 'ShiftLeft') {
+        pressedKeys.current.run = true
+      }
+      syncMovement()
+    }
+
+    const handleKeyUp = (event) => {
+      if (event.code !== 'Space' && event.code !== 'ShiftLeft') {
+        return
+      }
+      event.preventDefault()
+      if (event.code === 'Space') {
+        pressedKeys.current.walk = false
+      }
+      if (event.code === 'ShiftLeft') {
+        pressedKeys.current.run = false
+      }
+      syncMovement()
+    }
+
+    const clearMovement = () => {
+      pressedKeys.current = { run: false, walk: false }
+      setMovementMode('stopped')
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('blur', clearMovement)
+    document.addEventListener('visibilitychange', clearMovement)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('blur', clearMovement)
+      document.removeEventListener('visibilitychange', clearMovement)
+    }
+  }, [state])
+
+  useEffect(() => {
+    if (state !== 'playing' || movementMode === 'stopped') {
+      return undefined
+    }
+    const speed = movementMode === 'running' ? RUN_SPEED : WALK_SPEED
+    const intervalId = window.setInterval(() => {
+      setControlledProgress((current) => Math.min(current + speed, 28))
+    }, TICK_MS)
+    return () => window.clearInterval(intervalId)
+  }, [movementMode, state])
+
   const statusItems = useMemo(
     () => [
       ['Room', 'DR-2048'],
@@ -137,6 +224,7 @@ function App() {
   const moveToState = (nextState) => {
     if (nextState === 'countdown') {
       setCountdownIndex(0)
+      setControlledProgress(0)
     }
     setState(nextState)
   }
@@ -303,19 +391,34 @@ function App() {
         <div className="playfield" aria-label="20 lane race playfield">
           {roundRacers.map((lane) => {
             const isHuman = lane.controller.type === 'human'
+            const isControlled = lane.id === controlledRacerId
             const isRevealed = state === 'roundOver' || state === 'scoreboard'
             const archetypeClass = lane.archetype.toLowerCase()
+            const racerProgress =
+              lane.progress + (isControlled ? controlledProgress : 0)
             return (
               <div
-                className={movementLocked ? 'lane locked' : 'lane'}
+                className={[
+                  'lane',
+                  movementLocked ? 'locked' : '',
+                  isControlled ? 'controlled' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
                 key={lane.id}
                 style={{ '--depth': lane.depth }}
               >
                 <span className="lane-number">{lane.id}</span>
                 <span className="lane-stripe" />
                 <span
-                  className={`racer archetype-${archetypeClass}`}
-                  style={{ '--racer-progress': `${lane.progress}%` }}
+                  className={[
+                    'racer',
+                    `archetype-${archetypeClass}`,
+                    isControlled ? movementMode : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  style={{ '--racer-progress': `${racerProgress}%` }}
                   title={lane.archetype}
                 >
                   <span className="racer-head" />

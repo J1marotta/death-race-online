@@ -287,6 +287,13 @@ code {
   opacity: 0.72;
 }
 
+.lane.controlled {
+  background:
+    linear-gradient(90deg, transparent 0 13%, rgba(255, 255, 255, 0.04) 13% 13.4%, transparent 13.4% 100%),
+    linear-gradient(90deg, rgba(225, 61, 53, 0.09), transparent 30%),
+    rgba(255, 255, 255, calc(0.02 + var(--depth) * 0.006));
+}
+
 .lane::after {
   content: '';
   position: absolute;
@@ -360,6 +367,20 @@ code {
   width: 22px;
   height: 4px;
   background: rgba(0, 0, 0, 0.32);
+}
+
+.racer.walking {
+  animation: step-bob 360ms steps(2) infinite;
+}
+
+.racer.running {
+  animation: step-bob 180ms steps(2) infinite;
+}
+
+@keyframes step-bob {
+  50% {
+    margin-top: -2px;
+  }
 }
 
 .archetype-driver {

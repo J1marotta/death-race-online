@@ -10,14 +10,6 @@ This file tracks what is left to do. Design decisions live in `spec.md`; complet
 
 ## Implementation Tasks
 
-### Movement
-
-- Implement `Space` to walk.
-- Implement `Left Shift` to run.
-- Stop the racer when no movement key is pressed.
-- Prevent stale input when focus changes.
-- Make running faster without adding stamina, cooldown, noise UI, or extra indicators.
-
 ### NPCs
 
 - Add NPC walk/stop/occasional-run behavior.

@@ -166,6 +166,22 @@ code {
   gap: 6px;
 }
 
+.join-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.join-row input {
+  min-width: 0;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text-h);
+  font: 700 13px/1 var(--sans);
+}
+
 .segmented-control {
   grid-template-columns: repeat(2, 1fr);
 }

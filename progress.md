@@ -293,3 +293,11 @@ Last updated: 2026-07-07
 - Kept the local play loop intact while connecting the lobby controls to the shared backend room.
 - Verified with `npm run test`; `npm run lint`; `npm run build`.
 - /usage: tokensUsed 1473021, timeUsedSeconds 2514.
+
+### task 22 : Add Lobby Join Control
+
+- Added a visible join control to the lobby so another browser can enter a room through the backend API.
+- Added a player-name field in the lobby and wired it to the shared room API.
+- Styled the join control so it fits the existing lobby panel.
+- Verified with `npm run test`; `npm run lint`; `npm run build`.
+- /usage: tokensUsed 1501294, timeUsedSeconds 2588.

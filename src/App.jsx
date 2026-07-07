@@ -3,6 +3,7 @@ import './App.css'
 import {
   createRoom,
   getRoom,
+  joinRoom,
   startCountdown as apiStartCountdown,
   updateRoom,
 } from './multiplayer/api'
@@ -156,6 +157,7 @@ function App() {
   const [state, setState] = useState('menu')
   const [privacy, setPrivacy] = useState('public')
   const [roundCount, setRoundCount] = useState(5)
+  const [joinName, setJoinName] = useState(PLAYERS[0])
   const [countdownIndex, setCountdownIndex] = useState(0)
   const [movementMode, setMovementMode] = useState('stopped')
   const [controlledProgress, setControlledProgress] = useState(0)
@@ -461,6 +463,8 @@ function App() {
         result = await updateRoom(ROOM_CODE, payload)
       } else if (action === 'countdown') {
         result = await apiStartCountdown(ROOM_CODE)
+      } else if (action === 'join') {
+        result = await joinRoom(ROOM_CODE, payload)
       } else {
         result = await getRoom(ROOM_CODE)
       }
@@ -644,6 +648,27 @@ function App() {
               {option}
             </button>
           ))}
+        </div>
+      </div>
+
+      <div className='control-group'>
+        <span>Join room</span>
+        <div className='join-row'>
+          <input
+            aria-label='Player name'
+            value={joinName}
+            onChange={(event) => setJoinName(event.target.value)}
+            placeholder='Player name'
+          />
+          <button
+            type='button'
+            onClick={() => {
+              void syncRoom('join', { playerName: joinName || PLAYERS[0] })
+              setState('lobby')
+            }}
+          >
+            Join
+          </button>
         </div>
       </div>
 

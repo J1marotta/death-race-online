@@ -4,7 +4,6 @@ This file tracks what is left to do. Design decisions live in `spec.md`; complet
 
 ## Next Decisions
 
-- Decide exact scoreboard point values.
 - Locate or confirm the protected Defender source, if it exists outside this repo.
 
 ## Setup And Documentation
@@ -89,6 +88,8 @@ This file tracks what is left to do. Design decisions live in `spec.md`; complet
 ### Scoreboard And Rounds
 
 - Track the host-selected number of rounds.
+- Award 1 point to a human round winner.
+- Award no human points for an NPC win.
 - Show scoreboard after each round.
 - Keep player names visible in the scoreboard.
 - Let the host instantly start the next round.

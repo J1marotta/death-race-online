@@ -88,3 +88,11 @@ Last updated: 2026-07-07
 - Updated `spec.md` and `todo.md` to reflect the decision.
 - Tests run: `npm run lint`; `npm run build`.
 - /usage: tokensUsed 217439, timeUsedSeconds 253.
+
+### task 05 : Decide Scoreboard Point Values
+
+- Decision: award 1 point to the human winner of a round; award no human points when an NPC wins.
+- Reason: this keeps the scoreboard clear for the MVP while preserving the NPC shame/reveal moment as its own consequence.
+- Updated `spec.md` and `todo.md` to reflect the decision.
+- Tests run: `npm run lint`; `npm run build`.
+- /usage: tokensUsed 224730, timeUsedSeconds 323.

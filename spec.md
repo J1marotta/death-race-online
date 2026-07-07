@@ -21,6 +21,8 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 - Player names are visible in the lobby and scoreboard.
 - Player names are not attached to racers during live gameplay.
 - A multi-round scoreboard is shown after each round.
+- Human round winners get 1 point.
+- NPC wins award no human points and trigger the shame/reveal moment.
 - From the scoreboard, the host can instantly start the next round.
 
 ## Round Flow
@@ -113,5 +115,4 @@ Running has no stamina, cooldown, noise meter, or extra UI. The risk is behavior
 
 ## Open Design Decisions
 
-- Exact scoreboard point values beyond multi-round results.
 - Exact Defender source location and whether it should connect to this MVP at all.

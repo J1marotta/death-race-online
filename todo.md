@@ -10,13 +10,6 @@ This file tracks what is left to do. Design decisions live in `spec.md`; complet
 
 ## Implementation Tasks
 
-### Elimination And Spectating
-
-- Eliminate shot racers.
-- Leave dead bodies visible.
-- Put eliminated players into spectator mode until the next round.
-- Keep the round running after eliminations.
-
 ### Winner And Reveal
 
 - End the round only when a racer wins.

@@ -104,6 +104,7 @@ const NPC_SPEEDS = {
 }
 
 function App() {
+  const controlledRacerId = HUMAN_ASSIGNMENTS[0]
   const [state, setState] = useState('menu')
   const [privacy, setPrivacy] = useState('public')
   const [roundCount, setRoundCount] = useState(5)
@@ -116,14 +117,13 @@ function App() {
     Object.fromEntries(PLAYERS.map((player) => [player, true])),
   )
   const [lastShot, setLastShot] = useState(null)
+  const [shotRacerIds, setShotRacerIds] = useState([])
   const playfieldRef = useRef(null)
   const pressedKeys = useRef({ run: false, walk: false })
   const activeState = STATE_COPY[state]
   const lobbyInProgress = !['menu', 'lobby'].includes(state)
   const activePlayers = lobbyInProgress ? PLAYERS : WAITING_PLAYERS
-  const spectators = lobbyInProgress ? LATE_JOINERS : []
   const movementLocked = state === 'countdown'
-  const controlledRacerId = HUMAN_ASSIGNMENTS[0]
   const roundRacers = useMemo(
     () =>
       LANES.map((lane) => {
@@ -158,13 +158,20 @@ function App() {
   const npcCount = roundRacers.length - humansAssigned.length
   const localPlayerName = PLAYERS[0]
   const localHasBullet = bullets[localPlayerName]
+  const eliminatedHumans = humansAssigned.filter((racer) =>
+    shotRacerIds.includes(racer.id),
+  )
+  const spectators = lobbyInProgress
+    ? [...LATE_JOINERS, ...eliminatedHumans.map((racer) => racer.controller.name)]
+    : []
+  const controlledRacerEliminated = shotRacerIds.includes(controlledRacerId)
 
   useEffect(() => {
-    if (state !== 'playing') {
+    if (state !== 'playing' || controlledRacerEliminated) {
       pressedKeys.current = { run: false, walk: false }
       setMovementMode('stopped')
     }
-  }, [state])
+  }, [controlledRacerEliminated, state])
 
   useEffect(() => {
     const syncMovement = () => {
@@ -185,7 +192,7 @@ function App() {
         return
       }
       event.preventDefault()
-      if (state !== 'playing') {
+      if (state !== 'playing' || controlledRacerEliminated) {
         return
       }
       if (event.code === 'Space') {
@@ -226,10 +233,14 @@ function App() {
       window.removeEventListener('blur', clearMovement)
       document.removeEventListener('visibilitychange', clearMovement)
     }
-  }, [state])
+  }, [controlledRacerEliminated, state])
 
   useEffect(() => {
-    if (state !== 'playing' || movementMode === 'stopped') {
+    if (
+      state !== 'playing' ||
+      movementMode === 'stopped' ||
+      controlledRacerEliminated
+    ) {
       return undefined
     }
     const speed = movementMode === 'running' ? RUN_SPEED : WALK_SPEED
@@ -237,7 +248,7 @@ function App() {
       setControlledProgress((current) => Math.min(current + speed, 28))
     }, TICK_MS)
     return () => window.clearInterval(intervalId)
-  }, [movementMode, state])
+  }, [controlledRacerEliminated, movementMode, state])
 
   useEffect(() => {
     if (state !== 'playing') {
@@ -266,6 +277,7 @@ function App() {
       setNpcTick(0)
       setBullets(Object.fromEntries(PLAYERS.map((player) => [player, true])))
       setLastShot(null)
+      setShotRacerIds([])
       setAim({ x: 68, laneId: controlledRacerId })
     }
     setState(nextState)
@@ -319,6 +331,9 @@ function App() {
       player: localPlayerName,
       laneId: nextAim.laneId,
     })
+    setShotRacerIds((current) =>
+      current.includes(nextAim.laneId) ? current : [...current, nextAim.laneId],
+    )
   }
 
   const renderLobby = () => (
@@ -383,7 +398,11 @@ function App() {
           spectators.map((player) => (
             <div className="player-row" key={player}>
               <span>{player}</span>
-              <small>Next round</small>
+              <small>
+                {eliminatedHumans.some((racer) => racer.controller.name === player)
+                  ? 'Eliminated'
+                  : 'Next round'}
+              </small>
             </div>
           ))
         ) : (
@@ -481,7 +500,7 @@ function App() {
                   {lastShot.player} fired at lane {lastShot.laneId}.
                 </p>
               ) : (
-                <p>Mouse aims. Mouse 1 fires once.</p>
+                <p>Mouse aims. Mouse 1 fires once. Shot racers stay down.</p>
               )}
             </div>
           ) : null}
@@ -510,6 +529,7 @@ function App() {
           {roundRacers.map((lane) => {
             const isHuman = lane.controller.type === 'human'
             const isControlled = lane.id === controlledRacerId
+            const isEliminated = shotRacerIds.includes(lane.id)
             const isRevealed = state === 'roundOver' || state === 'scoreboard'
             const archetypeClass = lane.archetype.toLowerCase()
             const npcStep =
@@ -518,22 +538,31 @@ function App() {
                   lane.npc.pattern.length
               ]
             const npcProgress =
-              !isHuman && state === 'playing'
+              !isHuman && state === 'playing' && !isEliminated
                 ? Math.min(npcTick * NPC_SPEEDS[npcStep], 34)
                 : 0
             const racerProgress =
-              lane.progress + (isControlled ? controlledProgress : npcProgress)
+              lane.progress +
+              (isEliminated
+                ? 0
+                : isControlled
+                  ? controlledProgress
+                  : npcProgress)
             return (
               <div
                 className={[
                   'lane',
                   movementLocked ? 'locked' : '',
                   isControlled ? 'controlled' : '',
+                  isEliminated ? 'eliminated' : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}
                 key={lane.id}
-                style={{ '--depth': lane.depth }}
+                style={{
+                  '--depth': lane.depth,
+                  '--racer-progress': `${racerProgress}%`,
+                }}
               >
                 <span className="lane-number">{lane.id}</span>
                 <span className="lane-stripe" />
@@ -541,8 +570,11 @@ function App() {
                   className={[
                     'racer',
                     `archetype-${archetypeClass}`,
-                    isControlled ? movementMode : '',
-                    !isHuman && state === 'playing' ? npcStep : '',
+                    isEliminated ? 'dead' : '',
+                    isControlled && !isEliminated ? movementMode : '',
+                    !isHuman && state === 'playing' && !isEliminated
+                      ? npcStep
+                      : '',
                   ]
                     .filter(Boolean)
                     .join(' ')}
@@ -553,12 +585,14 @@ function App() {
                   <span className="racer-body" />
                   <span className="racer-shadow" />
                 </span>
+                {isEliminated ? <span className="body-marker">down</span> : null}
                 {isHuman && isRevealed ? (
                   <span className="reveal-tag">{lane.controller.name}</span>
                 ) : null}
                 {isHuman &&
                 state === 'playing' &&
-                bullets[lane.controller.name] ? (
+                bullets[lane.controller.name] &&
+                !isEliminated ? (
                   <span
                     className={`crosshair crosshair-${lane.controller.color}`}
                     style={{

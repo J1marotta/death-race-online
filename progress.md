@@ -45,6 +45,7 @@ Last updated: 2026-07-07
 - Added keyboard movement for the local hidden racer with `Space` walking, `Left Shift` running, stop-on-release, and stale-input clearing.
 - Added local NPC walk/stop/run simulation that can advance NPC racers without giving them shooting behavior.
 - Added mouse aiming, visible human bullet indicators, and one-shot local firing with crosshair hiding after the shot.
+- Added shot-racer elimination with visible bodies and eliminated-human spectator status while the round keeps running.
 
 ## Verification
 
@@ -194,3 +195,15 @@ Last updated: 2026-07-07
 - Updated `todo.md` so the completed aiming and shooting work is no longer listed as remaining work.
 - Tests run: `npm run lint`; `npm run build`.
 - /usage: tokensUsed 690184, timeUsedSeconds 1352.
+
+### task 14 : Build Elimination And Spectating
+
+- Fixed the controlled-racer initialization order so the app can safely initialize aim state.
+- Marked the aimed lane as eliminated when the local player fires.
+- Stopped eliminated racers from moving and hid their crosshairs.
+- Left eliminated racers visible as dead bodies on the track.
+- Moved any human whose racer was shot into the spectator list until the next round reset.
+- Kept the round in `playing` after eliminations.
+- Updated `todo.md` so the completed elimination and spectating work is no longer listed as remaining work.
+- Tests run: `npm run lint`; `npm run build`.
+- /usage: tokensUsed 735190, timeUsedSeconds 1527.

@@ -319,6 +319,12 @@ code {
     rgba(255, 255, 255, calc(0.02 + var(--depth) * 0.006));
 }
 
+.lane.eliminated {
+  background:
+    linear-gradient(90deg, rgba(248, 113, 113, 0.12), transparent 24%),
+    rgba(255, 255, 255, calc(0.02 + var(--depth) * 0.006));
+}
+
 .lane::after {
   content: '';
   position: absolute;
@@ -400,6 +406,31 @@ code {
 
 .racer.running {
   animation: step-bob 180ms steps(2) infinite;
+}
+
+.racer.dead {
+  height: 15px;
+  opacity: 0.68;
+  transform: translate(-50%, -10%) rotate(90deg);
+  animation: none;
+}
+
+.racer.dead .racer-head {
+  margin-top: 0;
+}
+
+.racer.dead .racer-shadow {
+  bottom: -4px;
+}
+
+.body-marker {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--racer-progress, 28%) + 30px);
+  transform: translateY(-50%);
+  color: #fca5a5;
+  font: 800 10px/1 var(--mono);
+  text-transform: uppercase;
 }
 
 @keyframes step-bob {

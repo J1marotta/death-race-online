@@ -257,3 +257,11 @@ Last updated: 2026-07-07
 - Updated `todo.md` so the completed polish work is no longer listed as remaining work.
 - Tests run: `npm run lint`; `npm run build`.
 - /usage: tokensUsed 942757, timeUsedSeconds 2198.
+
+### task 19 : Write WHY
+
+- Added `WHY.md` explaining the project in plain language.
+- Covered the game idea, technical architecture, codebase structure, technology choices, bugs fixed, pitfalls, engineering practices, and next steps.
+- Completed this after active MVP implementation tasks were done and lint/build verification passed.
+- Tests run: `npm run lint`; `npm run build`.
+- /usage: tokensUsed 1207926, timeUsedSeconds 2307.

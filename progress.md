@@ -426,3 +426,11 @@ Last updated: 2026-07-07
 - Kept the remaining open design notes in `spec.md` rather than confusing them with implementation work.
 - Verified the repo still passes `npm run test`; `npm run lint`; `npm run build` before the doc cleanup.
 - /usage: tokensUsed 1815200, timeUsedSeconds 3815.
+
+### task 38 : Unhardcode Lobby Room Labels
+
+- Made the lobby status strip and room copy display the active room code instead of a fixed default label.
+- Added a room-code input so join actions can target an explicit room instead of assuming one hardcoded room.
+- Kept room creation on a generated code path so new lobbies no longer reuse the same baked-in room identity.
+- Verified with `npm run test`; `npm run lint`; `npm run build`.
+- /usage: tokensUsed 1815200, timeUsedSeconds 3815.

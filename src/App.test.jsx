@@ -49,11 +49,13 @@ describe('game controls', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     window.history.pushState({}, '', '/')
-    global.fetch = vi.fn().mockResolvedValue(
-      new Response(
+    global.fetch = vi.fn(async (input) => {
+      const requestUrl = typeof input === 'string' ? input : input.url
+      const roomCode = requestUrl.split('/').pop()
+      return new Response(
         JSON.stringify({
           room: {
-            roomCode: 'DR-2048',
+            roomCode,
             phase: 'lobby',
             players: [
               { name: 'James', id: 'james', role: 'host', connected: true, ready: true },
@@ -74,8 +76,8 @@ describe('game controls', () => {
             'content-type': 'application/json',
           },
         },
-      ),
-    )
+      )
+    })
   })
 
   afterEach(() => {
@@ -139,9 +141,22 @@ describe('game controls', () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
 
+    await waitFor(() => expect(fetch).toHaveBeenCalled())
+    expect(fetch.mock.calls[0][0]).not.toContain('/api/rooms/ABCD')
+    expect(fetch.mock.calls[0][0]).toContain('/api/rooms/DR-')
+  })
+
+  it('lets the join button use the room code field', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
+
+    const roomCodeField = screen.getByLabelText('Room code')
+    fireEvent.change(roomCodeField, { target: { value: 'WXYZ' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Join' }))
+
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/api/rooms/ABCD'),
+        expect.stringContaining('/api/rooms/WXYZ'),
         expect.any(Object),
       ),
     )

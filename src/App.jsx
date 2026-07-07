@@ -156,6 +156,9 @@ const createNpcProgressByLane = () =>
     ])
   )
 
+const generateRoomCode = () =>
+  `DR-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+
 function App() {
   const controlledRacerId = HUMAN_ASSIGNMENTS[0]
   const initialRoomCode = (() => {
@@ -166,6 +169,7 @@ function App() {
   const [privacy, setPrivacy] = useState('public')
   const [roundCount, setRoundCount] = useState(5)
   const [joinName, setJoinName] = useState(PLAYERS[0])
+  const [roomCodeInput, setRoomCodeInput] = useState(initialRoomCode)
   const [roomCode, setRoomCode] = useState(initialRoomCode)
   const [countdownIndex, setCountdownIndex] = useState(0)
   const [movementMode, setMovementMode] = useState('stopped')
@@ -259,6 +263,7 @@ function App() {
   const lobbySpectators = roomSnapshot?.spectators ?? spectators
   const roomReady = roomSnapshot ? canStartRoom(roomSnapshot) : false
   const hostCanStart = state === 'lobby' ? roomReady : true
+  const activeRoomCode = roomSnapshot?.roomCode ?? roomCode
   const roomHostName =
     roomSnapshot?.players.find((player) => player.id === roomSnapshot.hostId)?.name ??
     PLAYERS[0]
@@ -272,7 +277,7 @@ function App() {
   const latestInputSummary = latestInputEntry
     ? `${latestInputEntry[0]} ${latestInputEntry[1]?.movementMode ?? 'stopped'}`
     : 'No live input yet'
-  const currentRoomLink = `${window.location.origin}/join/${roomCode}`
+  const currentRoomLink = `${window.location.origin}/join/${activeRoomCode}`
   const activeStateCopy =
     state === 'roundOver' && roundWinner
       ? {
@@ -472,34 +477,34 @@ function App() {
 
   const statusItems = useMemo(
     () => [
-      ['Room', 'DR-2048'],
-      ['Mode', 'Local prototype'],
+      ['Room', activeRoomCode],
+      ['Mode', 'Room-backed'],
       ['Sync', roomSyncState],
       ['Rounds', `${currentRound} / ${roundCount}`],
       ['Racers', roundRacers.length]
     ],
-    [currentRound, roomSyncState, roundCount, roundRacers.length]
+    [activeRoomCode, currentRound, roomSyncState, roundCount, roundRacers.length]
   )
 
-  const syncRoom = useCallback(async (action, payload = {}) => {
+  const syncRoom = useCallback(async (action, payload = {}, targetRoomCode = roomCode) => {
     try {
       let result
       if (action === 'create') {
-        result = await createRoom(roomCode, payload)
+        result = await createRoom(targetRoomCode, payload)
       } else if (action === 'settings') {
-        result = await updateRoom(roomCode, payload)
+        result = await updateRoom(targetRoomCode, payload)
       } else if (action === 'countdown') {
-        result = await apiStartCountdown(roomCode)
+        result = await apiStartCountdown(targetRoomCode)
       } else if (action === 'next-round') {
-        result = await apiStartNextRound(roomCode)
+        result = await apiStartNextRound(targetRoomCode)
       } else if (action === 'join') {
-        result = await joinRoom(roomCode, payload)
+        result = await joinRoom(targetRoomCode, payload)
       } else if (action === 'ready') {
-        result = await setPlayerReady(roomCode, payload)
+        result = await setPlayerReady(targetRoomCode, payload)
       } else if (action === 'input') {
-        result = await submitPlayerInput(roomCode, payload)
+        result = await submitPlayerInput(targetRoomCode, payload)
       } else {
-        result = await getRoom(roomCode)
+        result = await getRoom(targetRoomCode)
       }
       setRoomSnapshot(result.room)
       setRoomSyncState('connected')
@@ -587,15 +592,18 @@ function App() {
         startNextRound()
         return
       }
-      if (state === 'lobby') {
+      if (state === 'menu') {
         setCurrentRound(1)
         setScores(Object.fromEntries(PLAYERS.map(player => [player, 0])))
         setRoundHistory([])
+        const nextRoomCode = generateRoomCode()
+        setRoomCode(nextRoomCode)
+        setRoomCodeInput(nextRoomCode)
         void syncRoom('create', {
           hostName: PLAYERS[0],
           privacy,
           roundCount,
-        })
+        }, nextRoomCode)
       }
       resetRoundState()
     }
@@ -604,23 +612,26 @@ function App() {
       setScores(Object.fromEntries(PLAYERS.map(player => [player, 0])))
       setRoundHistory([])
       resetRoundState()
+      const nextRoomCode = generateRoomCode()
+      setRoomCode(nextRoomCode)
+      setRoomCodeInput(nextRoomCode)
       void syncRoom('create', {
         hostName: PLAYERS[0],
         privacy,
         roundCount,
-      })
+      }, nextRoomCode)
     }
     setState(nextState)
   }
 
   useEffect(() => {
     const handleUnload = () => {
-      void leaveRoom(ROOM_CODE, { playerName: joinName || PLAYERS[0] })
+      void leaveRoom(roomCode, { playerName: joinName || PLAYERS[0] })
     }
 
     window.addEventListener('beforeunload', handleUnload)
     return () => window.removeEventListener('beforeunload', handleUnload)
-  }, [joinName])
+  }, [joinName, roomCode])
   const advanceCountdown = () => {
     const nextIndex = countdownIndex + 1
     if (nextIndex >= COUNTDOWN_STEPS.length) {
@@ -761,11 +772,18 @@ function App() {
             onChange={(event) => setJoinName(event.target.value)}
             placeholder='Player name'
           />
+          <input
+            aria-label='Room code'
+            value={roomCodeInput}
+            onChange={(event) => setRoomCodeInput(event.target.value.toUpperCase())}
+            placeholder='Room code'
+          />
           <button
             type='button'
             onClick={() => {
-              void syncRoom('join', { playerName: joinName || PLAYERS[0] })
-              setRoomCode(roomCode)
+              const targetRoomCode = roomCodeInput.trim().toUpperCase() || roomCode
+              setRoomCode(targetRoomCode)
+              void syncRoom('join', { playerName: joinName || PLAYERS[0] }, targetRoomCode)
               setState('lobby')
             }}
           >
@@ -871,7 +889,9 @@ function App() {
       >
         {gameFocused ? null : (
           <div className='state-card'>
-            <p className='eyebrow'>{activeStateCopy.eyebrow}</p>
+            <p className='eyebrow'>
+              {state === 'lobby' ? `Lobby ${activeRoomCode}` : activeStateCopy.eyebrow}
+            </p>
             <h2 id='state-title'>{activeStateCopy.title}</h2>
             <p>{activeStateCopy.body}</p>
             {roomSnapshot ? (

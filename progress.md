@@ -10,12 +10,14 @@ Last updated: 2026-07-07
 - Git branch: `codex/task-01-network-scope`
 - Initial commit: `45b2434 Initial Death Race project setup`
 - Planning cleanup commit: `d59ecfb Clean up project planning docs`
-- The app shows an initial Death Race shell with temporary state controls and a 20-lane preview.
+- The app shows the playable Death Race shell with a 20-lane track, local controls, and a mock lobby shell.
 - Dependencies are installed locally.
 - Build output goes to `dist`, which is ignored by git.
 - The old workspace currently contains only a `.git` folder.
 - No Defender source files have been found in the active repo.
 - Remote origin is `https://github.com/J1marotta/death-race-online.git`.
+- Cloudflare Pages is deployed for the front end.
+- A separate Cloudflare Worker is deployed for room coordination.
 
 ## Completed
 
@@ -50,11 +52,18 @@ Last updated: 2026-07-07
 - Added scoreboard, round history, human-only scoring, next-round flow, and game-over flow after the host-selected round count.
 - Added a README manual QA checklist for the playable loop.
 - Polished the 1200px presentation, Death Race favicon/title, racer/crosshair/bullet/body/reveal visuals, and removed unused Vite/React assets.
+- Added a shared multiplayer room-state module for room creation, joining, leaving, settings, countdown, and next-round flow.
+- Added Cloudflare Worker room backend scaffolding and deployed it.
+- Added a browser API wrapper for room create/join/update/countdown/next-round calls.
+- Added tests for the room-state helpers and API wrapper.
 
 ## Verification
 
 - `npm run lint` passed on 2026-07-07 after docs cleanup.
 - `npm run build` passed on 2026-07-07 after docs cleanup.
+- `npm run test` passed after adding the multiplayer room helper and API tests.
+- `npm run lint` passed after adding the multiplayer room helper and API tests.
+- `npm run build` passed after adding the multiplayer room helper and API tests.
 - Confirmed the active repo has baseline commit `45b2434`.
 - Confirmed the old workspace currently contains only `.git`.
 - Confirmed no filenames in the active repo contain `defender`, `defence`, or `defense`.
@@ -265,3 +274,13 @@ Last updated: 2026-07-07
 - Completed this after active MVP implementation tasks were done and lint/build verification passed.
 - Tests run: `npm run lint`; `npm run build`.
 - /usage: tokensUsed 1207926, timeUsedSeconds 2307.
+
+### task 20 : Start Multiplayer Networking
+
+- Added a shared room-state module to centralize room lifecycle logic.
+- Added a Cloudflare Worker room backend using a Durable Object coordinator.
+- Added a browser API wrapper for room operations.
+- Added tests for both the room-state logic and API wrapper.
+- Deployed the backend worker to `https://death-race-rooms.james-marotta.workers.dev`.
+- Verified with `npm run test`; `npm run lint`; `npm run build`.
+- /usage: tokensUsed 1415598, timeUsedSeconds 2438.

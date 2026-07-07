@@ -40,6 +40,7 @@ Last updated: 2026-07-07
 - Added explicit UI states for `menu`, `lobby`, `countdown`, `playing`, `paused`, `roundOver`, `scoreboard`, and `gameOver`.
 - Added a temporary 20-lane race preview sized for the `1200px` laptop target.
 - Added a local mock lobby with room code/link, privacy choice, player roster, round count host controls, start action, and late-joiner spectator display.
+- Upgraded the race preview into a 20-lane playfield with five repeated pixel-art archetypes and depth styling.
 
 ## Verification
 
@@ -132,3 +133,14 @@ Last updated: 2026-07-07
 - Updated `todo.md` so the completed lobby work is no longer listed as remaining work.
 - Tests run: `npm run lint`; `npm run build`.
 - /usage: tokensUsed 381154, timeUsedSeconds 777.
+
+### task 09 : Build Playfield
+
+- Replaced the temporary race preview with a named 20-lane playfield.
+- Added deterministic lane progress/depth values so all 20 lanes fit in one compact track.
+- Added five CSS pixel-art racer archetypes: driver, runner, mask, coat, and cap.
+- Ensured repeated archetypes reuse the same class and visual parts so matching looks are identical.
+- Added stronger finish markers, lane striping, and depth offsets for the laptop-width presentation.
+- Updated `todo.md` so the completed playfield work is no longer listed as remaining work.
+- Tests run: `npm run lint`; `npm run build`.
+- /usage: tokensUsed 467280, timeUsedSeconds 908.

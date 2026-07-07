@@ -10,14 +10,6 @@ This file tracks what is left to do. Design decisions live in `spec.md`; complet
 
 ## Implementation Tasks
 
-### Playfield
-
-- Build a 20-lane no-scroll race layout.
-- Target a polished `1200px` laptop presentation.
-- Add 5 pixel-art character archetypes repeated 4 times.
-- Ensure repeated archetypes are visually identical.
-- Add slight depth/perspective like the reference screenshot.
-
 ### Round Setup
 
 - Fill empty slots with NPCs so each round has exactly 20 racers.

@@ -19,6 +19,8 @@ const ARCHETYPES = ['Driver', 'Runner', 'Mask', 'Coat', 'Cap']
 const LANES = Array.from({ length: 20 }, (_, index) => ({
   id: index + 1,
   archetype: ARCHETYPES[index % ARCHETYPES.length],
+  progress: 13 + (index % 5) * 8 + Math.floor(index / 5) * 3,
+  depth: Math.floor(index / 5),
 }))
 
 const STATE_COPY = {
@@ -238,19 +240,27 @@ function App() {
           )}
         </div>
 
-        <div className="race-preview" aria-label="20 lane race preview">
+        <div className="playfield" aria-label="20 lane race playfield">
           {LANES.map((lane) => {
             const isHuman = lane.id <= PLAYERS.length
             const isRevealed = state === 'roundOver' || state === 'scoreboard'
+            const archetypeClass = lane.archetype.toLowerCase()
             return (
-              <div className="lane" key={lane.id}>
+              <div
+                className="lane"
+                key={lane.id}
+                style={{ '--depth': lane.depth }}
+              >
                 <span className="lane-number">{lane.id}</span>
+                <span className="lane-stripe" />
                 <span
-                  className={`racer archetype-${lane.id % ARCHETYPES.length}`}
-                  style={{ left: `${12 + (lane.id % 5) * 9}%` }}
+                  className={`racer archetype-${archetypeClass}`}
+                  style={{ '--racer-progress': `${lane.progress}%` }}
                   title={lane.archetype}
                 >
-                  {lane.archetype.slice(0, 1)}
+                  <span className="racer-head" />
+                  <span className="racer-body" />
+                  <span className="racer-shadow" />
                 </span>
                 {isHuman && isRevealed ? (
                   <span className="reveal-tag">{PLAYERS[lane.id - 1]}</span>

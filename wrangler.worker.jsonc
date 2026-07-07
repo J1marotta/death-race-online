@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "death-race-rooms",
+  "main": "workers/rooms.js",
+  "compatibility_date": "2026-07-07",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ROOM_LOBBY",
+        "class_name": "RoomLobbyObject"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "RoomLobbyObject"
+      ]
+    }
+  ]
+}

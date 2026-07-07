@@ -301,3 +301,11 @@ Last updated: 2026-07-07
 - Styled the join control so it fits the existing lobby panel.
 - Verified with `npm run test`; `npm run lint`; `npm run build`.
 - /usage: tokensUsed 1501294, timeUsedSeconds 2588.
+
+### task 23 : Clean Cloudflare Config And Movement Speed
+
+- Split the Cloudflare Worker and Pages config into the files Cloudflare expects for each deploy path.
+- Removed the Pages config warning caused by the shared wrangler config shape.
+- Flattened player movement speed to match NPC speed so movement is less of an identity tell.
+- Verified with `npm run test`; `npm run lint`; `npm run build`.
+- /usage: tokensUsed 1518420, timeUsedSeconds 2644.

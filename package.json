@@ -10,9 +10,9 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "preview:cloudflare": "npm run build && wrangler pages dev dist",
-    "deploy:cloudflare": "npm run build && wrangler pages deploy dist --project-name death-race-online",
+    "deploy:cloudflare": "npm run build && wrangler pages deploy dist",
     "dev:rooms": "wrangler dev workers/rooms.js",
-    "deploy:rooms": "wrangler deploy --config wrangler.jsonc"
+    "deploy:rooms": "wrangler deploy --config wrangler.worker.jsonc"
   },
   "dependencies": {
     "react": "^19.2.7",

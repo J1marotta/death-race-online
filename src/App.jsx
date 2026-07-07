@@ -27,7 +27,7 @@ const LANES = Array.from({ length: 20 }, (_, index) => ({
 
 const STATE_COPY = {
   menu: {
-    eyebrow: 'Death Race Online',
+    eyebrow: 'Death race online',
     title: 'Hidden-identity racing with one shot each.',
     body: 'Create a room, fill the grid to 20 racers, and start reading movement tells before anyone reads yours.',
     action: 'Create lobby',
@@ -50,7 +50,7 @@ const STATE_COPY = {
   playing: {
     eyebrow: 'Live round',
     title: 'Walk, run, aim, fire once.',
-    body: 'Space walks, Left Shift runs, mouse aims, Mouse 1 fires. Crosshairs remain visible until the shot is spent.',
+    body: 'Space walks, Left shift runs, mouse aims, Mouse 1 fires. Crosshairs remain visible until the shot is spent.',
     action: 'Waiting for finish',
     next: 'playing',
   },
@@ -65,8 +65,8 @@ const STATE_COPY = {
     eyebrow: 'NPC wins',
     title: 'Everyone gets shamed.',
     body: 'Human-controlled racers are revealed and highlighted before the scoreboard appears.',
-    action: 'Show scoreboard',
-    next: 'scoreboard',
+    action: 'Next round',
+    next: 'countdown',
   },
   scoreboard: {
     eyebrow: 'Scoreboard',
@@ -84,25 +84,45 @@ const STATE_COPY = {
   },
 }
 
+const STATE_LABELS = {
+  menu: 'Menu',
+  lobby: 'Lobby',
+  countdown: 'Countdown',
+  playing: 'Playing',
+  paused: 'Paused',
+  roundOver: 'Round over',
+  scoreboard: 'Scoreboard',
+  gameOver: 'Game over',
+}
+
 const ROOM_CODE = 'DR-2048'
 const ROOM_LINK = `deathrace.local/join/${ROOM_CODE}`
 const ROUND_OPTIONS = [3, 5, 7]
 const COUNTDOWN_STEPS = ['3', '2', '1', 'go']
-const WALK_SPEED = 0.35
-const RUN_SPEED = 0.85
+const WALK_SPEED = 0.018
+const RUN_SPEED = 0.045
 const TICK_MS = 80
 const FINISH_PROGRESS = 88
+const NPC_MAX_PROGRESS = 82
 const NPC_PATTERNS = [
-  ['walk', 'walk', 'stop', 'walk', 'run', 'walk', 'stop'],
-  ['stop', 'walk', 'walk', 'run', 'walk', 'stop', 'walk'],
-  ['walk', 'stop', 'walk', 'walk', 'stop', 'run', 'walk'],
-  ['walk', 'run', 'walk', 'stop', 'walk', 'walk', 'stop'],
+  ['walk', 'walk', 'stop', 'walk', 'walk', 'stop', 'idle'],
+  ['stop', 'walk', 'walk', 'idle', 'walk', 'stop', 'walk'],
+  ['walk', 'idle', 'walk', 'walk', 'stop', 'walk', 'idle'],
+  ['walk', 'walk', 'idle', 'stop', 'walk', 'walk', 'stop'],
 ]
 const NPC_SPEEDS = {
+  idle: 0.006,
   stop: 0,
-  walk: 0.18,
-  run: 0.52,
+  walk: 0.018,
 }
+
+const createNpcProgressByLane = () =>
+  Object.fromEntries(
+    LANES.filter((lane) => !HUMAN_ASSIGNMENTS.includes(lane.id)).map((lane) => [
+      lane.id,
+      lane.progress,
+    ]),
+  )
 
 function App() {
   const controlledRacerId = HUMAN_ASSIGNMENTS[0]
@@ -113,6 +133,9 @@ function App() {
   const [movementMode, setMovementMode] = useState('stopped')
   const [controlledProgress, setControlledProgress] = useState(0)
   const [npcTick, setNpcTick] = useState(0)
+  const [npcProgressByLane, setNpcProgressByLane] = useState(
+    createNpcProgressByLane,
+  )
   const [aim, setAim] = useState({ x: 68, laneId: controlledRacerId })
   const [bullets, setBullets] = useState(() =>
     Object.fromEntries(PLAYERS.map((player) => [player, true])),
@@ -181,17 +204,12 @@ function App() {
       if (racer.id === controlledRacerId) {
         return racer.progress + controlledProgress
       }
-      if (racer.controller.type === 'npc' && state === 'playing') {
-        const npcStep =
-          racer.npc.pattern[
-            (Math.floor(npcTick / 7) + racer.npc.offset) %
-              racer.npc.pattern.length
-          ]
-        return racer.progress + Math.min(npcTick * NPC_SPEEDS[npcStep], 78)
+      if (racer.controller.type === 'npc') {
+        return npcProgressByLane[racer.id] ?? racer.progress
       }
       return racer.progress
     },
-    [controlledProgress, controlledRacerId, npcTick, shotRacerIds, state],
+    [controlledProgress, controlledRacerId, npcProgressByLane, shotRacerIds],
   )
   const rankedPlayers = [...PLAYERS].sort(
     (a, b) => scores[b] - scores[a] || PLAYERS.indexOf(a) - PLAYERS.indexOf(b),
@@ -320,10 +338,34 @@ function App() {
       return undefined
     }
     const intervalId = window.setInterval(() => {
-      setNpcTick((current) => current + 1)
+      setNpcTick((current) => {
+        const nextTick = current + 1
+        setNpcProgressByLane((progressByLane) =>
+          Object.fromEntries(
+            roundRacers
+              .filter((racer) => racer.controller.type === 'npc')
+              .map((racer) => {
+                if (shotRacerIds.includes(racer.id)) {
+                  return [racer.id, progressByLane[racer.id] ?? racer.progress]
+                }
+                const step =
+                  racer.npc.pattern[
+                    (Math.floor(nextTick / 22) + racer.npc.offset) %
+                      racer.npc.pattern.length
+                  ]
+                const laneDrag = 0.78 + racer.depth * 0.05
+                const nextProgress =
+                  (progressByLane[racer.id] ?? racer.progress) +
+                  NPC_SPEEDS[step] * laneDrag
+                return [racer.id, Math.min(nextProgress, NPC_MAX_PROGRESS)]
+              }),
+          ),
+        )
+        return nextTick
+      })
     }, TICK_MS)
     return () => window.clearInterval(intervalId)
-  }, [state])
+  }, [roundRacers, shotRacerIds, state])
 
   useEffect(() => {
     if (state !== 'playing' || roundWinner) {
@@ -382,6 +424,7 @@ function App() {
     setCountdownIndex(0)
     setControlledProgress(0)
     setNpcTick(0)
+    setNpcProgressByLane(createNpcProgressByLane())
     setBullets(Object.fromEntries(PLAYERS.map((player) => [player, true])))
     setLastShot(null)
     setShotRacerIds([])
@@ -401,7 +444,7 @@ function App() {
 
   const moveToState = (nextState) => {
     if (nextState === 'countdown') {
-      if (state === 'scoreboard') {
+      if (state === 'roundOver' || state === 'scoreboard') {
         startNextRound()
         return
       }
@@ -476,9 +519,15 @@ function App() {
   const renderLobby = () => (
     <div className="lobby-panel" aria-label="Lobby controls">
       <div className="room-card">
-        <span>Room code</span>
+        <span>{lobbyInProgress ? 'Room status' : 'Room code'}</span>
         <strong>{ROOM_CODE}</strong>
-        <code>{ROOM_LINK}</code>
+        <code>
+          {state === 'lobby'
+            ? `${privacy} lobby, waiting to start`
+            : lobbyInProgress
+              ? `${STATE_LABELS[state]} in progress`
+              : ROOM_LINK}
+        </code>
       </div>
 
       <div className="control-group">
@@ -521,7 +570,9 @@ function App() {
         {activePlayers.map((player, index) => (
           <div className="player-row" key={player}>
             <span>{player}</span>
-            <small>{index === 0 ? 'Host' : 'Ready'}</small>
+            <small>
+              {index === 0 ? 'Host' : lobbyInProgress ? 'In round' : 'Ready'}
+            </small>
           </div>
         ))}
       </div>
@@ -553,7 +604,7 @@ function App() {
         onClick={() => moveToState('countdown')}
         disabled={lobbyInProgress}
       >
-        {lobbyInProgress ? 'Round in progress' : 'Start round'}
+        {lobbyInProgress ? `${STATE_LABELS[state]} in progress` : 'Start round'}
       </button>
     </div>
   )
@@ -562,7 +613,7 @@ function App() {
     <main className="app-shell">
       <header className="top-bar">
         <div>
-          <p className="eyebrow">Death Race</p>
+          <p className="eyebrow">Death race</p>
           <h1>Read the racer, hide the tell.</h1>
         </div>
         <div className="state-tabs" aria-label="Game state controls">
@@ -573,7 +624,7 @@ function App() {
               className={item === state ? 'active' : ''}
               onClick={() => moveToState(item)}
             >
-              {item}
+              {STATE_LABELS[item]}
             </button>
           ))}
         </div>
@@ -615,7 +666,7 @@ function App() {
             <div className="npc-summary" aria-label="NPC behavior">
               <span>NPC behavior</span>
               <strong>{npcCount} racers thinking</strong>
-              <p>Walk, pause, and occasional run patterns. NPCs never shoot.</p>
+              <p>Lane-locked walk and pause patterns. NPCs never shoot.</p>
             </div>
           ) : null}
           {state === 'playing' ? (
@@ -712,9 +763,10 @@ function App() {
             const archetypeClass = lane.archetype.toLowerCase()
             const npcStep =
               lane.npc.pattern[
-                (Math.floor(npcTick / 7) + lane.npc.offset) %
+                (Math.floor(npcTick / 22) + lane.npc.offset) %
                   lane.npc.pattern.length
               ]
+            const npcMotionClass = npcStep === 'walk' ? 'walking' : ''
             const racerProgress =
               isWinner && roundWinner.finalProgress
                 ? roundWinner.finalProgress
@@ -746,7 +798,7 @@ function App() {
                     isEliminated ? 'dead' : '',
                     isControlled && !isEliminated ? movementMode : '',
                     !isHuman && state === 'playing' && !isEliminated
-                      ? npcStep
+                      ? npcMotionClass
                       : '',
                   ]
                     .filter(Boolean)

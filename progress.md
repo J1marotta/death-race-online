@@ -80,3 +80,11 @@ Last updated: 2026-07-07
 - Updated `spec.md` and `todo.md` to reflect the decision.
 - Tests run: `npm run lint`; `npm run build`.
 - /usage: tokensUsed 212065, timeUsedSeconds 198.
+
+### task 04 : Decide Mobile Tablet Support
+
+- Decision: target desktop/laptop for MVP; defer mobile and tablet controls until the `1200px` laptop loop works.
+- Reason: the recovered design is built around 20 no-scroll lanes, mouse aiming, visible crosshairs, `Space`, and `Left Shift`, so desktop/laptop is the cleanest first playable target.
+- Updated `spec.md` and `todo.md` to reflect the decision.
+- Tests run: `npm run lint`; `npm run build`.
+- /usage: tokensUsed 217439, timeUsedSeconds 253.

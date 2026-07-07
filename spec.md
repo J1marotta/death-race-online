@@ -104,6 +104,7 @@ Running has no stamina, cooldown, noise meter, or extra UI. The risk is behavior
 - MVP implementation scope: start as a local/single-browser prototype with mocked lobby UI and local simulated players.
 - MVP backend choice: no backend for the first playable loop; use local in-memory state only.
 - MVP deployment target: none yet; use local Vite development/preview while building the playable loop.
+- MVP platform target: desktop/laptop first; mobile and tablet controls are deferred until the laptop loop works.
 - Keep lobby, player, and round state behind small modules so real-time networking can replace the local/mock transport later.
 - Do not add a backend, websocket server, persistence layer, or deployment-specific code until the playable loop exists and the backend/deployment target is chosen.
 - Use a renderer that can support 20 visible pixel-art lanes, mouse crosshairs, dead bodies, and reveal highlights at the `1200px` target.
@@ -112,6 +113,5 @@ Running has no stamina, cooldown, noise meter, or extra UI. The risk is behavior
 
 ## Open Design Decisions
 
-- Whether mobile/tablet support matters for MVP.
 - Exact scoreboard point values beyond multi-round results.
 - Exact Defender source location and whether it should connect to this MVP at all.

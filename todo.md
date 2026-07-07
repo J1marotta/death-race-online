@@ -4,7 +4,6 @@ This file tracks what is left to do. Design decisions live in `spec.md`; complet
 
 ## Next Decisions
 
-- Decide whether mobile/tablet support matters for MVP.
 - Decide exact scoreboard point values.
 - Locate or confirm the protected Defender source, if it exists outside this repo.
 
@@ -113,7 +112,7 @@ This file tracks what is left to do. Design decisions live in `spec.md`; complet
 
 - Persistent accounts.
 - Persistent scores across sessions.
-- Mobile/tablet controls.
+- Mobile/tablet controls after the desktop/laptop MVP loop works.
 - Advanced art pipeline.
 - Sound.
 - Backend, persistence, real-time networking, and deployment work until the local/single-browser MVP loop exists.

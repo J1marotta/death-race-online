@@ -17,6 +17,19 @@ npm run preview
 - `progress.md`: completed work and current state.
 - `todo.md`: remaining work.
 
+## Manual QA
+
+Run `npm run dev`, open the local Vite URL, and check:
+
+- Lobby shows room code, privacy controls, player names, round count, and start action.
+- Countdown blocks movement and shooting until `go`.
+- `Space` walks and `Left Shift` runs the local hidden racer during play.
+- Mouse movement aims the local crosshair; Mouse 1 fires once and hides it.
+- Shot racers stay visible as bodies and eliminated humans become spectators.
+- A round ends only when a non-eliminated racer reaches the finish.
+- Human winners get 1 point; NPC winners get 0 human points.
+- Scoreboard can start the next round and the match ends after the selected round count.
+
 ## Guardrail
 
 Do not overwrite, delete, replace, or casually refactor existing Defender code. Locate and document Defender source files before any integration work.

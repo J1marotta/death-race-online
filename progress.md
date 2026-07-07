@@ -48,6 +48,7 @@ Last updated: 2026-07-07
 - Added shot-racer elimination with visible bodies and eliminated-human spectator status while the round keeps running.
 - Added finish-line winner detection with human/NPC winner flows, NPC shame copy, and post-round human reveal highlighting.
 - Added scoreboard, round history, human-only scoring, next-round flow, and game-over flow after the host-selected round count.
+- Added a README manual QA checklist for the playable loop.
 
 ## Verification
 
@@ -235,3 +236,10 @@ Last updated: 2026-07-07
 - Updated `todo.md` so the completed scoreboard and rounds work is no longer listed as remaining work.
 - Tests run: `npm run lint`; `npm run build`.
 - /usage: tokensUsed 848306, timeUsedSeconds 1933.
+
+### task 17 : Add Manual QA Checklist
+
+- Added a manual QA checklist to `README.md` covering lobby, countdown, movement, aiming/shooting, eliminations, winner flow, scoreboard, and match end.
+- Updated `todo.md` so the completed manual QA checklist work is no longer listed as remaining work.
+- Tests run: `npm run lint`; `npm run build`.
+- /usage: tokensUsed 890114, timeUsedSeconds 2022.

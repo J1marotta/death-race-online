@@ -4,7 +4,6 @@ This file tracks what is left to do. Design decisions live in `spec.md`; complet
 
 ## Setup And Documentation
 
-- Add a manual QA checklist once gameplay exists.
 - Keep `npm run lint` passing.
 - Keep `npm run build` passing.
 

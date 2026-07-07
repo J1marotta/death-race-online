@@ -13,10 +13,11 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 
 ## Lobby And Match
 
-- Players join through a room code/link.
+- Players join through a shareable room code/link.
 - Lobbies can be public or private.
 - The host chooses the number of rounds.
 - The host manually starts each round.
+- Connected players see the same lobby, countdown, round, and scoreboard state.
 - Late joiners spectate until the next round.
 - Player names are visible in the lobby and scoreboard.
 - Player names are not attached to racers during live gameplay.
@@ -103,16 +104,17 @@ Running has no stamina, cooldown, noise meter, or extra UI. The risk is behavior
 - Current app stack is React + Vite + JavaScript + npm + Oxlint.
 - React should own shell UI, lobby, scoreboard, and top-level state.
 - High-frequency gameplay should be isolated from ordinary React UI rendering where practical.
-- MVP implementation scope: start as a local/single-browser prototype with mocked lobby UI and local simulated players.
-- MVP backend choice: no backend for the first playable loop; use local in-memory state only.
-- MVP deployment target: none yet; use local Vite development/preview while building the playable loop.
+- MVP implementation scope: start from the playable loop, then replace the mocked lobby with real shared multiplayer state.
+- MVP backend choice: real-time server state is required for friends to join and play in the same room.
+- MVP deployment target: deploy the multiplayer game so friends can reach the same hosted room.
 - MVP platform target: desktop/laptop first; mobile and tablet controls are deferred until the laptop loop works.
-- Keep lobby, player, and round state behind small modules so real-time networking can replace the local/mock transport later.
-- Do not add a backend, websocket server, persistence layer, or deployment-specific code until the playable loop exists and the backend/deployment target is chosen.
+- Keep lobby, player, and round state behind small modules so real-time networking can own the authoritative session later.
+- Add a backend, realtime transport, and deployment-specific code when implementing joinable multiplayer.
 - Use a renderer that can support 20 visible pixel-art lanes, mouse crosshairs, dead bodies, and reveal highlights at the `1200px` target.
 - Keep all gameplay constants easy to tune.
 - Defender integration must wait until the user provides or identifies Defender source files. No Defender source was found in the active repo or old workspace.
 
 ## Open Design Decisions
 
-- Whether Defender should connect to this MVP at all if the user later provides its source.
+- Which realtime transport and server model to use for shared lobbies and round sync.
+- Whether Defender should connect to this game at all if the user later provides its source.

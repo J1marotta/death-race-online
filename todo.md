@@ -10,14 +10,6 @@ This file tracks what is left to do. Design decisions live in `spec.md`; complet
 
 ## Implementation Tasks
 
-### Lobby
-
-- Add create/join lobby UI with room code/link.
-- Support public/private lobby choice.
-- Show player names in the lobby.
-- Add host controls for round count and start.
-- Represent late joiners as spectators once a round is in progress.
-
 ### Playfield
 
 - Build a 20-lane no-scroll race layout.

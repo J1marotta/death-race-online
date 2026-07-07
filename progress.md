@@ -39,6 +39,7 @@ Last updated: 2026-07-07
 - Replaced the default Vite starter screen with the initial Death Race app shell.
 - Added explicit UI states for `menu`, `lobby`, `countdown`, `playing`, `paused`, `roundOver`, `scoreboard`, and `gameOver`.
 - Added a temporary 20-lane race preview sized for the `1200px` laptop target.
+- Added a local mock lobby with room code/link, privacy choice, player roster, round count host controls, start action, and late-joiner spectator display.
 
 ## Verification
 
@@ -120,3 +121,14 @@ Last updated: 2026-07-07
 - Updated `todo.md` so the completed app shell work is no longer listed as remaining work.
 - Tests run: `npm run lint`; `npm run build`.
 - /usage: tokensUsed 254163, timeUsedSeconds 592.
+
+### task 08 : Build Lobby UI
+
+- Added local create/join lobby details with room code `DR-2048` and a mock room link.
+- Added public/private lobby selection.
+- Added visible player names in the lobby with host/ready labels.
+- Added host round-count controls and a start-round action.
+- Added late joiner handling by showing a spectator list once a round is in progress.
+- Updated `todo.md` so the completed lobby work is no longer listed as remaining work.
+- Tests run: `npm run lint`; `npm run build`.
+- /usage: tokensUsed 381154, timeUsedSeconds 777.

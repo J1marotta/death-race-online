@@ -13,6 +13,8 @@ const STATES = [
 ]
 
 const PLAYERS = ['James', 'Mia', 'Noah', 'Ava']
+const WAITING_PLAYERS = ['James', 'Mia', 'Noah', 'Ava', 'Theo']
+const LATE_JOINERS = ['Riley']
 const ARCHETYPES = ['Driver', 'Runner', 'Mask', 'Coat', 'Cap']
 const LANES = Array.from({ length: 20 }, (_, index) => ({
   id: index + 1,
@@ -78,23 +80,113 @@ const STATE_COPY = {
   },
 }
 
+const ROOM_CODE = 'DR-2048'
+const ROOM_LINK = `deathrace.local/join/${ROOM_CODE}`
+const ROUND_OPTIONS = [3, 5, 7]
+
 function App() {
   const [state, setState] = useState('menu')
+  const [privacy, setPrivacy] = useState('public')
+  const [roundCount, setRoundCount] = useState(5)
   const activeState = STATE_COPY[state]
+  const lobbyInProgress = !['menu', 'lobby'].includes(state)
+  const activePlayers = lobbyInProgress ? PLAYERS : WAITING_PLAYERS
+  const spectators = lobbyInProgress ? LATE_JOINERS : []
 
   const statusItems = useMemo(
     () => [
       ['Room', 'DR-2048'],
       ['Mode', 'Local prototype'],
-      ['Rounds', '1 / 5'],
-      ['Racers', '20'],
+      ['Rounds', `1 / ${roundCount}`],
+      ['Humans', activePlayers.length],
     ],
-    [],
+    [activePlayers.length, roundCount],
   )
 
   const moveToState = (nextState) => {
     setState(nextState)
   }
+
+  const renderLobby = () => (
+    <div className="lobby-panel" aria-label="Lobby controls">
+      <div className="room-card">
+        <span>Room code</span>
+        <strong>{ROOM_CODE}</strong>
+        <code>{ROOM_LINK}</code>
+      </div>
+
+      <div className="control-group">
+        <span>Privacy</span>
+        <div className="segmented-control" aria-label="Lobby privacy">
+          {['public', 'private'].map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={privacy === option ? 'active' : ''}
+              onClick={() => setPrivacy(option)}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="control-group">
+        <span>Rounds</span>
+        <div className="round-options" aria-label="Round count">
+          {ROUND_OPTIONS.map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={roundCount === option ? 'active' : ''}
+              onClick={() => setRoundCount(option)}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="player-list" aria-label="Lobby players">
+        <div className="list-heading">
+          <span>Players</span>
+          <strong>{activePlayers.length}/20</strong>
+        </div>
+        {activePlayers.map((player, index) => (
+          <div className="player-row" key={player}>
+            <span>{player}</span>
+            <small>{index === 0 ? 'Host' : 'Ready'}</small>
+          </div>
+        ))}
+      </div>
+
+      <div className="player-list spectator-list" aria-label="Spectators">
+        <div className="list-heading">
+          <span>Spectators</span>
+          <strong>{spectators.length}</strong>
+        </div>
+        {spectators.length > 0 ? (
+          spectators.map((player) => (
+            <div className="player-row" key={player}>
+              <span>{player}</span>
+              <small>Next round</small>
+            </div>
+          ))
+        ) : (
+          <p>No late joiners yet.</p>
+        )}
+      </div>
+
+      <button
+        type="button"
+        className="host-start"
+        onClick={() => moveToState('countdown')}
+        disabled={lobbyInProgress}
+      >
+        {lobbyInProgress ? 'Round in progress' : 'Start round'}
+      </button>
+    </div>
+  )
 
   return (
     <main className="app-shell">
@@ -131,16 +223,19 @@ function App() {
           <p className="eyebrow">{activeState.eyebrow}</p>
           <h2 id="state-title">{activeState.title}</h2>
           <p>{activeState.body}</p>
-          <div className="actions">
-            <button type="button" onClick={() => moveToState(activeState.next)}>
-              {activeState.action}
-            </button>
-            {state === 'playing' ? (
-              <button type="button" onClick={() => moveToState('paused')}>
-                Pause
+          {state !== 'menu' ? renderLobby() : null}
+          {state === 'lobby' ? null : (
+            <div className="actions">
+              <button type="button" onClick={() => moveToState(activeState.next)}>
+                {activeState.action}
               </button>
-            ) : null}
-          </div>
+              {state === 'playing' ? (
+                <button type="button" onClick={() => moveToState('paused')}>
+                  Pause
+                </button>
+              ) : null}
+            </div>
+          )}
         </div>
 
         <div className="race-preview" aria-label="20 lane race preview">

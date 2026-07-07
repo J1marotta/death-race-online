@@ -57,6 +57,26 @@ export function updateRoom(roomCode, payload) {
   })
 }
 
+export function setPlayerReady(roomCode, payload) {
+  return requestJson(roomCode, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'ready',
+      ...payload,
+    }),
+  })
+}
+
+export function submitPlayerInput(roomCode, payload) {
+  return requestJson(roomCode, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'input',
+      ...payload,
+    }),
+  })
+}
+
 export function startCountdown(roomCode) {
   return requestJson(roomCode, {
     method: 'POST',

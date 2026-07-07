@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createRoom, getRoom, joinRoom, startCountdown } from './api'
+import {
+  createRoom,
+  getRoom,
+  joinRoom,
+  setPlayerReady,
+  submitPlayerInput,
+  startCountdown,
+  startNextRound,
+} from './api'
 
 describe('multiplayer api', () => {
   beforeEach(() => {
@@ -64,6 +72,54 @@ describe('multiplayer api', () => {
     )
 
     const result = await getRoom('DR-2048')
+
+    expect(result.room.roomCode).toBe('DR-2048')
+  })
+
+  it('marks players ready through the api', async () => {
+    fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ room: { roomCode: 'DR-2048', players: [] } }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+        },
+      }),
+    )
+
+    const result = await setPlayerReady('DR-2048', { playerName: 'Mia', ready: true })
+
+    expect(result.room.roomCode).toBe('DR-2048')
+  })
+
+  it('starts the next round through the api', async () => {
+    fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ room: { roomCode: 'DR-2048', round: 2 } }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+        },
+      }),
+    )
+
+    const result = await startNextRound('DR-2048')
+
+    expect(result.room.round).toBe(2)
+  })
+
+  it('submits player input through the api', async () => {
+    fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ room: { roomCode: 'DR-2048', inputs: {} } }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+        },
+      }),
+    )
+
+    const result = await submitPlayerInput('DR-2048', {
+      playerName: 'Mia',
+      movementMode: 'running',
+    })
 
     expect(result.room.roomCode).toBe('DR-2048')
   })

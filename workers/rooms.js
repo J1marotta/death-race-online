@@ -2,10 +2,15 @@ import {
   createRoomState,
   joinRoomState,
   leaveRoomState,
+  pruneDisconnectedPlayers,
   serializeRoom,
+  setPlayerReadyState,
+  setPlayerInputState,
   startNextRound,
   startRoomCountdown,
   updateRoomSettings,
+  canStartRoom,
+  touchRoomPlayers,
 } from '../src/multiplayer/roomState.js'
 
 function json(data, status = 200) {
@@ -30,7 +35,7 @@ class RoomLobbyObject {
   async loadRoom(roomCode) {
     const existing = await this.state.storage.get('room')
     if (existing) {
-      return existing
+      return pruneDisconnectedPlayers(existing)
     }
     const created = createRoomState({
       roomCode,
@@ -50,7 +55,9 @@ class RoomLobbyObject {
     const room = await this.loadRoom(roomCode)
 
     if (request.method === 'GET') {
-      return json({ room: serializeRoom(room) })
+      const nextRoom = pruneDisconnectedPlayers(room)
+      await this.saveRoom(nextRoom)
+      return json({ room: serializeRoom(nextRoom) })
     }
 
     if (request.method !== 'POST') {
@@ -72,13 +79,17 @@ class RoomLobbyObject {
     }
 
     if (action === 'join') {
-      const nextRoom = joinRoomState(room, body.playerName ?? 'Player')
+      const nextRoom = pruneDisconnectedPlayers(
+        touchRoomPlayers(joinRoomState(room, body.playerName ?? 'Player')),
+      )
       await this.saveRoom(nextRoom)
       return json({ room: serializeRoom(nextRoom) })
     }
 
     if (action === 'leave') {
-      const nextRoom = leaveRoomState(room, body.playerName ?? 'Player')
+      const nextRoom = pruneDisconnectedPlayers(
+        touchRoomPlayers(leaveRoomState(room, body.playerName ?? 'Player')),
+      )
       await this.saveRoom(nextRoom)
       return json({ room: serializeRoom(nextRoom) })
     }
@@ -93,6 +104,9 @@ class RoomLobbyObject {
     }
 
     if (action === 'countdown') {
+      if (!canStartRoom(room)) {
+        return json({ error: 'Room is not ready' }, 400)
+      }
       const nextRoom = startRoomCountdown(room)
       await this.saveRoom(nextRoom)
       return json({ room: serializeRoom(nextRoom) })
@@ -100,6 +114,30 @@ class RoomLobbyObject {
 
     if (action === 'next-round') {
       const nextRoom = startNextRound(room)
+      await this.saveRoom(nextRoom)
+      return json({ room: serializeRoom(nextRoom) })
+    }
+
+    if (action === 'ready') {
+      const nextRoom = pruneDisconnectedPlayers(
+        touchRoomPlayers(
+          setPlayerReadyState(room, body.playerName ?? 'Player', body.ready ?? true),
+        ),
+      )
+      await this.saveRoom(nextRoom)
+      return json({ room: serializeRoom(nextRoom) })
+    }
+
+    if (action === 'input') {
+      const nextRoom = pruneDisconnectedPlayers(
+        touchRoomPlayers(
+          setPlayerInputState(room, body.playerName ?? 'Player', {
+            movementMode: body.movementMode ?? 'stopped',
+            aim: body.aim ?? null,
+            firing: body.firing ?? false,
+          }),
+        ),
+      )
       await this.saveRoom(nextRoom)
       return json({ room: serializeRoom(nextRoom) })
     }

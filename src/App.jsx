@@ -4,9 +4,14 @@ import {
   createRoom,
   getRoom,
   joinRoom,
+  leaveRoom,
   startCountdown as apiStartCountdown,
+  startNextRound as apiStartNextRound,
+  setPlayerReady,
+  submitPlayerInput,
   updateRoom,
 } from './multiplayer/api'
+import { canStartRoom } from './multiplayer/roomState'
 
 const STATES = [
   'menu',
@@ -123,7 +128,6 @@ const STATE_LABELS = {
 }
 
 const ROOM_CODE = 'DR-2048'
-const ROOM_LINK = `deathrace.local/join/${ROOM_CODE}`
 const ROUND_OPTIONS = [3, 5, 7]
 const COUNTDOWN_STEPS = ['3', '2', '1', 'go']
 const WALK_SPEED = 0.018
@@ -154,10 +158,15 @@ const createNpcProgressByLane = () =>
 
 function App() {
   const controlledRacerId = HUMAN_ASSIGNMENTS[0]
+  const initialRoomCode = (() => {
+    const match = window.location.pathname.match(/\/join\/([^/]+)/)
+    return match?.[1]?.toUpperCase() ?? ROOM_CODE
+  })()
   const [state, setState] = useState('menu')
   const [privacy, setPrivacy] = useState('public')
   const [roundCount, setRoundCount] = useState(5)
   const [joinName, setJoinName] = useState(PLAYERS[0])
+  const [roomCode, setRoomCode] = useState(initialRoomCode)
   const [countdownIndex, setCountdownIndex] = useState(0)
   const [movementMode, setMovementMode] = useState('stopped')
   const [controlledProgress, setControlledProgress] = useState(0)
@@ -246,6 +255,24 @@ function App() {
   const rankedPlayers = [...PLAYERS].sort(
     (a, b) => scores[b] - scores[a] || PLAYERS.indexOf(a) - PLAYERS.indexOf(b)
   )
+  const lobbyPlayers = roomSnapshot?.players ?? []
+  const lobbySpectators = roomSnapshot?.spectators ?? spectators
+  const roomReady = roomSnapshot ? canStartRoom(roomSnapshot) : false
+  const hostCanStart = state === 'lobby' ? roomReady : true
+  const roomHostName =
+    roomSnapshot?.players.find((player) => player.id === roomSnapshot.hostId)?.name ??
+    PLAYERS[0]
+  const latestInputEntry = roomSnapshot
+    ? Object.entries(roomSnapshot.inputs ?? {}).sort(
+        (a, b) =>
+          new Date(b[1]?.updatedAt ?? 0).getTime() -
+          new Date(a[1]?.updatedAt ?? 0).getTime(),
+      )[0]
+    : null
+  const latestInputSummary = latestInputEntry
+    ? `${latestInputEntry[0]} ${latestInputEntry[1]?.movementMode ?? 'stopped'}`
+    : 'No live input yet'
+  const currentRoomLink = `${window.location.origin}/join/${roomCode}`
   const activeStateCopy =
     state === 'roundOver' && roundWinner
       ? {
@@ -458,15 +485,21 @@ function App() {
     try {
       let result
       if (action === 'create') {
-        result = await createRoom(ROOM_CODE, payload)
+        result = await createRoom(roomCode, payload)
       } else if (action === 'settings') {
-        result = await updateRoom(ROOM_CODE, payload)
+        result = await updateRoom(roomCode, payload)
       } else if (action === 'countdown') {
-        result = await apiStartCountdown(ROOM_CODE)
+        result = await apiStartCountdown(roomCode)
+      } else if (action === 'next-round') {
+        result = await apiStartNextRound(roomCode)
       } else if (action === 'join') {
-        result = await joinRoom(ROOM_CODE, payload)
+        result = await joinRoom(roomCode, payload)
+      } else if (action === 'ready') {
+        result = await setPlayerReady(roomCode, payload)
+      } else if (action === 'input') {
+        result = await submitPlayerInput(roomCode, payload)
       } else {
-        result = await getRoom(ROOM_CODE)
+        result = await getRoom(roomCode)
       }
       setRoomSnapshot(result.room)
       setRoomSyncState('connected')
@@ -475,7 +508,56 @@ function App() {
       setRoomSyncState('offline')
       return null
     }
-  }, [])
+  }, [roomCode])
+
+  useEffect(() => {
+    if (!['lobby', 'countdown', 'playing'].includes(state)) {
+      return undefined
+    }
+
+    void syncRoom('input', {
+      playerName: joinName || PLAYERS[0],
+      movementMode,
+      aim,
+      firing: !localHasBullet,
+    })
+  }, [aim, joinName, localHasBullet, movementMode, state, syncRoom])
+
+  useEffect(() => {
+    if (state !== 'lobby') {
+      return undefined
+    }
+
+    let active = true
+    const hydrateRoom = async () => {
+      const room = await syncRoom('join', { playerName: joinName || PLAYERS[0] })
+      if (!active || !room) {
+        return
+      }
+      setRoomSnapshot(room)
+      setRoomCode(room.roomCode || roomCode)
+    }
+
+    void hydrateRoom()
+    return () => {
+      active = false
+      void leaveRoom(roomCode, { playerName: joinName || PLAYERS[0] })
+    }
+  }, [joinName, roomCode, state, syncRoom])
+
+  useEffect(() => {
+    if (!['lobby', 'countdown', 'roundOver', 'scoreboard'].includes(state)) {
+      return undefined
+    }
+
+    const refreshRoom = () => {
+      void syncRoom('get')
+    }
+
+    refreshRoom()
+    const intervalId = window.setInterval(refreshRoom, 3000)
+    return () => window.clearInterval(intervalId)
+  }, [state, syncRoom])
 
   const resetRoundState = () => {
     setCountdownIndex(0)
@@ -493,7 +575,7 @@ function App() {
       setState('gameOver')
       return
     }
-    void syncRoom('settings', { privacy, roundCount })
+    void syncRoom('next-round')
     setCurrentRound(round => round + 1)
     resetRoundState()
     setState('countdown')
@@ -530,6 +612,15 @@ function App() {
     }
     setState(nextState)
   }
+
+  useEffect(() => {
+    const handleUnload = () => {
+      void leaveRoom(ROOM_CODE, { playerName: joinName || PLAYERS[0] })
+    }
+
+    window.addEventListener('beforeunload', handleUnload)
+    return () => window.removeEventListener('beforeunload', handleUnload)
+  }, [joinName])
   const advanceCountdown = () => {
     const nextIndex = countdownIndex + 1
     if (nextIndex >= COUNTDOWN_STEPS.length) {
@@ -581,6 +672,12 @@ function App() {
       ...current,
       [localPlayerName]: false
     }))
+    void syncRoom('input', {
+      playerName: joinName || PLAYERS[0],
+      movementMode,
+      aim: nextAim,
+      firing: true,
+    })
     if (shotHits) {
       setShotRacerIds(current =>
         current.includes(nextAim.laneId)
@@ -594,13 +691,13 @@ function App() {
     <div className='lobby-panel' aria-label='Lobby controls'>
       <div className='room-card'>
         <span>{lobbyInProgress ? 'Room status' : 'Room code'}</span>
-        <strong>{ROOM_CODE}</strong>
+        <strong>{roomCode}</strong>
         <code>
           {state === 'lobby'
             ? `${privacy} lobby, waiting to start`
             : lobbyInProgress
               ? `${STATE_LABELS[state]} in progress`
-              : ROOM_LINK}
+              : currentRoomLink}
         </code>
       </div>
 
@@ -608,9 +705,13 @@ function App() {
         type='button'
         className='host-start'
         onClick={() => moveToState('countdown')}
-        disabled={lobbyInProgress}
+        disabled={lobbyInProgress || !hostCanStart}
       >
-        {lobbyInProgress ? `${STATE_LABELS[state]} in progress` : 'Start round'}
+        {lobbyInProgress
+          ? `${STATE_LABELS[state]} in progress`
+          : !hostCanStart
+            ? 'Waiting for room'
+            : 'Start round'}
       </button>
 
       <div className='control-group'>
@@ -664,6 +765,7 @@ function App() {
             type='button'
             onClick={() => {
               void syncRoom('join', { playerName: joinName || PLAYERS[0] })
+              setRoomCode(roomCode)
               setState('lobby')
             }}
           >
@@ -672,16 +774,37 @@ function App() {
         </div>
       </div>
 
+      <button
+        type='button'
+        className='host-start'
+        onClick={() =>
+          void syncRoom('ready', {
+            playerName: joinName || PLAYERS[0],
+            ready: true,
+          })
+        }
+      >
+        Ready up
+      </button>
+
       <div className='player-list' aria-label='Lobby players'>
         <div className='list-heading'>
           <span>Players</span>
-          <strong>{activePlayers.length}/20</strong>
+          <strong>{(lobbyPlayers.length || activePlayers.length)}/20</strong>
         </div>
-        {activePlayers.map((player, index) => (
-          <div className='player-row' key={player}>
-            <span>{player}</span>
+        {(lobbyPlayers.length ? lobbyPlayers : activePlayers).map((player) => (
+          <div className='player-row' key={player.name ?? player}>
+            <span>{player.name ?? player}</span>
             <small>
-              {index === 0 ? 'Host' : lobbyInProgress ? 'In round' : 'Ready'}
+              {player.role === 'host'
+                ? 'Host'
+                : lobbyInProgress
+                  ? player.connected === false
+                    ? 'Disconnected'
+                    : 'In round'
+                  : player.connected === false
+                    ? 'Left'
+                    : 'Ready'}
             </small>
           </div>
         ))}
@@ -690,10 +813,10 @@ function App() {
       <div className='player-list spectator-list' aria-label='Spectators'>
         <div className='list-heading'>
           <span>Spectators</span>
-          <strong>{spectators.length}</strong>
+          <strong>{lobbySpectators.length}</strong>
         </div>
-        {spectators.length > 0 ? (
-          spectators.map(player => (
+        {lobbySpectators.length > 0 ? (
+          lobbySpectators.map(player => (
             <div className='player-row' key={player}>
               <span>{player}</span>
               <small>
@@ -748,18 +871,20 @@ function App() {
       >
         {gameFocused ? null : (
           <div className='state-card'>
-          <p className='eyebrow'>{activeStateCopy.eyebrow}</p>
-          <h2 id='state-title'>{activeStateCopy.title}</h2>
-          <p>{activeStateCopy.body}</p>
-          {roomSnapshot ? (
-            <div className='assignment-summary' aria-label='Room sync'>
-              <span>Room sync</span>
-              <strong>{roomSnapshot.phase}</strong>
-              <p>
-                {roomSnapshot.players.length} connected, {roomSnapshot.spectators.length} spectating.
-              </p>
-            </div>
-          ) : null}
+            <p className='eyebrow'>{activeStateCopy.eyebrow}</p>
+            <h2 id='state-title'>{activeStateCopy.title}</h2>
+            <p>{activeStateCopy.body}</p>
+            {roomSnapshot ? (
+              <div className='assignment-summary' aria-label='Room sync'>
+                <span>Room sync</span>
+                <strong>{roomSnapshot.phase}</strong>
+                <p>
+                  {roomSnapshot.players.length} connected, {roomSnapshot.spectators.length} spectating.
+                </p>
+                <small>Host: {roomHostName}</small>
+                <small>Latest input: {latestInputSummary}</small>
+              </div>
+            ) : null}
             {state === 'lobby' || state === 'countdown' ? null : (
               <div className='actions'>
                 <button
@@ -770,6 +895,17 @@ function App() {
                 </button>
               </div>
             )}
+            {state === 'lobby' ? (
+              <div className='assignment-summary' aria-label='Room readiness'>
+                <span>Room readiness</span>
+                <strong>{roomReady ? 'Ready' : 'Waiting'}</strong>
+                <p>
+                  {roomReady
+                    ? 'The host can start this room now.'
+                    : 'Start is blocked until every connected player is ready.'}
+                </p>
+              </div>
+            ) : null}
             {state === 'countdown' ? (
               <div className='countdown-panel' aria-label='Countdown'>
                 <span>{COUNTDOWN_STEPS[countdownIndex]}</span>

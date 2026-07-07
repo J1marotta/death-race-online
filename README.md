@@ -32,6 +32,25 @@ npx wrangler login
 npm run deploy:cloudflare
 ```
 
+## Rooms Backend
+
+The multiplayer room state lives in the Cloudflare Worker defined by `wrangler.worker.jsonc`.
+
+Deploy it with:
+
+```powershell
+npm run deploy:rooms
+```
+
+For a production Pages build that talks to the deployed worker, set `VITE_ROOMS_API_BASE` to the worker endpoint plus `/api/rooms`.
+
+Example:
+
+```powershell
+$env:VITE_ROOMS_API_BASE='https://death-race-rooms.james-marotta.workers.dev/api/rooms'
+npm run build
+```
+
 ## Project Docs
 
 - `spec.md`: game design and technical shape.

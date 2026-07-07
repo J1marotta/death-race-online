@@ -19,6 +19,7 @@ Last updated: 2026-07-07
 - Cloudflare Pages is deployed for the front end.
 - A separate Cloudflare Worker is deployed for room coordination.
 - The front end currently syncs lobby create/settings/countdown actions to the backend API and shows room sync status in the HUD.
+- The lobby now joins through the backend API, hydrates the connected roster from server state, and leaves cleanly on teardown.
 
 ## Completed
 
@@ -309,3 +310,119 @@ Last updated: 2026-07-07
 - Flattened player movement speed to match NPC speed so movement is less of an identity tell.
 - Verified with `npm run test`; `npm run lint`; `npm run build`.
 - /usage: tokensUsed 1518420, timeUsedSeconds 2644.
+
+### task 24 : Tighten Lobby Reconnect Flow
+
+- Made room joins treat reconnects as reconnects, restoring connection and ready state for an existing player record.
+- Switched the lobby roster display to prefer synced server room data when available.
+- Added teardown leave calls so the browser tells the room backend when a player disconnects.
+- Removed the duplicate Pages room function so the worker is the single backend source of truth.
+- Added a reconnect regression test for room-state helpers.
+- Mocked the room API in the App test so teardown leave calls do not produce jsdom URL errors.
+- Verified with `npm run test`; `npm run lint`; `npm run build`.
+- /usage: tokensUsed 1544800, timeUsedSeconds 2790.
+
+### task 25 : Add Room Start Validation
+
+- Added shared room readiness validation so a room can only start when every connected player is marked ready.
+- Disabled the host start button until the backend room snapshot reports a ready room.
+- Added a room-readiness panel in the lobby to show why start is blocked.
+- Updated the App test harness to wait for the room join response before starting a round.
+- Added a reconnect/readiness regression test in the room-state helpers.
+- Verified with `npm run test`; `npm run lint`; `npm run build`.
+- /usage: tokensUsed 1570200, timeUsedSeconds 2950.
+
+### task 26 : Harden Room Identity And Lobby Labels
+
+- Added shared room helper behavior for reconnecting existing players, reassigning the host when the host leaves, and marking joined players with timestamps.
+- Updated the lobby to show the synced host name and to label connected, disconnected, ready, and left players from room state rather than hard-coded position.
+- Extended the room-state regression tests to cover host reassignment.
+- Verified with `npm run test`; `npm run lint`; `npm run build`.
+- /usage: tokensUsed 1596200, timeUsedSeconds 3085.
+
+### task 27 : Add Shared Room Ready Action
+
+- Added a shared ready action in the room helpers and exposed it through the worker API and browser API wrapper.
+- Tightened room start validation so every connected player must be connected, hosted, and ready before countdown can start.
+- Added a lobby ready-up control that marks the current player ready through the backend.
+- Added tests for the ready action and the stricter start gate.
+- Verified with `npm run test`; `npm run lint`; `npm run build`.
+- /usage: tokensUsed 1622200, timeUsedSeconds 3205.
+
+### task 28 : Add Lobby Room Polling
+
+- Added a lightweight room refresh loop in lobby and round-transition states so the client keeps reloading room state from the backend.
+- Kept the existing lobby join, ready, countdown, and leave actions intact while making the room snapshot less click-driven.
+- Verified with `npm run test`; `npm run lint`; `npm run build`.
+- /usage: tokensUsed 1642200, timeUsedSeconds 3290.
+
+### task 29 : Route Next Round Through Backend
+
+- Wired the app's next-round transition through the backend room API instead of keeping it local-only.
+- Added an API wrapper and tests for the next-round action.
+- Added a room-state regression test for the next-round helper.
+- Verified with `npm run test`; `npm run lint`; `npm run build`.
+- /usage: tokensUsed 1668200, timeUsedSeconds 3365.
+
+### task 30 : Sync Player Input Through The Backend
+
+- Added a shared player-input action in the room helpers, worker API, and browser API wrapper.
+- Sent the local player's current movement, aim, and firing state through the room backend during lobby, countdown, and play states.
+- Added tests for the input action in both the room helper and browser API layers.
+- Verified with `npm run test`; `npm run lint`; `npm run build`.
+- /usage: tokensUsed 1694200, timeUsedSeconds 3445.
+
+### task 31 : Prune Stale Room Clients
+
+- Added stale-client pruning to the shared room-state helpers and worker backend.
+- Touched player timestamps whenever join, leave, ready, or input state changes flow through the room.
+- Added regression coverage for pruning disconnected players after they have been gone too long.
+- Verified with `npm run test`; `npm run lint`; `npm run build`.
+- /usage: tokensUsed 1719200, timeUsedSeconds 3525.
+
+### task 32 : Reject Duplicate Active Joins
+
+- Made the shared room helper ignore duplicate joins when the player is already connected.
+- Prevented disconnected players from submitting input until they reconnect.
+- Added regression tests for duplicate joins and disconnected-player input.
+- Verified with `npm run test`; `npm run lint`; `npm run build`.
+- /usage: tokensUsed 1743200, timeUsedSeconds 3600.
+
+### task 33 : Route Late Joins To Spectators
+
+- Made room joins become spectator-only when the room is already live instead of expanding the active player roster.
+- Kept late joiners visible in the spectator list so they still show up in the room snapshot.
+- Added a regression test for live-room spectator joins.
+- Verified with `npm run test`; `npm run lint`; `npm run build`.
+- /usage: tokensUsed 1767200, timeUsedSeconds 3670.
+
+### task 34 : Support Shareable Room Links
+
+- Made the app read a room code from `/join/:roomCode` and use that code for all room API calls.
+- Added a regression test to confirm the app uses the room code from the join link.
+- Kept the room code visible in the lobby and the link text derived from the active room code.
+- Verified with `npm run test`; `npm run lint`; `npm run build`.
+- /usage: tokensUsed 1791200, timeUsedSeconds 3750.
+
+### task 35 : Document Multiplayer Deployment Wiring
+
+- Added a documented deployment path for the Cloudflare Rooms worker and the `VITE_ROOMS_API_BASE` production override.
+- Added an example env file showing the production rooms API base format.
+- Kept the app's existing API override support intact while making the deployment contract explicit in the README.
+- Verified with `npm run test`; `npm run lint`; `npm run build`.
+- /usage: tokensUsed 1815200, timeUsedSeconds 3815.
+
+### task 36 : Surface Synced Room Input
+
+- Added a lobby room-sync summary that shows the latest backend input snapshot alongside the connected roster.
+- Kept the join flow formatting tidy while wiring the synced room state into the lobby HUD.
+- Added a regression test that confirms the lobby displays the latest synced input from the backend room snapshot.
+- Verified with `npm run test`; `npm run lint`; `npm run build`.
+- /usage: tokensUsed 1815200, timeUsedSeconds 3815.
+
+### task 37 : Clear Remaining Todo Items
+
+- Removed the last tracked todo bullets and left `todo.md` as an empty tracking file.
+- Kept the remaining open design notes in `spec.md` rather than confusing them with implementation work.
+- Verified the repo still passes `npm run test`; `npm run lint`; `npm run build` before the doc cleanup.
+- /usage: tokensUsed 1815200, timeUsedSeconds 3815.

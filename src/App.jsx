@@ -16,6 +16,7 @@ const PLAYERS = ['James', 'Mia', 'Noah', 'Ava']
 const WAITING_PLAYERS = ['James', 'Mia', 'Noah', 'Ava', 'Theo']
 const LATE_JOINERS = ['Riley']
 const ARCHETYPES = ['Driver', 'Runner', 'Mask', 'Coat', 'Cap']
+const HUMAN_ASSIGNMENTS = [7, 2, 15, 11]
 const LANES = Array.from({ length: 20 }, (_, index) => ({
   id: index + 1,
   archetype: ARCHETYPES[index % ARCHETYPES.length],
@@ -85,28 +86,68 @@ const STATE_COPY = {
 const ROOM_CODE = 'DR-2048'
 const ROOM_LINK = `deathrace.local/join/${ROOM_CODE}`
 const ROUND_OPTIONS = [3, 5, 7]
+const COUNTDOWN_STEPS = ['3', '2', '1', 'go']
 
 function App() {
   const [state, setState] = useState('menu')
   const [privacy, setPrivacy] = useState('public')
   const [roundCount, setRoundCount] = useState(5)
+  const [countdownIndex, setCountdownIndex] = useState(0)
   const activeState = STATE_COPY[state]
   const lobbyInProgress = !['menu', 'lobby'].includes(state)
   const activePlayers = lobbyInProgress ? PLAYERS : WAITING_PLAYERS
   const spectators = lobbyInProgress ? LATE_JOINERS : []
+  const movementLocked = state === 'countdown'
+  const roundRacers = useMemo(
+    () =>
+      LANES.map((lane) => {
+        const playerIndex = HUMAN_ASSIGNMENTS.indexOf(lane.id)
+        return {
+          ...lane,
+          controller:
+            playerIndex >= 0
+              ? {
+                  type: 'human',
+                  name: PLAYERS[playerIndex],
+                  color: ['red', 'blue', 'green', 'yellow'][playerIndex],
+                }
+              : {
+                  type: 'npc',
+                  name: `NPC ${lane.id}`,
+                  color: 'npc',
+                },
+        }
+      }),
+    [],
+  )
+  const humansAssigned = roundRacers.filter(
+    (racer) => racer.controller.type === 'human',
+  )
 
   const statusItems = useMemo(
     () => [
       ['Room', 'DR-2048'],
       ['Mode', 'Local prototype'],
       ['Rounds', `1 / ${roundCount}`],
-      ['Humans', activePlayers.length],
+      ['Racers', roundRacers.length],
     ],
-    [activePlayers.length, roundCount],
+    [roundCount, roundRacers.length],
   )
 
   const moveToState = (nextState) => {
+    if (nextState === 'countdown') {
+      setCountdownIndex(0)
+    }
     setState(nextState)
+  }
+
+  const advanceCountdown = () => {
+    const nextIndex = countdownIndex + 1
+    if (nextIndex >= COUNTDOWN_STEPS.length) {
+      moveToState('playing')
+      return
+    }
+    setCountdownIndex(nextIndex)
   }
 
   const renderLobby = () => (
@@ -225,8 +266,27 @@ function App() {
           <p className="eyebrow">{activeState.eyebrow}</p>
           <h2 id="state-title">{activeState.title}</h2>
           <p>{activeState.body}</p>
+          {state === 'countdown' ? (
+            <div className="countdown-panel" aria-label="Countdown">
+              <span>{COUNTDOWN_STEPS[countdownIndex]}</span>
+              <p>Movement and shooting are locked until go.</p>
+              <button type="button" onClick={advanceCountdown}>
+                Advance countdown
+              </button>
+            </div>
+          ) : null}
+          {state !== 'menu' ? (
+            <div className="assignment-summary" aria-label="Round setup">
+              <span>Round setup</span>
+              <strong>{roundRacers.length} racers</strong>
+              <p>
+                {humansAssigned.length} hidden humans,{' '}
+                {roundRacers.length - humansAssigned.length} NPCs.
+              </p>
+            </div>
+          ) : null}
           {state !== 'menu' ? renderLobby() : null}
-          {state === 'lobby' ? null : (
+          {state === 'lobby' || state === 'countdown' ? null : (
             <div className="actions">
               <button type="button" onClick={() => moveToState(activeState.next)}>
                 {activeState.action}
@@ -241,13 +301,13 @@ function App() {
         </div>
 
         <div className="playfield" aria-label="20 lane race playfield">
-          {LANES.map((lane) => {
-            const isHuman = lane.id <= PLAYERS.length
+          {roundRacers.map((lane) => {
+            const isHuman = lane.controller.type === 'human'
             const isRevealed = state === 'roundOver' || state === 'scoreboard'
             const archetypeClass = lane.archetype.toLowerCase()
             return (
               <div
-                className="lane"
+                className={movementLocked ? 'lane locked' : 'lane'}
                 key={lane.id}
                 style={{ '--depth': lane.depth }}
               >
@@ -263,11 +323,11 @@ function App() {
                   <span className="racer-shadow" />
                 </span>
                 {isHuman && isRevealed ? (
-                  <span className="reveal-tag">{PLAYERS[lane.id - 1]}</span>
+                  <span className="reveal-tag">{lane.controller.name}</span>
                 ) : null}
                 {isHuman && state === 'playing' ? (
                   <span
-                    className="crosshair"
+                    className={`crosshair crosshair-${lane.controller.color}`}
                     style={{ left: `${62 + lane.id * 3}%` }}
                   />
                 ) : null}

@@ -41,6 +41,7 @@ Last updated: 2026-07-07
 - Added a temporary 20-lane race preview sized for the `1200px` laptop target.
 - Added a local mock lobby with room code/link, privacy choice, player roster, round count host controls, start action, and late-joiner spectator display.
 - Upgraded the race preview into a 20-lane playfield with five repeated pixel-art archetypes and depth styling.
+- Added deterministic round setup with hidden human assignments, NPC-filled lanes, countdown gating, and reveal-only player names.
 
 ## Verification
 
@@ -144,3 +145,14 @@ Last updated: 2026-07-07
 - Updated `todo.md` so the completed playfield work is no longer listed as remaining work.
 - Tests run: `npm run lint`; `npm run build`.
 - /usage: tokensUsed 467280, timeUsedSeconds 908.
+
+### task 10 : Build Round Setup
+
+- Added deterministic local round setup that fills all 20 lanes with either a hidden human assignment or an NPC.
+- Secretly assigned each human player to a racer lane and stored the assignment for reveal states.
+- Kept player names hidden from live racers and only showed them during `roundOver` and `scoreboard`.
+- Added a `3, 2, 1, go` countdown panel.
+- Locked the playfield visually and withheld crosshairs during countdown before `go`.
+- Updated `todo.md` so the completed round setup work is no longer listed as remaining work.
+- Tests run: `npm run lint`; `npm run build`.
+- /usage: tokensUsed 500440, timeUsedSeconds 1009.

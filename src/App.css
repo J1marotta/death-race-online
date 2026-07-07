@@ -204,6 +204,40 @@ code {
   font-size: 13px;
 }
 
+.countdown-panel,
+.assignment-summary {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.countdown-panel span {
+  color: var(--accent);
+  font: 900 54px/0.9 var(--mono);
+  text-transform: uppercase;
+}
+
+.countdown-panel p,
+.assignment-summary p {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.assignment-summary span {
+  color: var(--text);
+  font: 700 11px/1 var(--mono);
+  text-transform: uppercase;
+}
+
+.assignment-summary strong {
+  color: var(--text-h);
+  font: 800 20px/1 var(--mono);
+}
+
 .host-start {
   background: var(--accent);
   border-color: var(--accent);
@@ -243,6 +277,14 @@ code {
     linear-gradient(90deg, transparent 0 13%, rgba(255, 255, 255, 0.04) 13% 13.4%, transparent 13.4% 100%),
     rgba(255, 255, 255, calc(0.02 + var(--depth) * 0.006));
   transform: translateX(calc(var(--depth) * 8px));
+}
+
+.lane.locked {
+  filter: saturate(0.55);
+}
+
+.lane.locked .racer {
+  opacity: 0.72;
 }
 
 .lane::after {
@@ -362,10 +404,11 @@ code {
 .crosshair {
   position: absolute;
   top: 50%;
+  --crosshair-color: #f87171;
   width: 18px;
   height: 18px;
   transform: translateY(-50%);
-  border: 2px solid #f87171;
+  border: 2px solid var(--crosshair-color);
   border-radius: 50%;
 }
 
@@ -373,7 +416,7 @@ code {
 .crosshair::after {
   content: '';
   position: absolute;
-  background: #f87171;
+  background: var(--crosshair-color);
 }
 
 .crosshair::before {
@@ -388,6 +431,22 @@ code {
   left: 7px;
   width: 2px;
   height: 24px;
+}
+
+.crosshair-red {
+  --crosshair-color: #f87171;
+}
+
+.crosshair-blue {
+  --crosshair-color: #60a5fa;
+}
+
+.crosshair-green {
+  --crosshair-color: #4ade80;
+}
+
+.crosshair-yellow {
+  --crosshair-color: #facc15;
 }
 
 @media (max-width: 900px) {

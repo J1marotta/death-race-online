@@ -10,15 +10,6 @@ This file tracks what is left to do. Design decisions live in `spec.md`; complet
 
 ## Implementation Tasks
 
-### Round Setup
-
-- Fill empty slots with NPCs so each round has exactly 20 racers.
-- Secretly assign one racer to each human player.
-- Keep player names hidden from racers during live play.
-- Store assignments for end-of-round reveal.
-- Add `3, 2, 1, go` countdown.
-- Disable movement and shooting before `go`.
-
 ### Movement
 
 - Implement `Space` to walk.

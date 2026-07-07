@@ -10,7 +10,7 @@ Last updated: 2026-07-07
 - Git branch: `codex/task-01-network-scope`
 - Initial commit: `45b2434 Initial Death Race project setup`
 - Planning cleanup commit: `d59ecfb Clean up project planning docs`
-- The app still shows the default Vite starter UI.
+- The app shows an initial Death Race shell with temporary state controls and a 20-lane preview.
 - Dependencies are installed locally.
 - Build output goes to `dist`, which is ignored by git.
 - The old workspace currently contains only a `.git` folder.
@@ -36,6 +36,9 @@ Last updated: 2026-07-07
 - Recorded the Defender preservation guardrail.
 - Made the initial baseline commit.
 - Added GitHub remote origin.
+- Replaced the default Vite starter screen with the initial Death Race app shell.
+- Added explicit UI states for `menu`, `lobby`, `countdown`, `playing`, `paused`, `roundOver`, `scoreboard`, and `gameOver`.
+- Added a temporary 20-lane race preview sized for the `1200px` laptop target.
 
 ## Verification
 
@@ -107,3 +110,13 @@ Last updated: 2026-07-07
 - Updated `spec.md` and `todo.md` to reflect the result.
 - Tests run: `npm run lint`; `npm run build`.
 - /usage: tokensUsed 232934, timeUsedSeconds 384.
+
+### task 07 : Build App Shell And State Model
+
+- Replaced the default Vite starter UI with a Death Race shell.
+- Added temporary state controls for `menu`, `lobby`, `countdown`, `playing`, `paused`, `roundOver`, `scoreboard`, and `gameOver`.
+- Added an initial 20-lane race preview with placeholder racer archetypes, reveal tags, and loaded-player crosshairs for the relevant states.
+- Kept the shell constrained to the `1200px` laptop target.
+- Updated `todo.md` so the completed app shell work is no longer listed as remaining work.
+- Tests run: `npm run lint`; `npm run build`.
+- /usage: tokensUsed 254163, timeUsedSeconds 592.

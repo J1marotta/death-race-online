@@ -10,12 +10,6 @@ This file tracks what is left to do. Design decisions live in `spec.md`; complet
 
 ## Implementation Tasks
 
-### App Shell
-
-- Replace the default Vite starter screen with the Death Race game shell.
-- Add states for `menu`, `lobby`, `countdown`, `playing`, `paused`, `roundOver`, `scoreboard`, and `gameOver`.
-- Keep the app readable at the `1200px` laptop target.
-
 ### Lobby
 
 - Add create/join lobby UI with room code/link.

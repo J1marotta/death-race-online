@@ -1630,30 +1630,11 @@ function App() {
               isWinner && roundWinner.finalProgress
                 ? roundWinner.finalProgress
                 : getLiveProgress(lane)
-            const isLocallyTargeted =
-              state === 'playing' &&
-              !isEliminated &&
-              lane.id === aim.laneId &&
-              Math.abs(racerProgress - aim.x) <= HIT_WINDOW_PERCENT
-            const isRemotelyTargeted =
-              state === 'playing' &&
-              !isEliminated &&
-              Object.entries(roomInputs).some(([playerName, input]) => {
-                if (playerName === activePlayerName || !input?.aim) {
-                  return false
-                }
-                return (
-                  input.aim.laneId === lane.id &&
-                  Math.abs(racerProgress - input.aim.x) <= HIT_WINDOW_PERCENT
-                )
-              })
-            const isTargeted = isLocallyTargeted || isRemotelyTargeted
             return (
               <div
                 className={[
                   'lane',
                   movementLocked ? 'locked' : '',
-                  isTargeted ? 'targeted' : '',
                   isControlled ? '' : '',
                   isEliminated ? '' : '',
                   isHuman && isRevealed ? '' : '',
@@ -1676,7 +1657,6 @@ function App() {
                   `archetype-${archetypeClass}`,
                   shapeClass,
                   isEliminated ? 'dead' : '',
-                  isTargeted ? 'targeted' : '',
                   isControlled && !isEliminated ? movementMode : '',
                   !isHuman && state === 'playing' && !isEliminated
                       ? npcMotionClass

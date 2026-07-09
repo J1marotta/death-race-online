@@ -75,7 +75,6 @@ Control reminders are visible at the bottom of the playfield during the race.
 - Crosshairs are visible to everyone and color-coded by player.
 - Before firing, show a small pixel bullet attached to the crosshair.
 - Dim a player's crosshair to 50% opacity and turn it grey after they fire.
-- Highlight a racer when the crosshair is directly over that target.
 
 ## Elimination And Winning
 
@@ -101,9 +100,10 @@ Control reminders are visible at the bottom of the playfield during the race.
 - 8 character shape variants are reused across the 20 lanes.
 - Character variants keep the same hitbox even when their silhouettes differ.
 - Starting lane positions and character variants are randomized enough that players cannot identify themselves from fixed ordering.
-- Lanes and racer sprites are scaled up from the first prototype so character silhouettes have more room.
+- Lanes and racer sprites are sized so all 20 racers fit in-frame without vertical scrolling.
 - Lanes use slight depth/perspective like the reference screenshot.
 - The finish line is straight and uses a black-and-white checkered flag treatment.
+- All 20 lanes fit on one screen without vertical scrolling.
 - The playfield and HUD must read well at `1200px` wide on a laptop.
 - Crosshairs, bullet indicators, dead bodies, winner state, and reveal highlights should be readable at a glance.
 - Light sound cues support key actions such as creating/joining lobbies, readying, starting, shooting, and saving a display name.

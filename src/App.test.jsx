@@ -205,8 +205,9 @@ describe('game controls', () => {
     expect(screen.queryByText('down')).toBeNull()
   })
 
-  it('highlights a racer when the crosshair is over the target', async () => {
+  it('does not highlight a racer when the crosshair is over the target', async () => {
     const playfield = await startPlaying()
+    const lane19 = screen.getByTestId('lane-19')
     const racer19 = screen.getByTestId('racer-19')
     const progress = Number.parseFloat(racer19.style.getPropertyValue('--racer-progress'))
 
@@ -215,7 +216,8 @@ describe('game controls', () => {
       clientY: 925,
     })
 
-    expect(racer19.className).toContain('targeted')
+    expect(lane19.className).not.toContain('targeted')
+    expect(racer19.className).not.toContain('targeted')
   })
 
   it('shows a pixel bullet on the crosshair before firing', async () => {

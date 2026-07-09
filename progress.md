@@ -591,3 +591,10 @@ Last updated: 2026-07-09
 - Doubled the visual lane height and racer scale so character silhouettes have more room.
 - Added regression coverage for target highlighting, control reminders, bullet markers, spent crosshair feedback, NPC finish-line wins, and the new run/walk speed gap.
 - Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 55 : Restore Full-Frame Track Fit
+
+- Removed aimed-target highlighting from lanes and racers.
+- Reduced the playfield height and racer scale by `50%` so all 20 racers fit back into frame without scrolling.
+- Kept the crosshair bullet marker, grey spent crosshair, control reminders, faster movement, NPC finish behavior, and Cloudflare request throttling intact.
+- Verified with `npm test`; `npm run lint`; `npm run build`.

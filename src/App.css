@@ -425,8 +425,8 @@ code {
   position: relative;
   display: grid;
   grid-template-rows: repeat(20, 1fr);
-  height: 1040px;
-  min-height: 1040px;
+  height: 520px;
+  min-height: 520px;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -510,13 +510,6 @@ code {
   opacity: 0.72;
 }
 
-.lane.targeted {
-  background:
-    linear-gradient(90deg, transparent 0 13%, rgba(255, 255, 255, 0.06) 13% 13.4%, transparent 13.4% 100%),
-    linear-gradient(90deg, transparent 0 4%, rgba(250, 204, 21, 0.12) 4% 96%, transparent 96%),
-    rgba(255, 255, 255, calc(0.03 + var(--depth) * 0.006));
-}
-
 .lane-stripe {
   position: absolute;
   inset: 50% 11% auto 46px;
@@ -534,7 +527,7 @@ code {
 }
 
 .racer {
-  --racer-scale: 2;
+  --racer-scale: 1;
   position: absolute;
   top: 50%;
   left: var(--racer-progress);
@@ -549,16 +542,6 @@ code {
   background: var(--suit);
   image-rendering: pixelated;
   box-shadow:
-    3px 3px 0 rgba(0, 0, 0, 0.42),
-    inset 0 -5px 0 rgba(0, 0, 0, 0.22);
-}
-
-.racer.targeted {
-  z-index: 3;
-  box-shadow:
-    0 0 0 2px #facc15,
-    0 0 0 4px rgba(17, 17, 17, 0.9),
-    0 0 18px rgba(250, 204, 21, 0.7),
     3px 3px 0 rgba(0, 0, 0, 0.42),
     inset 0 -5px 0 rgba(0, 0, 0, 0.22);
 }
@@ -838,7 +821,7 @@ code {
 .body-marker {
   position: absolute;
   top: 50%;
-  left: calc(var(--racer-progress, 28%) + 54px);
+  left: calc(var(--racer-progress, 28%) + 30px);
   transform: translateY(-50%);
   color: #fecaca;
   font: 800 10px/1 var(--mono);

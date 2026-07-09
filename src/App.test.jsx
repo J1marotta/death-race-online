@@ -191,10 +191,20 @@ describe('game controls', () => {
     })
     fireEvent.keyUp(window, { code: 'Space' })
 
+    const startingValue = Number.parseFloat(startingProgress)
+    const endingValue = Number.parseFloat(racer.style.getPropertyValue('--racer-progress'))
+
     expect(racer.style.getPropertyValue('--racer-progress')).not.toBe(
       startingProgress,
     )
+    expect(endingValue - startingValue).toBeGreaterThan(0.2)
     expect(playfield).toBeTruthy()
+  })
+
+  it('shows a straight checkered finish line on the playfield', async () => {
+    await startPlaying()
+
+    expect(screen.getByTestId('finish-line')).toBeTruthy()
   })
 
   it('uses the room code from a shareable join link', async () => {
@@ -279,6 +289,15 @@ describe('game controls', () => {
     expect(within(realPlayers).getByText('Mia')).toBeTruthy()
   })
 
+  it('does not show the transport sync state in the status strip', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
+
+    await screen.findByLabelText('Room status')
+
+    expect(screen.queryByText('Sync')).toBeNull()
+  })
+
   it('derives hidden human racers from the synced room roster', async () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
@@ -288,7 +307,7 @@ describe('game controls', () => {
     )
   })
 
-  it('keeps the lobby panel visible once the game starts', async () => {
+  it('hides the lobby panel once the game starts', async () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
 
@@ -298,8 +317,8 @@ describe('game controls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Start game' }))
     await screen.findByLabelText('Countdown')
 
-    expect(screen.getByLabelText('Lobby controls')).toBeTruthy()
-    expect(screen.getByText('Room')).toBeTruthy()
+    expect(screen.queryByLabelText('Lobby controls')).toBeNull()
+    expect(screen.getByLabelText('20 lane race playfield')).toBeTruthy()
   })
 
   it('does not show the start button to joined non-host players', async () => {

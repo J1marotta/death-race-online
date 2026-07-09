@@ -125,8 +125,8 @@ const ROOM_CODE = 'DR-2048'
 const ROUND_OPTIONS = [3, 5, 7]
 const COUNTDOWN_STEPS = ['3', '2', '1', 'go']
 const COUNTDOWN_STEP_MS = 500
-const WALK_SPEED = 0.018
-const RUN_SPEED = 0.018
+const WALK_SPEED = 0.054
+const RUN_SPEED = 0.054
 const TICK_MS = 80
 const FINISH_PROGRESS = 88
 const HIT_WINDOW_PERCENT = 3.5
@@ -138,9 +138,9 @@ const NPC_PATTERNS = [
   ['walk', 'walk', 'idle', 'stop', 'walk', 'walk', 'stop']
 ]
 const NPC_SPEEDS = {
-  idle: 0.006,
+  idle: 0.018,
   stop: 0,
-  walk: 0.018
+  walk: 0.054
 }
 
 const hashString = value => {
@@ -372,6 +372,7 @@ function App() {
     : 'No live input yet'
   const currentRoomLink = `${window.location.origin}/join/${activeRoomCode}`
   const roomClosed = roomSyncState === 'closed'
+  const gameplayFocused = ['countdown', 'playing'].includes(state)
   const activeStateCopy =
     state === 'roundOver' && roundWinner
       ? {
@@ -580,14 +581,12 @@ function App() {
     () => [
       ['Room', activeRoomCode],
       ['State', STATE_LABELS[state]],
-      ['Sync', roomSyncState],
       ['Rounds', `${currentRound} / ${roundCount}`],
       ['Racers', roundRacers.length]
     ],
     [
       activeRoomCode,
       currentRound,
-      roomSyncState,
       roundCount,
       roundRacers.length,
       state,
@@ -1334,8 +1333,12 @@ function App() {
         ))}
       </section>
 
-      <section className='hero-panel' aria-label='Game area'>
-        <div className='state-card'>
+      <section
+        className={`hero-panel ${gameplayFocused ? 'game-focused' : ''}`}
+        aria-label='Game area'
+      >
+        {!gameplayFocused ? (
+          <div className='state-card'>
             <p className='eyebrow'>
               {state === 'lobby' ? `Lobby ${activeRoomCode}` : activeStateCopy.eyebrow}
             </p>
@@ -1356,8 +1359,8 @@ function App() {
               </div>
             ) : null}
             {roomSnapshot ? (
-              <div className='assignment-summary' aria-label='Room sync'>
-                <span>Room sync</span>
+              <div className='assignment-summary' aria-label='Room status'>
+                <span>Room status</span>
                 <strong>{roomSnapshot.phase}</strong>
                 <p>
                   {roomSnapshot.players.length} connected, {roomSnapshot.spectators.length} spectating.
@@ -1453,6 +1456,7 @@ function App() {
                 ? renderLobby()
                 : null}
           </div>
+        ) : null}
 
         <div
           className='playfield'
@@ -1461,6 +1465,14 @@ function App() {
           onMouseDown={fireLocalShot}
           ref={playfieldRef}
         >
+          <span className='finish-line' data-testid='finish-line' aria-hidden='true'>
+            <span className='finish-flag' />
+          </span>
+          {state === 'countdown' ? (
+            <div className='playfield-countdown' aria-label='Countdown'>
+              <strong>{COUNTDOWN_STEPS[countdownIndex]}</strong>
+            </div>
+          ) : null}
           {roundRacers.map(lane => {
             const isHuman = lane.controller.type === 'human'
             const isControlled = lane.id === controlledRacerId

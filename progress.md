@@ -536,3 +536,14 @@ Last updated: 2026-07-09
 - Confirmed the guest can enter a username and room code, join the same lobby, see the host and real-player roster, ready up, and follow the host into the playing state.
 - Verified the live room reached `playing` for both sessions with room code `DR-YHI9`.
 - Removed the completed live multiplayer verification item from `todo.md`.
+
+### task 50 : Focus Live Gameplay Presentation
+
+- Removed the visible `Sync` status item so the UI no longer flickers between transport states while room recovery still works internally.
+- Increased walk, run, and matching NPC movement speeds by `3x`.
+- Hid the side panel during countdown and live play so the race area becomes the focused view once the game starts.
+- Added a playfield countdown overlay to preserve the start signal while the side panel is hidden.
+- Replaced the angled per-lane finish marker with a straight black-and-white checkered finish line and flag.
+- Updated `spec.md` to match the new live-play presentation.
+- Added regression coverage for the hidden transport status, focused playfield, faster movement, and finish line.
+- Verified with `npm test`; `npm run lint`; `npm run build`.

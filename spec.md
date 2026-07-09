@@ -22,7 +22,8 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 - Only the host can start the game.
 - Connected players see the same lobby, countdown, round, and scoreboard state.
 - Room updates use a Cloudflare-compatible live transport, with polling only as a fallback.
-- The room side panel stays visible during live rounds so the room code, roster, readiness, and sync status remain visible.
+- The room side panel is visible for menu, lobby, and result/scoreboard states, then hides during countdown and live play so the playfield is the focus.
+- Transport sync state is internal recovery information and should not flicker as a visible UI status.
 - Rooms are destroyed when the host leaves or when every client stops heartbeating.
 - Remaining clients see a closed-room state with a return-to-menu action when the host leaves or the room expires.
 - Late joiners spectate until the next round.
@@ -92,6 +93,7 @@ Running has no stamina, cooldown, noise meter, or extra UI. The risk is behavior
 - 5 unique character looks repeated 4 times across 20 lanes.
 - Repeated character looks are visually identical.
 - Lanes use slight depth/perspective like the reference screenshot.
+- The finish line is straight and uses a black-and-white checkered flag treatment.
 - All 20 lanes fit on one screen without vertical scrolling.
 - The playfield and HUD must read well at `1200px` wide on a laptop.
 - Crosshairs, bullet indicators, dead bodies, winner state, and reveal highlights should be readable at a glance.

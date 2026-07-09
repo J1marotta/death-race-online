@@ -521,3 +521,10 @@ Last updated: 2026-07-09
 - Added a production fallback so non-local browser hosts use the `death-race-rooms` Worker API unless `VITE_ROOMS_API_BASE` is explicitly configured.
 - Added regression coverage for local and production rooms API base selection.
 - Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 48 : Allow Pages To Call The Rooms Worker
+
+- Found during live two-browser verification that production room creation reached the deployed Worker URL but failed the browser CORS preflight.
+- Added Worker CORS headers to JSON responses and an `OPTIONS` preflight response for room routes.
+- Added Worker regression tests for preflight handling and CORS headers on API responses.
+- Verified with `npm test`; `npm run lint`; `npm run build`.

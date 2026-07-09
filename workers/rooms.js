@@ -21,6 +21,12 @@ import {
 
 const PLAYER_STALE_MS = 45000
 const CLEANUP_ALARM_MS = PLAYER_STALE_MS + 1000
+const CORS_HEADERS = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'GET, POST, OPTIONS',
+  'access-control-allow-headers': 'content-type',
+  'access-control-max-age': '86400',
+}
 
 function getRoomCodeFromPath(pathname) {
   const pathParts = pathname.split('/').filter(Boolean)
@@ -39,7 +45,15 @@ function json(data, status = 200) {
     status,
     headers: {
       'content-type': 'application/json; charset=utf-8',
+      ...CORS_HEADERS,
     },
+  })
+}
+
+function preflight() {
+  return new Response(null, {
+    status: 204,
+    headers: CORS_HEADERS,
   })
 }
 
@@ -151,6 +165,10 @@ class RoomLobbyObject {
   async fetch(request) {
     const url = new URL(request.url)
     const roomCode = getRoomCodeFromPath(url.pathname) ?? this.state.id.toString()
+
+    if (request.method === 'OPTIONS') {
+      return preflight()
+    }
 
     if (request.headers.get('upgrade')?.toLowerCase() === 'websocket') {
       return this.handleWebSocket()
@@ -348,6 +366,10 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url)
     const roomCode = getRoomCodeFromPath(url.pathname)
+
+    if (request.method === 'OPTIONS') {
+      return preflight()
+    }
 
     if (!roomCode) {
       return json({ error: 'Room code required' }, 400)

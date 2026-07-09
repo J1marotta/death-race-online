@@ -37,6 +37,39 @@ function postRoom(action, body = {}, roomCode = 'DR-TEST') {
 }
 
 describe('rooms worker', () => {
+  it('answers browser preflight requests for cross-origin pages', async () => {
+    const state = createDurableObjectState()
+    const roomObject = new RoomLobbyObject(state, {})
+
+    const response = await roomObject.fetch(
+      new Request('https://rooms.example/api/rooms/DR-TEST', {
+        method: 'OPTIONS',
+        headers: {
+          origin: 'https://death-race-online.pages.dev',
+          'access-control-request-method': 'POST',
+          'access-control-request-headers': 'content-type',
+        },
+      }),
+    )
+
+    expect(response.status).toBe(204)
+    expect(response.headers.get('access-control-allow-origin')).toBe('*')
+    expect(response.headers.get('access-control-allow-methods')).toContain('POST')
+    expect(response.headers.get('access-control-allow-headers')).toContain('content-type')
+  })
+
+  it('adds cors headers to api responses', async () => {
+    const state = createDurableObjectState()
+    const roomObject = new RoomLobbyObject(state, {})
+
+    const response = await roomObject.fetch(
+      new Request('https://rooms.example/api/rooms/DR-TEST'),
+    )
+
+    expect(response.status).toBe(404)
+    expect(response.headers.get('access-control-allow-origin')).toBe('*')
+  })
+
   it('does not create placeholder rooms on get', async () => {
     const state = createDurableObjectState()
     const roomObject = new RoomLobbyObject(state, {})

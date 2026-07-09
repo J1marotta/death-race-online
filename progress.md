@@ -528,3 +528,11 @@ Last updated: 2026-07-09
 - Added Worker CORS headers to JSON responses and an `OPTIONS` preflight response for room routes.
 - Added Worker regression tests for preflight handling and CORS headers on API responses.
 - Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 49 : Verify Live Multiplayer Lobby Flow
+
+- Verified the deployed Pages app at `https://d26fdeba.death-race-online.pages.dev` in two isolated browser sessions.
+- Confirmed the host can create a lobby, receive a shareable room code, ready up, see the guest join by code, and start only after everyone is ready.
+- Confirmed the guest can enter a username and room code, join the same lobby, see the host and real-player roster, ready up, and follow the host into the playing state.
+- Verified the live room reached `playing` for both sessions with room code `DR-YHI9`.
+- Removed the completed live multiplayer verification item from `todo.md`.

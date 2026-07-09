@@ -113,17 +113,16 @@ Running has no stamina, cooldown, noise meter, or extra UI. The risk is behavior
 - Current app stack is React + Vite + JavaScript + npm + Oxlint.
 - React should own shell UI, lobby, scoreboard, and top-level state.
 - High-frequency gameplay should be isolated from ordinary React UI rendering where practical.
-- Current networking scope: the lobby is backed by Cloudflare room state; live gameplay still needs authoritative shared round state.
+- Current networking scope: lobbies, readiness, countdown, live phase, shots, round winners, scoreboard state, and next-round state are backed by Cloudflare room state.
 - MVP backend choice: server state is required for friends to join and play in the same room.
 - MVP deployment target: deploy the multiplayer game so friends can reach the same hosted room.
 - MVP platform target: desktop/laptop first; mobile and tablet controls are deferred until the laptop loop works.
 - Keep lobby, player, and round state behind small modules so real-time networking can own the authoritative session later.
-- Add a backend, realtime transport, and deployment-specific code when implementing joinable multiplayer.
+- Use the Cloudflare Durable Object room backend, Worker API, and live WebSocket transport with HTTP polling as fallback.
 - Use a renderer that can support 20 visible pixel-art lanes, mouse crosshairs, dead bodies, and reveal highlights at the `1200px` target.
 - Keep all gameplay constants easy to tune.
 - Defender integration must wait until the user provides or identifies Defender source files. No Defender source was found in the active repo or old workspace.
 
 ## Open Design Decisions
 
-- Which live transport should replace polling for shared lobbies and round sync.
 - Whether Defender should connect to this game at all if the user later provides its source.

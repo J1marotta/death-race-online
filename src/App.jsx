@@ -78,7 +78,7 @@ const STATE_COPY = {
   playing: {
     eyebrow: 'Live round',
     title: 'Walk, run, aim, fire once.',
-    body: 'Space walks, Left shift runs, mouse aims, Mouse 1 fires. Crosshairs remain visible until the shot is spent.',
+    body: 'Space walks, Left shift runs, mouse aims, Mouse 1 fires. Crosshairs dim after the shot is spent.',
     action: 'Waiting for finish',
     next: 'playing'
   },
@@ -128,7 +128,7 @@ const ROUND_OPTIONS = [3, 5, 7]
 const COUNTDOWN_STEPS = ['3', '2', '1', 'go']
 const COUNTDOWN_STEP_MS = 500
 const WALK_SPEED = 0.081
-const RUN_SPEED = 0.108
+const RUN_SPEED = 0.1404
 const TICK_MS = 80
 const FINISH_PROGRESS = 88
 const HIT_WINDOW_PERCENT = 3.5
@@ -143,7 +143,7 @@ const NPC_SPEEDS = {
   idle: 0.027,
   stop: 0,
   walk: 0.081,
-  run: 0.108
+  run: 0.1404
 }
 
 const SOUND_PROFILES = {
@@ -1165,7 +1165,7 @@ function App() {
       Math.max(1, Math.floor(y / laneHeight) + 1)
     )
     return {
-      x: Math.min(96, Math.max(6, x)),
+      x: Math.min(100, Math.max(0, x)),
       laneId
     }
   }
@@ -1657,11 +1657,10 @@ function App() {
                   <span className='reveal-tag'>{lane.controller.name}</span>
                 ) : null}
                 {state === 'playing' &&
-                localHasBullet &&
                 lane.id === aim.laneId &&
                 !controlledRacerEliminated ? (
                   <span
-                    className={`crosshair crosshair-${localPlayerColor}`}
+                    className={`crosshair crosshair-${localPlayerColor} ${localHasBullet ? '' : 'crosshair-spent'}`}
                     data-testid='local-crosshair'
                     style={{
                       left: `${aim.x}%`

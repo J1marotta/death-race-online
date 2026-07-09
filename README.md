@@ -64,7 +64,7 @@ Run `npm run dev`, open the local Vite URL, and check:
 - Lobby shows room code, privacy controls, player names, round count, and start action.
 - Countdown blocks movement and shooting until `go`.
 - `Space` walks and `Left Shift` runs the local hidden racer during play.
-- Mouse movement aims the local crosshair; Mouse 1 fires once and hides it.
+- Mouse movement aims the local crosshair; Mouse 1 fires once and dims it.
 - Shot racers stay visible as bodies and eliminated humans become spectators.
 - A round ends only when a non-eliminated racer reaches the finish.
 - Human winners get 1 point; NPC winners get 0 human points.

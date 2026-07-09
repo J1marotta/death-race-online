@@ -568,3 +568,12 @@ Last updated: 2026-07-09
 - Added shared rename support through the room state helper, browser API wrapper, and Cloudflare Worker action.
 - Added regression coverage for player rename, create loading state, room overview placement, expanded synced roster behavior, and Worker/API rename handling.
 - Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 53 : Tune Crosshair Feedback And Run Speed
+
+- Centered the crosshair on the pointer X position instead of placing its left edge on the mouse.
+- Allowed crosshair aim to reach the full `0%` to `100%` playfield width.
+- Kept the crosshair visible after firing and dimmed it to 50% opacity instead of hiding it.
+- Increased player and NPC run speed by another `30%`.
+- Added regression coverage for pointer-edge alignment, fired crosshair dimming, and the stronger run/walk speed gap.
+- Verified with `npm test`; `npm run lint`; `npm run build`.

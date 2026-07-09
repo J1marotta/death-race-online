@@ -872,12 +872,16 @@ code {
   --crosshair-color: #f87171;
   width: 20px;
   height: 20px;
-  transform: translateY(-50%);
+  transform: translate(-50%, -50%);
   border: 2px solid var(--crosshair-color);
   border-radius: 50%;
   box-shadow:
     0 0 0 1px #101217,
     0 0 12px var(--crosshair-color);
+}
+
+.crosshair-spent {
+  opacity: 0.5;
 }
 
 .crosshair::before,

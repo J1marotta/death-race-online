@@ -153,12 +153,30 @@ describe('game controls', () => {
     expect(screen.getByTestId('local-crosshair').style.left).toBe('70%')
   })
 
+  it('keeps the crosshair origin aligned with the pointer edge', async () => {
+    const playfield = await startPlaying()
+
+    fireEvent.mouseMove(playfield, { clientX: 0, clientY: 925 })
+
+    expect(screen.getByTestId('local-crosshair').style.left).toBe('0%')
+  })
+
   it('does not eliminate a racer when clicking away from the racer body', async () => {
     const playfield = await startPlaying()
 
     fireEvent.mouseDown(playfield, { clientX: 900, clientY: 925 })
 
     expect(screen.queryByText('down')).toBeNull()
+  })
+
+  it('dims the local crosshair after firing instead of hiding it', async () => {
+    const playfield = await startPlaying()
+
+    fireEvent.mouseDown(playfield, { clientX: 900, clientY: 925 })
+
+    const crosshair = screen.getByTestId('local-crosshair')
+    expect(crosshair.className).toContain('crosshair-spent')
+    expect(crosshair.style.left).toBe('90%')
   })
 
   it('eliminates a racer only when the shot is near that racer', async () => {
@@ -225,7 +243,7 @@ describe('game controls', () => {
     fireEvent.keyUp(window, { code: 'ShiftLeft' })
     const runEnd = Number.parseFloat(racer.style.getPropertyValue('--racer-progress'))
 
-    expect(runEnd - runStart).toBeGreaterThan(walkEnd - walkStart)
+    expect(runEnd - runStart).toBeGreaterThan((walkEnd - walkStart) * 1.5)
   })
 
   it('shows a straight checkered finish line on the playfield', async () => {

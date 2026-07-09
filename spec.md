@@ -72,7 +72,7 @@ Running has no stamina, cooldown, noise meter, or extra UI. The risk is behavior
 - All loaded human players have visible crosshairs.
 - Crosshairs are visible to everyone and color-coded by player.
 - Show a visible single-bullet indicator.
-- Hide a player's crosshair after they fire.
+- Dim a player's crosshair to 50% opacity after they fire.
 
 ## Elimination And Winning
 

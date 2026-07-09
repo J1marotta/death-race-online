@@ -474,3 +474,13 @@ Last updated: 2026-07-09
 - Kept the local fallback roster for menu/offline prototype states.
 - Added a regression test that confirms the round setup count comes from the backend roster instead of the old fixed four-player list.
 - Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 43 : Add Room Heartbeats And Stale Cleanup
+
+- Added per-player heartbeat state so active clients refresh only their own connection timestamp.
+- Stopped worker requests from touching every player timestamp, which had made vanished clients look alive forever.
+- Made stale connected players become disconnected during prune and made rooms close when no connected host remains.
+- Added Durable Object cleanup alarms so abandoned rooms can be destroyed even when no client sends another request.
+- Added client heartbeat calls for active room/game states.
+- Added regression tests for heartbeat updates, stale connected-player pruning, room closure, cleanup alarms, and the heartbeat API wrapper.
+- Verified with `npm test`; `npm run lint`; `npm run build`.

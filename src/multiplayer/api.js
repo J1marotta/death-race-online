@@ -67,6 +67,16 @@ export function setPlayerReady(roomCode, payload) {
   })
 }
 
+export function sendPlayerHeartbeat(roomCode, payload) {
+  return requestJson(roomCode, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'heartbeat',
+      ...payload,
+    }),
+  })
+}
+
 export function submitPlayerInput(roomCode, payload) {
   return requestJson(roomCode, {
     method: 'POST',

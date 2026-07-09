@@ -15,6 +15,12 @@ function createDurableObjectState(roomCode = 'DR-TEST') {
       delete: vi.fn(async (key) => {
         store.delete(key)
       }),
+      setAlarm: vi.fn(async (timestamp) => {
+        store.set('alarm', timestamp)
+      }),
+      deleteAlarm: vi.fn(async () => {
+        store.delete('alarm')
+      }),
     },
     store,
   }
@@ -94,6 +100,72 @@ describe('rooms worker', () => {
     const body = await response.json()
 
     expect(body.destroyed).toBe(true)
+    expect(state.store.has('room')).toBe(false)
+  })
+
+  it('refreshes a single player heartbeat', async () => {
+    const state = createDurableObjectState()
+    const roomObject = new RoomLobbyObject(state, {})
+
+    await roomObject.fetch(postRoom('create', { hostName: 'James' }))
+    const staleRoom = state.store.get('room')
+    const oldHeartbeat = new Date(Date.now() - 10000).toISOString()
+    state.store.set('room', {
+      ...staleRoom,
+      players: staleRoom.players.map((player) => ({
+        ...player,
+        updatedAt: oldHeartbeat,
+      })),
+    })
+    const response = await roomObject.fetch(
+      postRoom('heartbeat', { playerName: 'James' }),
+    )
+    const { room } = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(room.players[0].updatedAt).not.toBe(oldHeartbeat)
+    expect(state.store.has('alarm')).toBe(true)
+  })
+
+  it('closes stale rooms when no connected host remains', async () => {
+    const state = createDurableObjectState()
+    const roomObject = new RoomLobbyObject(state, {})
+
+    await roomObject.fetch(postRoom('create', { hostName: 'James' }))
+    const staleRoom = state.store.get('room')
+    state.store.set('room', {
+      ...staleRoom,
+      players: staleRoom.players.map((player) => ({
+        ...player,
+        ready: true,
+        updatedAt: '2024-01-01T00:00:00.000Z',
+      })),
+    })
+    const response = await roomObject.fetch(
+      new Request('https://rooms.example/api/rooms/DR-TEST'),
+    )
+    const body = await response.json()
+
+    expect(response.status).toBe(410)
+    expect(body.destroyed).toBe(true)
+    expect(state.store.has('room')).toBe(false)
+  })
+
+  it('uses the cleanup alarm to destroy abandoned rooms', async () => {
+    const state = createDurableObjectState()
+    const roomObject = new RoomLobbyObject(state, {})
+
+    await roomObject.fetch(postRoom('create', { hostName: 'James' }))
+    const staleRoom = state.store.get('room')
+    state.store.set('room', {
+      ...staleRoom,
+      players: staleRoom.players.map((player) => ({
+        ...player,
+        updatedAt: '2024-01-01T00:00:00.000Z',
+      })),
+    })
+    await roomObject.alarm()
+
     expect(state.store.has('room')).toBe(false)
   })
 

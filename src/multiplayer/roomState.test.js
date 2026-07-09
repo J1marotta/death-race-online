@@ -4,6 +4,7 @@ import {
   createRoomState,
   joinRoomState,
   leaveRoomState,
+  setPlayerHeartbeatState,
   setPlayerReadyState,
   setPlayerInputState,
   pruneDisconnectedPlayers,
@@ -99,6 +100,25 @@ describe('roomState', () => {
     expect(readyRoom.players.find((player) => player.name === 'Mia').ready).toBe(true)
   })
 
+  it('updates heartbeat timestamps for connected players', () => {
+    const room = createRoomState({
+      roomCode: 'DR-2048',
+      hostName: 'James',
+    })
+    const stale = {
+      ...room,
+      players: room.players.map((player) => ({
+        ...player,
+        updatedAt: '2024-01-01T00:00:00.000Z',
+      })),
+    }
+    const heartbeatRoom = setPlayerHeartbeatState(stale, 'James')
+    const host = heartbeatRoom.players.find((player) => player.name === 'James')
+
+    expect(host.connected).toBe(true)
+    expect(host.updatedAt).not.toBe('2024-01-01T00:00:00.000Z')
+  })
+
   it('stores the latest input for a player', () => {
     const room = createRoomState({
       roomCode: 'DR-2048',
@@ -139,9 +159,30 @@ describe('roomState', () => {
           : player,
       ),
     }
-    const pruned = pruneDisconnectedPlayers(stale, 1)
+    const pruned = pruneDisconnectedPlayers(stale, 100000)
 
     expect(pruned.players.find((player) => player.name === 'Mia')).toBeUndefined()
+  })
+
+  it('marks stale connected players disconnected before room cleanup', () => {
+    const room = createRoomState({
+      roomCode: 'DR-2048',
+      hostName: 'James',
+    })
+    const stale = {
+      ...room,
+      players: room.players.map((player) => ({
+        ...player,
+        ready: true,
+        updatedAt: '2024-01-01T00:00:00.000Z',
+      })),
+    }
+    const pruned = pruneDisconnectedPlayers(stale, 1)
+    const host = pruned.players.find((player) => player.name === 'James')
+
+    expect(host.connected).toBe(false)
+    expect(host.ready).toBe(false)
+    expect(shouldDestroyRoom(pruned)).toBe(true)
   })
 
   it('updates lobby settings and round flow', () => {

@@ -3,6 +3,7 @@ import {
   createRoom,
   getRoom,
   joinRoom,
+  sendPlayerHeartbeat,
   setPlayerReady,
   submitPlayerInput,
   startCountdown,
@@ -93,6 +94,25 @@ describe('multiplayer api', () => {
     const result = await setPlayerReady('DR-2048', { playerName: 'Mia', ready: true })
 
     expect(result.room.roomCode).toBe('DR-2048')
+  })
+
+  it('sends player heartbeats through the api', async () => {
+    fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ room: { roomCode: 'DR-2048', players: [] } }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+        },
+      }),
+    )
+
+    const result = await sendPlayerHeartbeat('DR-2048', { playerName: 'Mia' })
+
+    expect(result.room.roomCode).toBe('DR-2048')
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchObject({
+      action: 'heartbeat',
+      playerName: 'Mia',
+    })
   })
 
   it('starts the next round through the api', async () => {

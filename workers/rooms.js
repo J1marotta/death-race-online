@@ -4,6 +4,7 @@ import {
   leaveRoomState,
   pruneDisconnectedPlayers,
   serializeRoom,
+  setPlayerHeartbeatState,
   setPlayerReadyState,
   setPlayerInputState,
   startNextRound,
@@ -11,9 +12,11 @@ import {
   updateRoomSettings,
   canStartRoom,
   shouldDestroyRoom,
-  touchRoomPlayers,
   toPlayerId,
 } from '../src/multiplayer/roomState.js'
+
+const PLAYER_STALE_MS = 45000
+const CLEANUP_ALARM_MS = PLAYER_STALE_MS + 1000
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -36,16 +39,46 @@ class RoomLobbyObject {
 
   async loadRoom() {
     const existing = await this.state.storage.get('room')
-    return existing ? pruneDisconnectedPlayers(existing) : null
+    return existing ? pruneDisconnectedPlayers(existing, PLAYER_STALE_MS) : null
   }
 
   async saveRoom(room) {
     await this.state.storage.put('room', room)
+    await this.scheduleCleanupAlarm()
     return room
   }
 
   async destroyRoom() {
     await this.state.storage.delete('room')
+    if (typeof this.state.storage.deleteAlarm === 'function') {
+      await this.state.storage.deleteAlarm()
+    }
+  }
+
+  async scheduleCleanupAlarm() {
+    if (typeof this.state.storage.setAlarm === 'function') {
+      await this.state.storage.setAlarm(Date.now() + CLEANUP_ALARM_MS)
+    }
+  }
+
+  async closeIfNeeded(room) {
+    if (!shouldDestroyRoom(room)) {
+      return null
+    }
+    await this.destroyRoom()
+    return json({ error: 'Room closed', room: null, destroyed: true }, 410)
+  }
+
+  async alarm() {
+    const room = await this.loadRoom()
+    if (!room) {
+      return
+    }
+    if (shouldDestroyRoom(room)) {
+      await this.destroyRoom()
+      return
+    }
+    await this.saveRoom(room)
   }
 
   async fetch(request) {
@@ -58,7 +91,11 @@ class RoomLobbyObject {
       if (!room) {
         return json({ error: 'Room not found' }, 404)
       }
-      const nextRoom = pruneDisconnectedPlayers(room)
+      const nextRoom = pruneDisconnectedPlayers(room, PLAYER_STALE_MS)
+      const closedResponse = await this.closeIfNeeded(nextRoom)
+      if (closedResponse) {
+        return closedResponse
+      }
       await this.saveRoom(nextRoom)
       return json({ room: serializeRoom(nextRoom) })
     }
@@ -85,10 +122,15 @@ class RoomLobbyObject {
     if (!room) {
       return json({ error: 'Room not found' }, 404)
     }
+    const closedResponse = await this.closeIfNeeded(room)
+    if (closedResponse) {
+      return closedResponse
+    }
 
     if (action === 'join') {
       const nextRoom = pruneDisconnectedPlayers(
-        touchRoomPlayers(joinRoomState(room, body.playerName ?? 'Player')),
+        joinRoomState(room, body.playerName ?? 'Player'),
+        PLAYER_STALE_MS,
       )
       if (shouldDestroyRoom(nextRoom)) {
         await this.destroyRoom()
@@ -101,7 +143,8 @@ class RoomLobbyObject {
     if (action === 'leave') {
       const leavingHost = room.hostId === toPlayerId(body.playerName ?? 'Player')
       const nextRoom = pruneDisconnectedPlayers(
-        touchRoomPlayers(leaveRoomState(room, body.playerName ?? 'Player')),
+        leaveRoomState(room, body.playerName ?? 'Player'),
+        PLAYER_STALE_MS,
       )
       if (shouldDestroyRoom(nextRoom, { hostLeft: leavingHost })) {
         await this.destroyRoom()
@@ -140,9 +183,21 @@ class RoomLobbyObject {
 
     if (action === 'ready') {
       const nextRoom = pruneDisconnectedPlayers(
-        touchRoomPlayers(
-          setPlayerReadyState(room, body.playerName ?? 'Player', body.ready ?? true),
-        ),
+        setPlayerReadyState(room, body.playerName ?? 'Player', body.ready ?? true),
+        PLAYER_STALE_MS,
+      )
+      if (shouldDestroyRoom(nextRoom)) {
+        await this.destroyRoom()
+        return json({ room: null, destroyed: true })
+      }
+      await this.saveRoom(nextRoom)
+      return json({ room: serializeRoom(nextRoom) })
+    }
+
+    if (action === 'heartbeat') {
+      const nextRoom = pruneDisconnectedPlayers(
+        setPlayerHeartbeatState(room, body.playerName ?? 'Player'),
+        PLAYER_STALE_MS,
       )
       if (shouldDestroyRoom(nextRoom)) {
         await this.destroyRoom()
@@ -154,13 +209,12 @@ class RoomLobbyObject {
 
     if (action === 'input') {
       const nextRoom = pruneDisconnectedPlayers(
-        touchRoomPlayers(
-          setPlayerInputState(room, body.playerName ?? 'Player', {
-            movementMode: body.movementMode ?? 'stopped',
-            aim: body.aim ?? null,
-            firing: body.firing ?? false,
-          }),
-        ),
+        setPlayerInputState(room, body.playerName ?? 'Player', {
+          movementMode: body.movementMode ?? 'stopped',
+          aim: body.aim ?? null,
+          firing: body.firing ?? false,
+        }),
+        PLAYER_STALE_MS,
       )
       if (shouldDestroyRoom(nextRoom)) {
         await this.destroyRoom()

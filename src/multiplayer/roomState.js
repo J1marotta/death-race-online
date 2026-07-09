@@ -12,6 +12,7 @@ function createPlayerRecord(name, role = 'player') {
     connected: true,
     ready: false,
     joinedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   }
 }
 
@@ -82,6 +83,18 @@ export function setPlayerReadyState(room, playerName, ready = true) {
   }
 }
 
+export function setPlayerHeartbeatState(room, playerName) {
+  return {
+    ...room,
+    players: room.players.map((player) =>
+      player.name === playerName
+        ? { ...player, connected: true, updatedAt: new Date().toISOString() }
+        : player,
+    ),
+    updatedAt: new Date().toISOString(),
+  }
+}
+
 export function setPlayerInputState(room, playerName, input = {}) {
   const inputOwner = room.players.find((player) => player.name === playerName && player.connected)
   if (!inputOwner) {
@@ -96,21 +109,34 @@ export function setPlayerInputState(room, playerName, input = {}) {
         updatedAt: new Date().toISOString(),
       },
     },
+    players: room.players.map((player) =>
+      player.name === playerName
+        ? { ...player, updatedAt: new Date().toISOString() }
+        : player,
+    ),
     updatedAt: new Date().toISOString(),
   }
 }
 
 export function pruneDisconnectedPlayers(room, staleAfterMs = 120000) {
   const now = Date.now()
-  const nextPlayers = room.players.filter((player) => {
+  const updatedAt = new Date().toISOString()
+  const playersWithStaleConnections = room.players.map((player) => {
+    const lastSeen = player.updatedAt ? Date.parse(player.updatedAt) || 0 : 0
+    if (player.connected && now - lastSeen > staleAfterMs) {
+      return { ...player, connected: false, ready: false, updatedAt }
+    }
+    return player
+  })
+  const nextPlayers = playersWithStaleConnections.filter((player) => {
     if (player.connected) {
       return true
     }
-    const lastSeen = player.updatedAt ? Date.parse(player.updatedAt) : 0
+    const lastSeen = player.updatedAt ? Date.parse(player.updatedAt) || 0 : 0
     return now - lastSeen < staleAfterMs
   })
 
-  const removedNames = room.players
+  const removedNames = playersWithStaleConnections
     .filter((player) => !nextPlayers.some((nextPlayer) => nextPlayer.id === player.id))
     .map((player) => player.name)
 
@@ -209,5 +235,8 @@ export function touchRoomPlayers(room) {
 
 export function shouldDestroyRoom(room, { hostLeft = false } = {}) {
   const activePlayers = room.players.filter((player) => player.connected)
-  return hostLeft || activePlayers.length === 0
+  const hostConnected = room.players.some(
+    (player) => player.id === room.hostId && player.connected,
+  )
+  return hostLeft || activePlayers.length === 0 || !hostConnected
 }

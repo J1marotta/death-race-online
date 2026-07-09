@@ -5,6 +5,7 @@ import {
   getRoom,
   joinRoom,
   leaveRoom,
+  sendPlayerHeartbeat,
   startCountdown as apiStartCountdown,
   startNextRound as apiStartNextRound,
   setPlayerReady,
@@ -601,6 +602,8 @@ function App() {
         result = await joinRoom(targetRoomCode, payload)
       } else if (action === 'ready') {
         result = await setPlayerReady(targetRoomCode, payload)
+      } else if (action === 'heartbeat') {
+        result = await sendPlayerHeartbeat(targetRoomCode, payload)
       } else if (action === 'input') {
         result = await submitPlayerInput(targetRoomCode, payload)
       } else {
@@ -616,6 +619,20 @@ function App() {
       return null
     }
   }, [roomCode])
+
+  useEffect(() => {
+    if (state === 'menu') {
+      return undefined
+    }
+
+    const heartbeat = () => {
+      void syncRoom('heartbeat', { playerName: activePlayerName })
+    }
+
+    heartbeat()
+    const intervalId = window.setInterval(heartbeat, 10000)
+    return () => window.clearInterval(intervalId)
+  }, [activePlayerName, state, syncRoom])
 
   useEffect(() => {
     if (!['lobby', 'countdown', 'playing'].includes(state)) {

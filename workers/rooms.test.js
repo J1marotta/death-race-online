@@ -246,6 +246,42 @@ describe('rooms worker', () => {
     expect(room.phase).toBe('countdown')
   })
 
+  it('renames the host before the room starts', async () => {
+    const state = createDurableObjectState()
+    const roomObject = new RoomLobbyObject(state, {})
+
+    await roomObject.fetch(postRoom('create', { hostName: 'James' }))
+    const renameResponse = await roomObject.fetch(
+      postRoom('rename', {
+        playerName: 'James',
+        nextPlayerName: 'Jules',
+      }),
+    )
+    const { room } = await renameResponse.json()
+
+    expect(renameResponse.status).toBe(200)
+    expect(room.hostId).toBe('jules')
+    expect(room.players[0].name).toBe('Jules')
+  })
+
+  it('rejects unavailable player names', async () => {
+    const state = createDurableObjectState()
+    const roomObject = new RoomLobbyObject(state, {})
+
+    await roomObject.fetch(postRoom('create', { hostName: 'James' }))
+    await roomObject.fetch(postRoom('join', { playerName: 'Mia' }))
+    const renameResponse = await roomObject.fetch(
+      postRoom('rename', {
+        playerName: 'Mia',
+        nextPlayerName: 'James',
+      }),
+    )
+    const body = await renameResponse.json()
+
+    expect(renameResponse.status).toBe(400)
+    expect(body.error).toBe('Player name is not available')
+  })
+
   it('syncs host-controlled round events through the room', async () => {
     const state = createDurableObjectState()
     const roomObject = new RoomLobbyObject(state, {})

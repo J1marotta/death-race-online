@@ -105,6 +105,68 @@ export function setPlayerReadyState(room, playerName, ready = true) {
   }
 }
 
+export function renamePlayerState(room, playerName, nextPlayerName) {
+  const trimmedName = nextPlayerName?.trim()
+  if (!trimmedName || room.phase !== 'lobby') {
+    return room
+  }
+
+  const player = room.players.find(
+    (roomPlayer) => roomPlayer.name === playerName && roomPlayer.connected,
+  )
+  if (!player) {
+    return room
+  }
+
+  const nextPlayerId = toPlayerId(trimmedName)
+  const nameTaken = room.players.some(
+    (roomPlayer) =>
+      roomPlayer.name !== playerName &&
+      (roomPlayer.name === trimmedName || roomPlayer.id === nextPlayerId),
+  )
+  if (nameTaken) {
+    return room
+  }
+
+  const updatedAt = new Date().toISOString()
+  const nextInputs = { ...(room.inputs ?? {}) }
+  if (nextInputs[playerName]) {
+    nextInputs[trimmedName] = nextInputs[playerName]
+    delete nextInputs[playerName]
+  }
+
+  const existingScores = room.roundState?.scores ?? {}
+  const nextScores = { ...existingScores }
+  if (Object.hasOwn(nextScores, playerName)) {
+    nextScores[trimmedName] = nextScores[playerName]
+    delete nextScores[playerName]
+  }
+
+  return {
+    ...room,
+    hostId: room.hostId === player.id ? nextPlayerId : room.hostId,
+    inputs: nextInputs,
+    players: room.players.map((roomPlayer) =>
+      roomPlayer.name === playerName
+        ? {
+            ...roomPlayer,
+            id: nextPlayerId,
+            name: trimmedName,
+            updatedAt,
+          }
+        : roomPlayer,
+    ),
+    roundState: room.roundState
+      ? {
+          ...room.roundState,
+          scores: nextScores,
+          updatedAt,
+        }
+      : room.roundState,
+    updatedAt,
+  }
+}
+
 export function setPlayerHeartbeatState(room, playerName) {
   return {
     ...room,

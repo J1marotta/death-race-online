@@ -14,14 +14,18 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 ## Lobby And Match
 
 - Players join through a shareable room code/link.
-- The host creates a lobby and receives the room code to share.
-- Joining players enter the room code and their username.
+- The host enters their display name, creates a lobby, and receives the room code to share.
+- Joining players enter the room code and their display name.
+- Connected players can edit their own display name from the real-players roster before the round starts.
 - Lobbies can be public or private.
 - The host chooses the number of rounds.
 - Every connected player, including the host, must ready up before the game can start.
 - Only the host can start the game.
 - Connected players see the same lobby, countdown, round, and scoreboard state.
+- Create-lobby actions show a loading state so the user can tell the backend request is in flight.
 - Room updates use a Cloudflare-compatible live transport, with polling only as a fallback.
+- Once a room exists, the room code, connection count, ready count, and match summary live in the top bar.
+- The lobby side panel focuses on the editable real-players roster, ready/start actions, and compact host settings so the flow fits without scrolling.
 - The room side panel is visible for menu, lobby, and result/scoreboard states, then hides during countdown and live play so the playfield is the focus.
 - Transport sync state is internal recovery information and should not flicker as a visible UI status.
 - Rooms are destroyed when the host leaves or when every client stops heartbeating.
@@ -82,7 +86,8 @@ Running has no stamina, cooldown, noise meter, or extra UI. The risk is behavior
 ## NPC Behavior
 
 - NPCs fill all unused racer slots.
-- NPCs walk, stop, and occasionally run.
+- NPCs walk, stop, occasionally run, and sometimes pause for extended periods.
+- NPC running and stopping should feel erratic enough that NPCs do not look like they are all perfectly racing to win.
 - NPCs should imitate human hesitation and intent.
 - NPCs never shoot.
 - NPCs must be capable of winning.
@@ -90,13 +95,15 @@ Running has no stamina, cooldown, noise meter, or extra UI. The risk is behavior
 ## Visual Direction
 
 - Pixel-art style.
-- 5 unique character looks repeated 4 times across 20 lanes.
-- Repeated character looks are visually identical.
+- 8 character shape variants are reused across the 20 lanes.
+- Character variants keep the same hitbox even when their silhouettes differ.
+- Starting lane positions and character variants are randomized enough that players cannot identify themselves from fixed ordering.
 - Lanes use slight depth/perspective like the reference screenshot.
 - The finish line is straight and uses a black-and-white checkered flag treatment.
 - All 20 lanes fit on one screen without vertical scrolling.
 - The playfield and HUD must read well at `1200px` wide on a laptop.
 - Crosshairs, bullet indicators, dead bodies, winner state, and reveal highlights should be readable at a glance.
+- Light sound cues support key actions such as creating/joining lobbies, readying, starting, shooting, and saving a display name.
 
 ## Suggested State Model
 

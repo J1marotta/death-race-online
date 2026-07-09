@@ -3,6 +3,7 @@ import {
   joinRoomState,
   leaveRoomState,
   pruneDisconnectedPlayers,
+  renamePlayerState,
   serializeRoom,
   setPlayerHeartbeatState,
   setPlayerReadyState,
@@ -248,6 +249,19 @@ class RoomLobbyObject {
         privacy: body.privacy,
         roundCount: body.roundCount,
       })
+      await this.saveRoom(nextRoom)
+      return json({ room: serializeRoom(nextRoom) })
+    }
+
+    if (action === 'rename') {
+      const nextRoom = renamePlayerState(
+        room,
+        body.playerName ?? 'Player',
+        body.nextPlayerName ?? '',
+      )
+      if (nextRoom === room) {
+        return json({ error: 'Player name is not available' }, 400)
+      }
       await this.saveRoom(nextRoom)
       return json({ room: serializeRoom(nextRoom) })
     }

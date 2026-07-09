@@ -82,6 +82,16 @@ export function updateRoom(roomCode, payload) {
   })
 }
 
+export function renameRoomPlayer(roomCode, payload) {
+  return requestJson(roomCode, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'rename',
+      ...payload,
+    }),
+  })
+}
+
 export function setPlayerReady(roomCode, payload) {
   return requestJson(roomCode, {
     method: 'POST',

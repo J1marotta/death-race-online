@@ -259,6 +259,52 @@ describe('game controls', () => {
     )
   })
 
+  it('shows a loading state while creating a lobby', async () => {
+    let resolveFetch
+    global.fetch = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveFetch = () =>
+            resolve(
+              new Response(
+                JSON.stringify({
+                  room: {
+                    roomCode: 'DR-LOAD',
+                    phase: 'lobby',
+                    hostId: 'james',
+                    round: 1,
+                    players: [
+                      {
+                        name: 'James',
+                        id: 'james',
+                        role: 'host',
+                        connected: true,
+                        ready: false,
+                      },
+                    ],
+                    spectators: [],
+                    inputs: {},
+                  },
+                }),
+                {
+                  status: 201,
+                  headers: {
+                    'content-type': 'application/json',
+                  },
+                },
+              ),
+            )
+        }),
+    )
+
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
+
+    expect(screen.getByRole('button', { name: 'Creating lobby' }).disabled).toBe(true)
+    resolveFetch()
+    await screen.findByLabelText('Real players')
+  })
+
   it('shows an error when joining a missing room', async () => {
     fetch.mockResolvedValueOnce(
       new Response(JSON.stringify({ error: 'Room not found' }), {
@@ -298,13 +344,13 @@ describe('game controls', () => {
     expect(within(roomError).getByText('Back to menu')).toBeTruthy()
   })
 
-  it('shows the latest synced room input in the lobby', async () => {
+  it('shows room overview in the top bar once the lobby exists', async () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
 
-    await waitFor(() =>
-      expect(screen.getByText('Latest input: Mia running')).toBeTruthy(),
-    )
+    const roomOverview = await screen.findByLabelText('Room overview')
+    expect(within(roomOverview).getByText('Connected')).toBeTruthy()
+    expect(within(roomOverview).getByText('Ready')).toBeTruthy()
   })
 
   it('shows connected real players in the lobby', async () => {
@@ -313,7 +359,7 @@ describe('game controls', () => {
 
     const realPlayers = await screen.findByLabelText('Real players')
     expect(realPlayers).toBeTruthy()
-    expect(within(realPlayers).getByText('James')).toBeTruthy()
+    expect(within(realPlayers).getByLabelText('Your player name').value).toBe('James')
     expect(within(realPlayers).getByText('Mia')).toBeTruthy()
   })
 
@@ -321,17 +367,46 @@ describe('game controls', () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
 
-    await screen.findByLabelText('Room status')
+    await screen.findByLabelText('Room overview')
 
     expect(screen.queryByText('Sync')).toBeNull()
   })
 
-  it('derives hidden human racers from the synced room roster', async () => {
+  it('keeps a 20-racer playfield from the synced room roster once playing', async () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
 
     await waitFor(() =>
-      expect(screen.getByText('2 hidden humans, 18 NPCs.')).toBeTruthy(),
+      expect(screen.getByRole('button', { name: 'Start game' })).toBeTruthy(),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Start game' }))
+    await screen.findByLabelText('Countdown')
+
+    expect(screen.getAllByTestId(/^lane-/)).toHaveLength(20)
+  })
+
+  it('renames the current lobby player through the real players list', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
+
+    const nameInput = await screen.findByLabelText('Your player name')
+    fireEvent.change(nameInput, { target: { value: 'Jules' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() =>
+      expect(
+        fetch.mock.calls.some(([, options]) => {
+          if (!options?.body) {
+            return false
+          }
+          const body = JSON.parse(options.body)
+          return (
+            body.action === 'rename' &&
+            body.playerName === 'James' &&
+            body.nextPlayerName === 'Jules'
+          )
+        }),
+      ).toBe(true),
     )
   })
 

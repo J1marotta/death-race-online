@@ -5,6 +5,7 @@ import {
   finishRoomRound,
   joinRoomState,
   leaveRoomState,
+  renamePlayerState,
   setPlayerHeartbeatState,
   setPlayerReadyState,
   setPlayerInputState,
@@ -102,6 +103,37 @@ describe('roomState', () => {
     const readyRoom = setPlayerReadyState(joined, 'Mia', true)
 
     expect(readyRoom.players.find((player) => player.name === 'Mia').ready).toBe(true)
+  })
+
+  it('renames a connected player in the lobby and preserves host ownership', () => {
+    const room = createRoomState({
+      roomCode: 'DR-2048',
+      hostName: 'James',
+    })
+    const renamed = renamePlayerState(room, 'James', 'Jules')
+
+    expect(renamed.hostId).toBe('jules')
+    expect(renamed.players[0]).toMatchObject({
+      id: 'jules',
+      name: 'Jules',
+      role: 'host',
+    })
+  })
+
+  it('rejects duplicate or live player renames', () => {
+    const room = joinRoomState(
+      createRoomState({
+        roomCode: 'DR-2048',
+        hostName: 'James',
+      }),
+      'Mia',
+    )
+    const duplicate = renamePlayerState(room, 'Mia', 'James')
+    const liveRename = renamePlayerState({ ...room, phase: 'playing' }, 'Mia', 'Ava')
+
+    expect(duplicate.players.find((player) => player.name === 'Mia')).toBeTruthy()
+    expect(duplicate.players.find((player) => player.name === 'James')).toBeTruthy()
+    expect(liveRename.players.find((player) => player.name === 'Ava')).toBeUndefined()
   })
 
   it('updates heartbeat timestamps for connected players', () => {

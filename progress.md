@@ -555,3 +555,16 @@ Last updated: 2026-07-09
 - Scaled NPC idle/walk movement with the new walking pace so NPCs keep blending into the pack.
 - Removed the extra checkered flag element that was sitting on top of the finish line, leaving the straight checkered finish marker only.
 - Added regression coverage for run-vs-walk speed and the cleaned finish line.
+- Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 52 : Polish Lobby Flow And NPC Variety
+
+- Added erratic NPC pacing so simulated racers can suddenly run or pause for extended periods while keeping their hitboxes and lane assignments stable.
+- Added three more character silhouette variants, bringing the racer shape set to 8 variants within the same collision footprint.
+- Added a create-lobby loading state so the button reflects in-flight backend work.
+- Moved room overview details into the top bar after a room exists, enlarged the join controls, and tightened the lobby side panel around real players, ready/start actions, and compact host settings.
+- Made the current real-player row editable so hosts and guests can save their lobby display name before play starts.
+- Added lightweight Web Audio cues for lobby actions, ready/start, shots, and name saves.
+- Added shared rename support through the room state helper, browser API wrapper, and Cloudflare Worker action.
+- Added regression coverage for player rename, create loading state, room overview placement, expanded synced roster behavior, and Worker/API rename handling.
+- Verified with `npm test`; `npm run lint`; `npm run build`.

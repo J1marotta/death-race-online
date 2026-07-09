@@ -8,6 +8,7 @@ import {
   joinRoom,
   leaveRoom,
   recordShot,
+  renameRoomPlayer,
   sendPlayerHeartbeat,
   showScoreboard,
   startCountdown as apiStartCountdown,
@@ -20,10 +21,10 @@ import {
 import { canStartRoom } from './multiplayer/roomState'
 
 const PLAYERS = ['James', 'Mia', 'Noah', 'Ava']
-const WAITING_PLAYERS = ['James', 'Mia', 'Noah', 'Ava', 'Theo']
 const LATE_JOINERS = ['Riley']
 const ARCHETYPES = ['Driver', 'Runner', 'Mask', 'Coat', 'Cap']
 const HUMAN_COLORS = ['red', 'blue', 'green', 'yellow']
+const CHARACTER_SHAPE_COUNT = 8
 const START_POSITIONS = [
   7.2, 9.6, 8.4, 10.8, 7.9, 9.1, 8.8, 10.3, 7.5, 9.9,
   8.1, 10.6, 7.7, 9.2, 8.6, 10.1, 7.4, 9.4, 8.9, 10.4,
@@ -39,7 +40,8 @@ const shuffleStartPositions = (count) => {
   return result
 }
 
-const laneShapeSeed = (index) => `shape-${(index * 5 + Math.floor(index / 3)) % 5}`
+const laneShapeSeed = (index) =>
+  `shape-${(index * 7 + Math.floor(index / 2)) % CHARACTER_SHAPE_COUNT}`
 
 const laneStartPositions = shuffleStartPositions(20)
 
@@ -140,7 +142,17 @@ const NPC_PATTERNS = [
 const NPC_SPEEDS = {
   idle: 0.027,
   stop: 0,
-  walk: 0.081
+  walk: 0.081,
+  run: 0.108
+}
+
+const SOUND_PROFILES = {
+  create: [330, 494],
+  join: [294, 440],
+  ready: [392, 660],
+  start: [220, 440, 880],
+  shot: [160, 90],
+  save: [440, 554],
 }
 
 const hashString = value => {
@@ -163,6 +175,27 @@ const shuffleWithSeed = (items, seed) => {
     result[swapIndex] = current
   }
   return result
+}
+
+const getNpcStep = (racer, tick, seedParts) => {
+  const baseStep =
+    racer.npc.pattern[
+      (Math.floor(tick / 22) + racer.npc.offset) % racer.npc.pattern.length
+    ]
+  const longBlock = Math.floor(tick / 38)
+  const shortBlock = Math.floor(tick / 9)
+  const longRoll = hashString(`${seedParts}:${racer.id}:long:${longBlock}`) % 100
+  const shortRoll = hashString(`${seedParts}:${racer.id}:short:${shortBlock}`) % 100
+  if (longRoll < 16) {
+    return 'stop'
+  }
+  if (longRoll > 88 || shortRoll > 94) {
+    return 'run'
+  }
+  if (shortRoll < 7) {
+    return 'stop'
+  }
+  return baseStep
 }
 
 const createHumanAssignments = (players, seedParts) => {
@@ -230,9 +263,13 @@ function App() {
   const [roomSyncState, setRoomSyncState] = useState('local')
   const [roomError, setRoomError] = useState('')
   const [currentPlayerName, setCurrentPlayerName] = useState('')
+  const [playerNameDraft, setPlayerNameDraft] = useState(PLAYERS[0])
+  const [createLobbyPending, setCreateLobbyPending] = useState(false)
+  const [renamePending, setRenamePending] = useState(false)
   const playfieldRef = useRef(null)
   const pressedKeys = useRef({ run: false, walk: false })
   const playingRequested = useRef(false)
+  const audioContextRef = useRef(null)
   const activeState = STATE_COPY[state]
   const lobbyInProgress = !['menu', 'lobby'].includes(state)
   const movementLocked = state === 'countdown'
@@ -247,7 +284,6 @@ function App() {
         .slice(0, LANES.length) ?? []
     return roomPlayers.length ? roomPlayers : PLAYERS
   }, [roomSnapshot?.players])
-  const activePlayers = lobbyInProgress ? humanPlayers : WAITING_PLAYERS
   const humanAssignmentByPlayer = useMemo(
     () =>
       createHumanAssignments(
@@ -266,6 +302,7 @@ function App() {
   const localPlayerIndex = Math.max(0, humanPlayers.indexOf(localPlayerName))
   const localPlayerColor = HUMAN_COLORS[localPlayerIndex % HUMAN_COLORS.length]
   const roomInputs = useMemo(() => roomSnapshot?.inputs ?? {}, [roomSnapshot?.inputs])
+  const npcSeedParts = `${activeRoomCode}:${currentRound}`
   const roundRacers = useMemo(
     () => {
       const humanByLane = Object.fromEntries(
@@ -348,11 +385,14 @@ function App() {
   const rankedPlayers = [...humanPlayers].sort(
     (a, b) => scores[b] - scores[a] || humanPlayers.indexOf(a) - humanPlayers.indexOf(b)
   )
-  const lobbyPlayers = roomSnapshot?.players ?? []
   const lobbySpectators = roomSnapshot?.spectators ?? spectators
   const currentRoomPlayer = roomSnapshot?.players.find(
     (player) => player.name === activePlayerName,
   )
+  const connectedPlayerCount =
+    roomSnapshot?.players.filter((player) => player.connected).length ?? humanPlayers.length
+  const readyPlayerCount =
+    roomSnapshot?.players.filter((player) => player.connected && player.ready).length ?? 0
   const roomReady = roomSnapshot ? canStartRoom(roomSnapshot) : false
   const isCurrentHost =
     Boolean(currentRoomPlayer?.connected) && currentRoomPlayer?.id === roomSnapshot?.hostId
@@ -370,7 +410,6 @@ function App() {
   const latestInputSummary = latestInputEntry
     ? `${latestInputEntry[0]} ${latestInputEntry[1]?.movementMode ?? 'stopped'}`
     : 'No live input yet'
-  const currentRoomLink = `${window.location.origin}/join/${activeRoomCode}`
   const roomClosed = roomSyncState === 'closed'
   const gameplayFocused = ['countdown', 'playing'].includes(state)
   const activeStateCopy =
@@ -409,6 +448,33 @@ function App() {
             }
           : activeState
 
+  const playSound = useCallback((soundName) => {
+    const AudioContext = window.AudioContext ?? window.webkitAudioContext
+    const notes = SOUND_PROFILES[soundName]
+    if (!AudioContext || !notes) {
+      return
+    }
+    const audioContext = audioContextRef.current ?? new AudioContext()
+    audioContextRef.current = audioContext
+    if (audioContext.state === 'suspended') {
+      void audioContext.resume()
+    }
+    const now = audioContext.currentTime
+    notes.forEach((frequency, index) => {
+      const oscillator = audioContext.createOscillator()
+      const gain = audioContext.createGain()
+      const startAt = now + index * 0.055
+      oscillator.type = soundName === 'shot' ? 'sawtooth' : 'square'
+      oscillator.frequency.setValueAtTime(frequency, startAt)
+      gain.gain.setValueAtTime(0.0001, startAt)
+      gain.gain.exponentialRampToValueAtTime(soundName === 'shot' ? 0.06 : 0.035, startAt + 0.01)
+      gain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.13)
+      oscillator.connect(gain).connect(audioContext.destination)
+      oscillator.start(startAt)
+      oscillator.stop(startAt + 0.14)
+    })
+  }, [])
+
   const handleRoomClosed = useCallback((message = 'Room closed') => {
     setRoomSnapshot(null)
     setRoomSyncState('closed')
@@ -444,6 +510,12 @@ function App() {
       setMovementMode('stopped')
     }
   }, [controlledRacerEliminated, state])
+
+  useEffect(() => {
+    if (currentPlayerName) {
+      setPlayerNameDraft(currentPlayerName)
+    }
+  }, [currentPlayerName])
 
   useEffect(() => {
     setScores(current => {
@@ -558,11 +630,7 @@ function App() {
                 if (shotRacerIds.includes(racer.id)) {
                   return [racer.id, progressByLane[racer.id] ?? racer.progress]
                 }
-                const step =
-                  racer.npc.pattern[
-                    (Math.floor(nextTick / 22) + racer.npc.offset) %
-                      racer.npc.pattern.length
-                  ]
+                const step = getNpcStep(racer, nextTick, npcSeedParts)
                 const laneDrag = 0.78 + racer.depth * 0.05
                 const nextProgress =
                   (progressByLane[racer.id] ?? racer.progress) +
@@ -575,18 +643,30 @@ function App() {
       })
     }, TICK_MS)
     return () => window.clearInterval(intervalId)
-  }, [roundRacers, shotRacerIds, state])
+  }, [npcSeedParts, roundRacers, shotRacerIds, state])
 
   const statusItems = useMemo(
-    () => [
-      ['Room', activeRoomCode],
-      ['State', STATE_LABELS[state]],
-      ['Rounds', `${currentRound} / ${roundCount}`],
-      ['Racers', roundRacers.length]
-    ],
+    () => {
+      const items = [
+        ['Room', activeRoomCode],
+        ['State', STATE_LABELS[state]],
+        ['Rounds', `${currentRound} / ${roundCount}`],
+        ['Racers', roundRacers.length],
+      ]
+      if (roomSnapshot) {
+        items.splice(2, 0, ['Connected', connectedPlayerCount])
+      }
+      if (state === 'lobby' && roomSnapshot) {
+        items.splice(3, 0, ['Ready', `${readyPlayerCount} / ${connectedPlayerCount}`])
+      }
+      return items
+    },
     [
       activeRoomCode,
+      connectedPlayerCount,
       currentRound,
+      readyPlayerCount,
+      roomSnapshot,
       roundCount,
       roundRacers.length,
       state,
@@ -614,6 +694,8 @@ function App() {
         result = await showScoreboard(targetRoomCode, payload)
       } else if (action === 'join') {
         result = await joinRoom(targetRoomCode, payload)
+      } else if (action === 'rename') {
+        result = await renameRoomPlayer(targetRoomCode, payload)
       } else if (action === 'ready') {
         result = await setPlayerReady(targetRoomCode, payload)
       } else if (action === 'heartbeat') {
@@ -934,6 +1016,7 @@ function App() {
     if (lobbyInProgress || !isCurrentHost || !roomReady) {
       return
     }
+    playSound('start')
     const room = await syncRoom('countdown', { playerName: activePlayerName })
     if (!room) {
       return
@@ -943,21 +1026,53 @@ function App() {
   }
 
   const createLobby = async () => {
+    if (createLobbyPending) {
+      return
+    }
+    setCreateLobbyPending(true)
+    playSound('create')
     setCurrentRound(1)
     setScores(createScoreState([pendingPlayerName]))
     setRoundHistory([])
     resetRoundState()
     const nextRoomCode = generateRoomCode()
-    setCurrentPlayerName(pendingPlayerName)
-    setRoomCode(nextRoomCode)
-    setRoomCodeInput(nextRoomCode)
-    const room = await syncRoom('create', {
-      hostName: pendingPlayerName,
-      privacy,
-      roundCount,
-    }, nextRoomCode)
-    if (room) {
-      setState('lobby')
+    try {
+      const room = await syncRoom('create', {
+        hostName: pendingPlayerName,
+        privacy,
+        roundCount,
+      }, nextRoomCode)
+      if (room) {
+        setCurrentPlayerName(pendingPlayerName)
+        setPlayerNameDraft(pendingPlayerName)
+        setRoomCode(nextRoomCode)
+        setRoomCodeInput(nextRoomCode)
+        setState('lobby')
+      }
+    } finally {
+      setCreateLobbyPending(false)
+    }
+  }
+
+  const renameCurrentPlayer = async () => {
+    const nextPlayerName = playerNameDraft.trim()
+    if (!nextPlayerName || nextPlayerName === activePlayerName || renamePending) {
+      return
+    }
+    setRenamePending(true)
+    playSound('save')
+    try {
+      const room = await syncRoom('rename', {
+        playerName: activePlayerName,
+        nextPlayerName,
+      })
+      if (room) {
+        setCurrentPlayerName(nextPlayerName)
+        setJoinName(nextPlayerName)
+        setPlayerNameDraft(nextPlayerName)
+      }
+    } finally {
+      setRenamePending(false)
     }
   }
 
@@ -1066,6 +1181,7 @@ function App() {
     if (state !== 'playing' || !localHasBullet) {
       return
     }
+    playSound('shot')
     const nextAim = getAimFromPointer(event)
     const targetRacer = roundRacers.find(racer => racer.id === nextAim.laneId)
     const targetProgress = targetRacer ? getLiveProgress(targetRacer) : null
@@ -1109,18 +1225,6 @@ function App() {
 
   const renderLobby = () => (
     <div className='lobby-panel' aria-label='Lobby controls'>
-      <div className='room-card'>
-        <span>{lobbyInProgress ? 'Room status' : 'Room code'}</span>
-        <strong>{activeRoomCode}</strong>
-        <code>
-          {state === 'lobby'
-            ? `${privacy} lobby, waiting to start`
-            : lobbyInProgress
-              ? `${STATE_LABELS[state]} in progress`
-              : currentRoomLink}
-        </code>
-      </div>
-
       {roomSnapshot ? (
         <div className='player-list' aria-label='Real players'>
           <div className='list-heading'>
@@ -1131,32 +1235,71 @@ function App() {
             .filter((player) => player.connected)
             .map((player) => (
               <div className='player-row' key={player.id}>
-                <span>{player.name}</span>
+                {state === 'lobby' && player.name === activePlayerName ? (
+                  <div className='player-name-edit'>
+                    <input
+                      aria-label='Your player name'
+                      value={playerNameDraft}
+                      onChange={(event) => setPlayerNameDraft(event.target.value)}
+                    />
+                    <button
+                      type='button'
+                      onClick={() => void renameCurrentPlayer()}
+                      disabled={
+                        renamePending ||
+                        !playerNameDraft.trim() ||
+                        playerNameDraft.trim() === activePlayerName
+                      }
+                    >
+                      {renamePending ? 'Saving' : 'Save'}
+                    </button>
+                  </div>
+                ) : (
+                  <span>{player.name}</span>
+                )}
                 <small>{getPlayerStatusLabel(player)}</small>
               </div>
             ))}
         </div>
       ) : null}
 
-      {state === 'lobby' && isCurrentHost ? (
-        <button
-          type='button'
-          className='host-start'
-          onClick={() => void startGameFromLobby()}
-          disabled={!hostCanStart}
-        >
-          {hostCanStart ? 'Start game' : 'Waiting for ready'}
-        </button>
-      ) : state === 'lobby' ? (
-        <div className='assignment-summary' aria-label='Host start status'>
-          <span>Host start</span>
-          <strong>Waiting for host</strong>
-          <p>{roomReady ? 'The room is ready.' : 'Everyone needs to ready up.'}</p>
+      {state === 'lobby' ? (
+        <div className='lobby-action-grid'>
+          {isCurrentHost ? (
+            <button
+              type='button'
+              className='host-start'
+              onClick={() => void startGameFromLobby()}
+              disabled={!hostCanStart}
+            >
+              {hostCanStart ? 'Start game' : 'Waiting for ready'}
+            </button>
+          ) : (
+            <div className='assignment-summary' aria-label='Host start status'>
+              <span>Host start</span>
+              <strong>Waiting for host</strong>
+              <p>{roomReady ? 'The room is ready.' : 'Everyone needs to ready up.'}</p>
+            </div>
+          )}
+          <button
+            type='button'
+            className='host-start'
+            disabled={Boolean(currentRoomPlayer?.ready)}
+            onClick={() => {
+              playSound('ready')
+              void syncRoom('ready', {
+                playerName: activePlayerName,
+                ready: true,
+              })
+            }}
+          >
+            {currentRoomPlayer?.ready ? 'Ready' : 'Ready up'}
+          </button>
         </div>
       ) : null}
 
       {state === 'lobby' && isCurrentHost ? (
-        <>
+        <div className='lobby-settings-grid'>
           <div className='control-group'>
             <span>Privacy</span>
             <div className='segmented-control' aria-label='Lobby privacy'>
@@ -1194,50 +1337,16 @@ function App() {
               ))}
             </div>
           </div>
-        </>
+        </div>
       ) : null}
 
-      {state === 'lobby' ? (
-        <button
-          type='button'
-          className='host-start'
-          disabled={Boolean(currentRoomPlayer?.ready)}
-          onClick={() =>
-            void syncRoom('ready', {
-              playerName: activePlayerName,
-              ready: true,
-            })
-          }
-        >
-          {currentRoomPlayer?.ready ? 'Ready' : 'Ready up'}
-        </button>
-      ) : null}
-
-      <div className='player-list' aria-label='Lobby players'>
-        <div className='list-heading'>
-          <span>Players</span>
-          <strong>{(lobbyPlayers.length || activePlayers.length)}/20</strong>
-        </div>
-        {(lobbyPlayers.length ? lobbyPlayers : activePlayers).map((player) => {
-          const name = player.name ?? player
-          return (
-            <div className='player-row' key={name}>
-              <span>{name}</span>
-              <small>
-                {typeof player === 'string' ? 'Waiting' : getPlayerStatusLabel(player)}
-              </small>
-            </div>
-          )
-        })}
-      </div>
-
-      <div className='player-list spectator-list' aria-label='Spectators'>
-        <div className='list-heading'>
-          <span>Spectators</span>
-          <strong>{lobbySpectators.length}</strong>
-        </div>
-        {lobbySpectators.length > 0 ? (
-          lobbySpectators.map(player => (
+      {lobbySpectators.length > 0 ? (
+        <div className='player-list spectator-list' aria-label='Spectators'>
+          <div className='list-heading'>
+            <span>Spectators</span>
+            <strong>{lobbySpectators.length}</strong>
+          </div>
+          {lobbySpectators.map(player => (
             <div className='player-row' key={player}>
               <span>{player}</span>
               <small>
@@ -1248,33 +1357,36 @@ function App() {
                   : 'Next round'}
               </small>
             </div>
-          ))
-        ) : (
-          <p>No late joiners yet.</p>
-        )}
-      </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   )
 
   const renderMenuActions = () => (
     <div className='menu-actions'>
+      <div className='control-group player-name-group'>
+        <span>Your name</span>
+        <input
+          aria-label='Player name'
+          value={joinName}
+          onChange={(event) => setJoinName(event.target.value)}
+          placeholder='Player name'
+        />
+      </div>
       <div className='actions'>
         <button
           type='button'
+          aria-busy={createLobbyPending}
+          disabled={createLobbyPending}
           onClick={() => void createLobby()}
         >
-          Create lobby
+          {createLobbyPending ? 'Creating lobby' : 'Create lobby'}
         </button>
       </div>
       <div className='control-group'>
-        <span>Join room</span>
+        <span>Join lobby</span>
         <div className='join-row'>
-          <input
-            aria-label='Player name'
-            value={joinName}
-            onChange={(event) => setJoinName(event.target.value)}
-            placeholder='Player name'
-          />
           <input
             aria-label='Room code'
             value={roomCodeInput}
@@ -1284,6 +1396,7 @@ function App() {
           <button
             type='button'
             onClick={async () => {
+              playSound('join')
               const targetRoomCode = roomCodeInput.trim().toUpperCase() || roomCode
               const targetPlayerName = pendingPlayerName
               const room = await syncRoom(
@@ -1293,6 +1406,7 @@ function App() {
               )
               if (room) {
                 setCurrentPlayerName(targetPlayerName)
+                setPlayerNameDraft(targetPlayerName)
                 setRoomCode(targetRoomCode)
                 setRoomCodeInput(targetRoomCode)
                 setState('lobby')
@@ -1322,16 +1436,28 @@ function App() {
           <p className='eyebrow'>Death race</p>
           <h1>Read the racer, hide the tell.</h1>
         </div>
+        {state !== 'menu' ? (
+          <div className='top-room-summary' aria-label='Room overview'>
+            {statusItems.map(([label, value]) => (
+              <div key={label}>
+                <span>{label}</span>
+                <strong>{value}</strong>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </header>
 
-      <section className='status-strip' aria-label='Round status'>
-        {statusItems.map(([label, value]) => (
-          <div key={label}>
-            <span>{label}</span>
-            <strong>{value}</strong>
-          </div>
-        ))}
-      </section>
+      {state === 'menu' ? (
+        <section className='status-strip' aria-label='Round status'>
+          {statusItems.map(([label, value]) => (
+            <div key={label}>
+              <span>{label}</span>
+              <strong>{value}</strong>
+            </div>
+          ))}
+        </section>
+      ) : null}
 
       <section
         className={`hero-panel ${gameplayFocused ? 'game-focused' : ''}`}
@@ -1339,11 +1465,15 @@ function App() {
       >
         {!gameplayFocused ? (
           <div className='state-card'>
-            <p className='eyebrow'>
-              {state === 'lobby' ? `Lobby ${activeRoomCode}` : activeStateCopy.eyebrow}
-            </p>
-            <h2 id='state-title'>{activeStateCopy.title}</h2>
-            <p>{activeStateCopy.body}</p>
+            {state !== 'lobby' ? (
+              <>
+                <p className='eyebrow'>
+                  {state === 'lobby' ? `Lobby ${activeRoomCode}` : activeStateCopy.eyebrow}
+                </p>
+                <h2 id='state-title'>{activeStateCopy.title}</h2>
+                <p>{activeStateCopy.body}</p>
+              </>
+            ) : null}
             {roomError ? (
               <div className='assignment-summary' aria-label='Room error'>
                 <span>{roomClosed ? 'Room closed' : 'Room error'}</span>
@@ -1358,7 +1488,7 @@ function App() {
                 ) : null}
               </div>
             ) : null}
-            {roomSnapshot ? (
+            {roomSnapshot && state !== 'lobby' ? (
               <div className='assignment-summary' aria-label='Room status'>
                 <span>Room status</span>
                 <strong>{roomSnapshot.phase}</strong>
@@ -1387,24 +1517,13 @@ function App() {
                 )}
               </div>
             ) : null}
-            {state === 'lobby' ? (
-              <div className='assignment-summary' aria-label='Room readiness'>
-                <span>Room readiness</span>
-                <strong>{roomReady ? 'Ready' : 'Waiting'}</strong>
-                <p>
-                  {roomReady
-                    ? 'The host can start this room now.'
-                    : 'Start is blocked until every connected player is ready.'}
-                </p>
-              </div>
-            ) : null}
             {state === 'countdown' ? (
               <div className='countdown-panel' aria-label='Countdown'>
                 <span>{COUNTDOWN_STEPS[countdownIndex]}</span>
                 <p>Movement and shooting unlock when the room reaches go.</p>
               </div>
             ) : null}
-            {state !== 'menu' ? (
+            {state !== 'menu' && state !== 'lobby' ? (
               <div className='assignment-summary' aria-label='Round setup'>
                 <span>Round setup</span>
                 <strong>{roundRacers.length} racers</strong>
@@ -1478,12 +1597,9 @@ function App() {
             const isRevealed = state === 'roundOver' || state === 'scoreboard'
             const isWinner = roundWinner?.id === lane.id
             const archetypeClass = lane.archetype.toLowerCase()
-            const npcStep =
-              lane.npc.pattern[
-                (Math.floor(npcTick / 22) + lane.npc.offset) %
-                  lane.npc.pattern.length
-              ]
-            const npcMotionClass = npcStep === 'walk' ? 'walking' : ''
+            const npcStep = getNpcStep(lane, npcTick, npcSeedParts)
+            const npcMotionClass =
+              npcStep === 'run' ? 'running' : npcStep === 'walk' ? 'walking' : ''
             const shapeClass = lane.shapeClass
             const racerProgress =
               isWinner && roundWinner.finalProgress

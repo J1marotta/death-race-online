@@ -4,7 +4,6 @@ This file tracks remaining implementation work only. Design decisions live in `s
 
 ## Real Multiplayer
 
-- Replace the local-only fixed `PLAYERS`/`HUMAN_ASSIGNMENTS` gameplay setup with assignments derived from the actual room roster.
 - Synchronize countdown, game start, round state, eliminations, winner, scoreboard, and next-round transitions across browsers.
 - Replace polling-only room updates with a live transport or equivalent real-time update path suitable for Cloudflare.
 - Add per-player heartbeat/disconnect handling so rooms can be destroyed after all clients vanish without a clean leave request.

@@ -465,3 +465,12 @@ Last updated: 2026-07-09
 - Kept the lobby/room side panel visible while the round is running.
 - Added regression tests for host-only start, ready usernames, no leave-on-start, room-code preservation, and Worker countdown validation.
 - Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 42 : Derive Gameplay Roster From Room State
+
+- Replaced the fixed local hidden-player lane mapping with deterministic assignments derived from the synced room roster.
+- Seeded assignments from room code, round number, and roster order so browsers with the same room snapshot derive the same hidden lanes.
+- Updated local control, crosshair color, bullet reset, NPC lane initialization, score rows, and round setup copy to use the derived human roster.
+- Kept the local fallback roster for menu/offline prototype states.
+- Added a regression test that confirms the round setup count comes from the backend roster instead of the old fixed four-player list.
+- Verified with `npm test`; `npm run lint`; `npm run build`.

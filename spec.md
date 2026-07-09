@@ -33,7 +33,7 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 ## Round Flow
 
 1. Fill the race with exactly 20 racers, using NPCs for empty human slots.
-2. Secretly assign each human player to one racer.
+2. Secretly assign each active room player to one racer.
 3. Start a `3, 2, 1, go` countdown.
 4. Players move, aim, infer identities, and may fire their one shot.
 5. Shot racers are eliminated and remain visible as bodies.

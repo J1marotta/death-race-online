@@ -122,7 +122,10 @@ describe('game controls', () => {
   it('advances the controlled racer while the walk key is held', async () => {
     const playfield = await startPlaying()
     vi.useFakeTimers()
-    const racer = screen.getByTestId('racer-7')
+    const controlledLane = screen
+      .getByTestId('local-crosshair')
+      .closest('[data-testid^="lane-"]')
+    const racer = controlledLane.querySelector('[data-testid^="racer-"]')
     const startingProgress = racer.style.getPropertyValue('--racer-progress')
 
     fireEvent.keyDown(window, { code: 'Space' })
@@ -197,6 +200,15 @@ describe('game controls', () => {
     expect(realPlayers).toBeTruthy()
     expect(within(realPlayers).getByText('James')).toBeTruthy()
     expect(within(realPlayers).getByText('Mia')).toBeTruthy()
+  })
+
+  it('derives hidden human racers from the synced room roster', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
+
+    await waitFor(() =>
+      expect(screen.getByText('2 hidden humans, 18 NPCs.')).toBeTruthy(),
+    )
   })
 
   it('keeps the lobby panel visible once the game starts', async () => {

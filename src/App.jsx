@@ -17,7 +17,6 @@ const PLAYERS = ['James', 'Mia', 'Noah', 'Ava']
 const WAITING_PLAYERS = ['James', 'Mia', 'Noah', 'Ava', 'Theo']
 const LATE_JOINERS = ['Riley']
 const ARCHETYPES = ['Driver', 'Runner', 'Mask', 'Coat', 'Cap']
-const HUMAN_ASSIGNMENTS = [7, 2, 15, 11]
 const HUMAN_COLORS = ['red', 'blue', 'green', 'yellow']
 const START_POSITIONS = [
   7.2, 9.6, 8.4, 10.8, 7.9, 9.1, 8.8, 10.3, 7.5, 9.9,
@@ -137,9 +136,50 @@ const NPC_SPEEDS = {
   walk: 0.018
 }
 
-const createNpcProgressByLane = () =>
+const hashString = value => {
+  let hash = 2166136261
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash >>> 0
+}
+
+const shuffleWithSeed = (items, seed) => {
+  const result = [...items]
+  let state = seed || 1
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0
+    const swapIndex = state % (index + 1)
+    const current = result[index]
+    result[index] = result[swapIndex]
+    result[swapIndex] = current
+  }
+  return result
+}
+
+const createHumanAssignments = (players, seedParts) => {
+  const laneIds = shuffleWithSeed(
+    LANES.map(lane => lane.id),
+    hashString(seedParts)
+  )
+  return Object.fromEntries(
+    players.slice(0, LANES.length).map((player, index) => [
+      player,
+      laneIds[index]
+    ])
+  )
+}
+
+const createScoreState = players =>
+  Object.fromEntries(players.map(player => [player, 0]))
+
+const createBulletState = players =>
+  Object.fromEntries(players.map(player => [player, true]))
+
+const createNpcProgressByLane = humanLaneIds =>
   Object.fromEntries(
-    LANES.filter((lane) => !HUMAN_ASSIGNMENTS.includes(lane.id)).map((lane) => [
+    LANES.filter((lane) => !humanLaneIds.includes(lane.id)).map((lane) => [
       lane.id,
       lane.progress
     ])
@@ -149,11 +189,16 @@ const generateRoomCode = () =>
   `DR-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
 
 function App() {
-  const controlledRacerId = HUMAN_ASSIGNMENTS[0]
   const initialRoomCode = (() => {
     const match = window.location.pathname.match(/\/join\/([^/]+)/)
     return match?.[1]?.toUpperCase() ?? ROOM_CODE
   })()
+  const initialAssignments = createHumanAssignments(
+    PLAYERS,
+    `${initialRoomCode}:1:${PLAYERS.join('|')}`
+  )
+  const initialHumanLaneIds = Object.values(initialAssignments)
+  const initialControlledRacerId = initialAssignments[PLAYERS[0]]
   const [state, setState] = useState('menu')
   const [privacy, setPrivacy] = useState('public')
   const [roundCount, setRoundCount] = useState(5)
@@ -164,19 +209,15 @@ function App() {
   const [movementMode, setMovementMode] = useState('stopped')
   const [controlledProgress, setControlledProgress] = useState(0)
   const [npcTick, setNpcTick] = useState(0)
-  const [npcProgressByLane, setNpcProgressByLane] = useState(
-    createNpcProgressByLane
+  const [npcProgressByLane, setNpcProgressByLane] = useState(() =>
+    createNpcProgressByLane(initialHumanLaneIds)
   )
-  const [aim, setAim] = useState({ x: 68, laneId: controlledRacerId })
-  const [bullets, setBullets] = useState(() =>
-    Object.fromEntries(PLAYERS.map(player => [player, true]))
-  )
+  const [aim, setAim] = useState({ x: 68, laneId: initialControlledRacerId })
+  const [bullets, setBullets] = useState(() => createBulletState(PLAYERS))
   const [shotRacerIds, setShotRacerIds] = useState([])
   const [roundWinner, setRoundWinner] = useState(null)
   const [currentRound, setCurrentRound] = useState(1)
-  const [scores, setScores] = useState(() =>
-    Object.fromEntries(PLAYERS.map(player => [player, 0]))
-  )
+  const [scores, setScores] = useState(() => createScoreState(PLAYERS))
   const [roundHistory, setRoundHistory] = useState([])
   const [roomSnapshot, setRoomSnapshot] = useState(null)
   const [roomSyncState, setRoomSyncState] = useState('local')
@@ -186,22 +227,59 @@ function App() {
   const pressedKeys = useRef({ run: false, walk: false })
   const activeState = STATE_COPY[state]
   const lobbyInProgress = !['menu', 'lobby'].includes(state)
-  const activePlayers = lobbyInProgress ? PLAYERS : WAITING_PLAYERS
   const movementLocked = state === 'countdown'
-  const roundRacers = useMemo(
+  const pendingPlayerName = joinName.trim() || PLAYERS[0]
+  const activePlayerName = currentPlayerName || pendingPlayerName
+  const activeRoomCode = roomSnapshot?.roomCode ?? roomCode
+  const humanPlayers = useMemo(() => {
+    const roomPlayers =
+      roomSnapshot?.players
+        ?.map(player => player.name)
+        .filter(Boolean)
+        .slice(0, LANES.length) ?? []
+    return roomPlayers.length ? roomPlayers : PLAYERS
+  }, [roomSnapshot?.players])
+  const activePlayers = lobbyInProgress ? humanPlayers : WAITING_PLAYERS
+  const humanAssignmentByPlayer = useMemo(
     () =>
-      LANES.map(lane => {
-        const playerIndex = HUMAN_ASSIGNMENTS.indexOf(lane.id)
+      createHumanAssignments(
+        humanPlayers,
+        `${activeRoomCode}:${currentRound}:${humanPlayers.join('|')}`
+      ),
+    [activeRoomCode, currentRound, humanPlayers]
+  )
+  const humanLaneIds = useMemo(
+    () => Object.values(humanAssignmentByPlayer),
+    [humanAssignmentByPlayer]
+  )
+  const controlledRacerId =
+    humanAssignmentByPlayer[activePlayerName] ?? humanLaneIds[0] ?? 1
+  const localPlayerName = activePlayerName
+  const localPlayerIndex = Math.max(0, humanPlayers.indexOf(localPlayerName))
+  const localPlayerColor = HUMAN_COLORS[localPlayerIndex % HUMAN_COLORS.length]
+  const roundRacers = useMemo(
+    () => {
+      const humanByLane = Object.fromEntries(
+        Object.entries(humanAssignmentByPlayer).map(([player, laneId], index) => [
+          laneId,
+          {
+            name: player,
+            color: HUMAN_COLORS[index % HUMAN_COLORS.length]
+          }
+        ])
+      )
+      return LANES.map(lane => {
+        const humanController = humanByLane[lane.id]
         const npcPattern =
           NPC_PATTERNS[(lane.id + lane.depth) % NPC_PATTERNS.length]
         return {
           ...lane,
           controller:
-            playerIndex >= 0
+            humanController
               ? {
                   type: 'human',
-                  name: PLAYERS[playerIndex],
-                  color: HUMAN_COLORS[playerIndex]
+                  name: humanController.name,
+                  color: humanController.color
                 }
               : {
                   type: 'npc',
@@ -214,15 +292,15 @@ function App() {
             progress: 0
           }
         }
-      }),
-    []
+      })
+    },
+    [humanAssignmentByPlayer]
   )
   const humansAssigned = roundRacers.filter(
     racer => racer.controller.type === 'human'
   )
   const npcCount = roundRacers.length - humansAssigned.length
-  const localPlayerName = PLAYERS[0]
-  const localHasBullet = bullets[localPlayerName]
+  const localHasBullet = bullets[localPlayerName] ?? true
   const eliminatedHumans = humansAssigned.filter(racer =>
     shotRacerIds.includes(racer.id)
   )
@@ -246,13 +324,11 @@ function App() {
     },
     [controlledProgress, controlledRacerId, npcProgressByLane, shotRacerIds]
   )
-  const rankedPlayers = [...PLAYERS].sort(
-    (a, b) => scores[b] - scores[a] || PLAYERS.indexOf(a) - PLAYERS.indexOf(b)
+  const rankedPlayers = [...humanPlayers].sort(
+    (a, b) => scores[b] - scores[a] || humanPlayers.indexOf(a) - humanPlayers.indexOf(b)
   )
   const lobbyPlayers = roomSnapshot?.players ?? []
   const lobbySpectators = roomSnapshot?.spectators ?? spectators
-  const pendingPlayerName = joinName.trim() || PLAYERS[0]
-  const activePlayerName = currentPlayerName || pendingPlayerName
   const currentRoomPlayer = roomSnapshot?.players.find(
     (player) => player.name === activePlayerName,
   )
@@ -260,7 +336,6 @@ function App() {
   const isCurrentHost =
     Boolean(currentRoomPlayer?.connected) && currentRoomPlayer?.id === roomSnapshot?.hostId
   const hostCanStart = state === 'lobby' ? isCurrentHost && roomReady : true
-  const activeRoomCode = roomSnapshot?.roomCode ?? roomCode
   const roomHostName =
     roomSnapshot?.players.find((player) => player.id === roomSnapshot.hostId)?.name ??
     PLAYERS[0]
@@ -316,6 +391,27 @@ function App() {
       setMovementMode('stopped')
     }
   }, [controlledRacerEliminated, state])
+
+  useEffect(() => {
+    setScores(current => {
+      const nextScores = Object.fromEntries(
+        humanPlayers.map(player => [player, current[player] ?? 0])
+      )
+      const currentPlayers = Object.keys(current)
+      const unchanged =
+        currentPlayers.length === humanPlayers.length &&
+        humanPlayers.every(player => current[player] === nextScores[player])
+      return unchanged ? current : nextScores
+    })
+  }, [humanPlayers])
+
+  useEffect(() => {
+    setAim(current =>
+      current.laneId === controlledRacerId
+        ? current
+        : { ...current, laneId: controlledRacerId }
+    )
+  }, [controlledRacerId])
 
   useEffect(() => {
     const syncMovement = () => {
@@ -569,25 +665,33 @@ function App() {
     return () => window.clearInterval(intervalId)
   }, [state, syncRoom])
 
-  const resetRoundState = useCallback(() => {
+  const resetRoundState = useCallback((nextHumanLaneIds = humanLaneIds, nextControlledRacerId = controlledRacerId) => {
     setCountdownIndex(0)
     setControlledProgress(0)
     setNpcTick(0)
-    setNpcProgressByLane(createNpcProgressByLane())
-    setBullets(Object.fromEntries(PLAYERS.map(player => [player, true])))
+    setNpcProgressByLane(createNpcProgressByLane(nextHumanLaneIds))
+    setBullets(createBulletState(humanPlayers))
     setShotRacerIds([])
     setRoundWinner(null)
-    setAim({ x: 68, laneId: controlledRacerId })
-  }, [controlledRacerId])
+    setAim({ x: 68, laneId: nextControlledRacerId })
+  }, [controlledRacerId, humanLaneIds, humanPlayers])
 
   const startNextRound = () => {
     if (matchComplete) {
       setState('gameOver')
       return
     }
+    const nextRound = currentRound + 1
+    const nextAssignments = createHumanAssignments(
+      humanPlayers,
+      `${activeRoomCode}:${nextRound}:${humanPlayers.join('|')}`
+    )
+    const nextHumanLaneIds = Object.values(nextAssignments)
+    const nextControlledRacerId =
+      nextAssignments[activePlayerName] ?? nextHumanLaneIds[0] ?? 1
     void syncRoom('next-round')
-    setCurrentRound(round => round + 1)
-    resetRoundState()
+    setCurrentRound(nextRound)
+    resetRoundState(nextHumanLaneIds, nextControlledRacerId)
     setState('countdown')
   }
 
@@ -605,7 +709,7 @@ function App() {
 
   const createLobby = async () => {
     setCurrentRound(1)
-    setScores(Object.fromEntries(PLAYERS.map(player => [player, 0])))
+    setScores(createScoreState([pendingPlayerName]))
     setRoundHistory([])
     resetRoundState()
     const nextRoomCode = generateRoomCode()
@@ -634,7 +738,7 @@ function App() {
       }
       if (state === 'menu') {
         setCurrentRound(1)
-        setScores(Object.fromEntries(PLAYERS.map(player => [player, 0])))
+        setScores(createScoreState(humanPlayers))
         setRoundHistory([])
         const nextRoomCode = generateRoomCode()
         setCurrentPlayerName(pendingPlayerName)
@@ -1151,7 +1255,7 @@ function App() {
                 lane.id === aim.laneId &&
                 !controlledRacerEliminated ? (
                   <span
-                    className={`crosshair crosshair-${HUMAN_COLORS[0]}`}
+                    className={`crosshair crosshair-${localPlayerColor}`}
                     data-testid='local-crosshair'
                     style={{
                       left: `${aim.x}%`

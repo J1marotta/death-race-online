@@ -66,12 +66,12 @@ class RoomLobbyObject {
     return room
   }
 
-  async destroyRoom() {
+  async destroyRoom(reason = 'Room closed') {
     await this.state.storage.delete('room')
     if (typeof this.state.storage.deleteAlarm === 'function') {
       await this.state.storage.deleteAlarm()
     }
-    this.broadcast({ type: 'closed', error: 'Room closed' })
+    this.broadcast({ type: 'closed', error: reason })
   }
 
   async scheduleCleanupAlarm() {
@@ -84,7 +84,7 @@ class RoomLobbyObject {
     if (!shouldDestroyRoom(room)) {
       return null
     }
-    await this.destroyRoom()
+    await this.destroyRoom('Room closed')
     return json({ error: 'Room closed', room: null, destroyed: true }, 410)
   }
 
@@ -94,7 +94,7 @@ class RoomLobbyObject {
       return
     }
     if (shouldDestroyRoom(room)) {
-      await this.destroyRoom()
+      await this.destroyRoom('Room closed')
       return
     }
     await this.saveRoom(room)
@@ -203,8 +203,8 @@ class RoomLobbyObject {
         PLAYER_STALE_MS,
       )
       if (shouldDestroyRoom(nextRoom)) {
-        await this.destroyRoom()
-        return json({ room: null, destroyed: true })
+        await this.destroyRoom('Room closed')
+        return json({ error: 'Room closed', room: null, destroyed: true })
       }
       await this.saveRoom(nextRoom)
       return json({ room: serializeRoom(nextRoom) })
@@ -217,8 +217,9 @@ class RoomLobbyObject {
         PLAYER_STALE_MS,
       )
       if (shouldDestroyRoom(nextRoom, { hostLeft: leavingHost })) {
-        await this.destroyRoom()
-        return json({ room: null, destroyed: true })
+        const reason = leavingHost ? 'Host left the room' : 'Room closed'
+        await this.destroyRoom(reason)
+        return json({ error: reason, room: null, destroyed: true })
       }
       await this.saveRoom(nextRoom)
       return json({ room: serializeRoom(nextRoom) })
@@ -301,8 +302,8 @@ class RoomLobbyObject {
         PLAYER_STALE_MS,
       )
       if (shouldDestroyRoom(nextRoom)) {
-        await this.destroyRoom()
-        return json({ room: null, destroyed: true })
+        await this.destroyRoom('Room closed')
+        return json({ error: 'Room closed', room: null, destroyed: true })
       }
       await this.saveRoom(nextRoom)
       return json({ room: serializeRoom(nextRoom) })
@@ -314,8 +315,8 @@ class RoomLobbyObject {
         PLAYER_STALE_MS,
       )
       if (shouldDestroyRoom(nextRoom)) {
-        await this.destroyRoom()
-        return json({ room: null, destroyed: true })
+        await this.destroyRoom('Room closed')
+        return json({ error: 'Room closed', room: null, destroyed: true })
       }
       await this.saveRoom(nextRoom)
       return json({ room: serializeRoom(nextRoom) })
@@ -332,8 +333,8 @@ class RoomLobbyObject {
         PLAYER_STALE_MS,
       )
       if (shouldDestroyRoom(nextRoom)) {
-        await this.destroyRoom()
-        return json({ room: null, destroyed: true })
+        await this.destroyRoom('Room closed')
+        return json({ error: 'Room closed', room: null, destroyed: true })
       }
       await this.saveRoom(nextRoom)
       return json({ room: serializeRoom(nextRoom) })

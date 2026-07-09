@@ -504,3 +504,13 @@ Last updated: 2026-07-09
 - Kept HTTP polling as fallback when the socket is unavailable, closed, or in tests.
 - Added tests for live socket URL creation and Worker fallback behavior when WebSocket support is unavailable.
 - Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 46 : Show Closed Room State
+
+- Added a shared closed-room handler in the React app for destroyed HTTP responses, 410 room-closed errors, and live socket close messages.
+- Stopped heartbeat, input sync, socket reconnect, polling, countdown, and host winner detection while a room is closed.
+- Added visible closed-room copy explaining that the host left or the room expired.
+- Added a `Back to menu` recovery action so remaining clients can create or join a new lobby.
+- Made host-leave destruction responses include `Host left the room`.
+- Added regression tests for closed-room UI and host-leave response text.
+- Verified with `npm test`; `npm run lint`; `npm run build`.

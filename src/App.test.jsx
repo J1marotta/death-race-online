@@ -240,6 +240,26 @@ describe('game controls', () => {
     expect(screen.getByText('Room not found')).toBeTruthy()
   })
 
+  it('shows a closed-room state when the host leaves or the room expires', async () => {
+    fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'Room closed', destroyed: true }), {
+        status: 410,
+        headers: {
+          'content-type': 'application/json',
+        },
+      }),
+    )
+    render(<App />)
+    fireEvent.change(screen.getByLabelText('Room code'), {
+      target: { value: 'DONE' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Join lobby' }))
+
+    const roomError = await screen.findByLabelText('Room error')
+    expect(within(roomError).getAllByText('Room closed')).toHaveLength(2)
+    expect(within(roomError).getByText('Back to menu')).toBeTruthy()
+  })
+
   it('shows the latest synced room input in the lobby', async () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))

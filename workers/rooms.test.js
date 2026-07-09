@@ -118,6 +118,7 @@ describe('rooms worker', () => {
     const body = await response.json()
 
     expect(body.destroyed).toBe(true)
+    expect(body.error).toBe('Host left the room')
     expect(state.store.has('room')).toBe(false)
   })
 

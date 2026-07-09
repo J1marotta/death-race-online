@@ -371,6 +371,7 @@ function App() {
     ? `${latestInputEntry[0]} ${latestInputEntry[1]?.movementMode ?? 'stopped'}`
     : 'No live input yet'
   const currentRoomLink = `${window.location.origin}/join/${activeRoomCode}`
+  const roomClosed = roomSyncState === 'closed'
   const activeStateCopy =
     state === 'roundOver' && roundWinner
       ? {
@@ -406,6 +407,13 @@ function App() {
               body: `Final scores are locked after ${roundCount} rounds.`
             }
           : activeState
+
+  const handleRoomClosed = useCallback((message = 'Room closed') => {
+    setRoomSnapshot(null)
+    setRoomSyncState('closed')
+    setRoomError(message)
+    setMovementMode('stopped')
+  }, [])
 
   const resolveWinnerSnapshot = useCallback(
     winnerSnapshot => {
@@ -616,21 +624,31 @@ function App() {
       } else {
         result = await getRoom(targetRoomCode)
       }
+      if (result.destroyed || !result.room) {
+        handleRoomClosed(result.error || 'Room closed')
+        return null
+      }
       setRoomSnapshot(result.room)
       setRoomSyncState('connected')
       setRoomError('')
       return result.room
     } catch (error) {
-      setRoomError(error.message || 'Room request failed')
+      const message = error.message || 'Room request failed'
+      if (message === 'Room closed') {
+        handleRoomClosed(message)
+        return null
+      }
+      setRoomError(message)
       setRoomSyncState('offline')
       return null
     }
-  }, [roomCode])
+  }, [handleRoomClosed, roomCode])
 
   useEffect(() => {
     if (
       import.meta.env.MODE === 'test' ||
       state === 'menu' ||
+      roomClosed ||
       !activeRoomCode ||
       typeof WebSocket !== 'function'
     ) {
@@ -662,9 +680,7 @@ function App() {
         setRoomError('')
       }
       if (message.type === 'closed') {
-        setRoomSnapshot(null)
-        setRoomSyncState('closed')
-        setRoomError(message.error ?? 'Room closed')
+        handleRoomClosed(message.error ?? 'Room closed')
       }
     })
     socket.addEventListener('error', () => {
@@ -682,10 +698,10 @@ function App() {
       closed = true
       socket.close()
     }
-  }, [activePlayerName, activeRoomCode, state])
+  }, [activePlayerName, activeRoomCode, handleRoomClosed, roomClosed, state])
 
   useEffect(() => {
-    if (state !== 'playing' || roundWinner || !isCurrentHost) {
+    if (roomClosed || state !== 'playing' || roundWinner || !isCurrentHost) {
       return
     }
     const winner = roundRacers.find(
@@ -733,13 +749,14 @@ function App() {
     npcTick,
     roundRacers,
     roundWinner,
+    roomClosed,
     shotRacerIds,
     state,
     syncRoom,
   ])
 
   useEffect(() => {
-    if (state === 'menu') {
+    if (state === 'menu' || roomClosed) {
       return undefined
     }
 
@@ -750,10 +767,10 @@ function App() {
     heartbeat()
     const intervalId = window.setInterval(heartbeat, 10000)
     return () => window.clearInterval(intervalId)
-  }, [activePlayerName, state, syncRoom])
+  }, [activePlayerName, roomClosed, state, syncRoom])
 
   useEffect(() => {
-    if (!['lobby', 'countdown', 'playing'].includes(state)) {
+    if (roomClosed || !['lobby', 'countdown', 'playing'].includes(state)) {
       return undefined
     }
 
@@ -772,6 +789,7 @@ function App() {
     controlledProgress,
     localHasBullet,
     movementMode,
+    roomClosed,
     state,
     syncRoom,
   ])
@@ -800,6 +818,7 @@ function App() {
   useEffect(() => {
     if (
       roomSyncState === 'live' ||
+      roomClosed ||
       !['lobby', 'countdown', 'playing', 'roundOver', 'scoreboard'].includes(state)
     ) {
       return undefined
@@ -812,7 +831,7 @@ function App() {
     refreshRoom()
     const intervalId = window.setInterval(refreshRoom, 3000)
     return () => window.clearInterval(intervalId)
-  }, [roomSyncState, state, syncRoom])
+  }, [roomClosed, roomSyncState, state, syncRoom])
 
   const resetRoundState = useCallback((nextHumanLaneIds = humanLaneIds, nextControlledRacerId = controlledRacerId) => {
     setCountdownIndex(0)
@@ -992,7 +1011,7 @@ function App() {
     return () => window.removeEventListener('beforeunload', handleUnload)
   }, [activePlayerName, roomCode])
   useEffect(() => {
-    if (state !== 'countdown') {
+    if (roomClosed || state !== 'countdown') {
       return undefined
     }
     const startedAt =
@@ -1014,6 +1033,7 @@ function App() {
     activePlayerName,
     isCurrentHost,
     roomSnapshot?.roundState?.countdownStartedAt,
+    roomClosed,
     state,
     syncRoom,
   ])
@@ -1287,6 +1307,15 @@ function App() {
     </div>
   )
 
+  const resetToMenu = () => {
+    setState('menu')
+    setRoomSnapshot(null)
+    setRoomSyncState('local')
+    setRoomError('')
+    setCurrentPlayerName('')
+    setMovementMode('stopped')
+  }
+
   return (
     <main className='app-shell'>
       <header className='top-bar'>
@@ -1314,8 +1343,16 @@ function App() {
             <p>{activeStateCopy.body}</p>
             {roomError ? (
               <div className='assignment-summary' aria-label='Room error'>
-                <span>Room error</span>
+                <span>{roomClosed ? 'Room closed' : 'Room error'}</span>
                 <strong>{roomError}</strong>
+                {roomClosed ? (
+                  <>
+                    <p>The host left or the room expired. Start or join a new lobby.</p>
+                    <button type='button' onClick={resetToMenu}>
+                      Back to menu
+                    </button>
+                  </>
+                ) : null}
               </div>
             ) : null}
             {roomSnapshot ? (

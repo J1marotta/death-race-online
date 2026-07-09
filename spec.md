@@ -47,11 +47,12 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 5. Players move, aim, infer identities, and may fire their one shot.
 6. Shot racers are recorded in shared room state, eliminated for every client, and remain visible as bodies.
 7. Eliminated players spectate.
-8. The round continues until a racer wins.
-9. The host records the round winner in shared room state.
-10. Reveal/highlight all human-controlled racers after the winner is declared.
-11. If an NPC wins, show a shame/reveal moment.
-12. Show the shared scoreboard and next-round action.
+8. If every human racer is eliminated while more rounds remain, the rest of the race fast-forwards.
+9. The round continues until a racer wins.
+10. The host records the round winner in shared room state.
+11. Reveal/highlight all human-controlled racers after the winner is declared.
+12. If an NPC wins, show a shame/reveal moment.
+13. Show the shared scoreboard and next-round action.
 
 ## Player Controls
 
@@ -62,6 +63,7 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 - Mouse 1: fire.
 
 Running has no stamina, cooldown, noise meter, or extra UI. The risk is behavioral: running makes intent easier to read and may draw shots.
+Control reminders are visible at the bottom of the playfield during the race.
 
 ## Shooting And Aiming
 
@@ -71,8 +73,9 @@ Running has no stamina, cooldown, noise meter, or extra UI. The risk is behavior
 - NPCs never shoot in the MVP.
 - All loaded human players have visible crosshairs.
 - Crosshairs are visible to everyone and color-coded by player.
-- Show a visible single-bullet indicator.
-- Dim a player's crosshair to 50% opacity after they fire.
+- Before firing, show a small pixel bullet attached to the crosshair.
+- Dim a player's crosshair to 50% opacity and turn it grey after they fire.
+- Highlight a racer when the crosshair is directly over that target.
 
 ## Elimination And Winning
 
@@ -90,7 +93,7 @@ Running has no stamina, cooldown, noise meter, or extra UI. The risk is behavior
 - NPC running and stopping should feel erratic enough that NPCs do not look like they are all perfectly racing to win.
 - NPCs should imitate human hesitation and intent.
 - NPCs never shoot.
-- NPCs must be capable of winning.
+- NPCs must be capable of crossing the visible finish line and winning.
 
 ## Visual Direction
 
@@ -98,9 +101,9 @@ Running has no stamina, cooldown, noise meter, or extra UI. The risk is behavior
 - 8 character shape variants are reused across the 20 lanes.
 - Character variants keep the same hitbox even when their silhouettes differ.
 - Starting lane positions and character variants are randomized enough that players cannot identify themselves from fixed ordering.
+- Lanes and racer sprites are scaled up from the first prototype so character silhouettes have more room.
 - Lanes use slight depth/perspective like the reference screenshot.
 - The finish line is straight and uses a black-and-white checkered flag treatment.
-- All 20 lanes fit on one screen without vertical scrolling.
 - The playfield and HUD must read well at `1200px` wide on a laptop.
 - Crosshairs, bullet indicators, dead bodies, winner state, and reveal highlights should be readable at a glance.
 - Light sound cues support key actions such as creating/joining lobbies, readying, starting, shooting, and saving a display name.
@@ -128,6 +131,7 @@ Running has no stamina, cooldown, noise meter, or extra UI. The risk is behavior
 - MVP platform target: desktop/laptop first; mobile and tablet controls are deferred until the laptop loop works.
 - Keep lobby, player, and round state behind small modules so real-time networking can own the authoritative session later.
 - Use the Cloudflare Durable Object room backend, Worker API, and live WebSocket transport with HTTP polling as fallback.
+- Keep Cloudflare usage modest: prefer WebSocket pushes over polling, throttle heartbeat/input requests, slow fallback polling, and destroy rooms when the host leaves or everyone disconnects.
 - Use a renderer that can support 20 visible pixel-art lanes, mouse crosshairs, dead bodies, and reveal highlights at the `1200px` target.
 - Keep all gameplay constants easy to tune.
 - Defender integration must wait until the user provides or identifies Defender source files. No Defender source was found in the active repo or old workspace.

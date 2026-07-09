@@ -577,3 +577,17 @@ Last updated: 2026-07-09
 - Increased player and NPC run speed by another `30%`.
 - Added regression coverage for pointer-edge alignment, fired crosshair dimming, and the stronger run/walk speed gap.
 - Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 54 : Improve Targeting, Pace, And Runtime Cost
+
+- Added aimed-target highlighting so racers glow when the crosshair is directly over them.
+- Added bottom-of-playfield control reminders for walking, running, aiming/shooting, and the one-bullet rule.
+- Added a pixel bullet marker on the crosshair before firing, then removed it and turned the spent crosshair grey at 50% opacity after firing.
+- Doubled walking speed from the current value and made running exactly `200%` of walking speed for both players and NPCs.
+- Made NPCs start changing behavior sooner and removed the old pre-finish cap so NPCs can cross the visible finish line.
+- Aligned the logical finish threshold with the visual checkered line.
+- Added a `4x` race fast-forward when every human racer is eliminated and another round remains.
+- Reduced Cloudflare request pressure by slowing heartbeats, slowing fallback polling, and throttling input snapshots instead of syncing every animation tick.
+- Doubled the visual lane height and racer scale so character silhouettes have more room.
+- Added regression coverage for target highlighting, control reminders, bullet markers, spent crosshair feedback, NPC finish-line wins, and the new run/walk speed gap.
+- Verified with `npm test`; `npm run lint`; `npm run build`.

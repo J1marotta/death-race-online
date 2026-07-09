@@ -425,8 +425,8 @@ code {
   position: relative;
   display: grid;
   grid-template-rows: repeat(20, 1fr);
-  height: min(560px, calc(100svh - 156px));
-  min-height: 520px;
+  height: 1040px;
+  min-height: 1040px;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -473,6 +473,26 @@ code {
     0 0 24px rgba(255, 255, 255, 0.18);
 }
 
+.playfield-controls {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  left: 12px;
+  z-index: 6;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  justify-content: center;
+  padding: 8px 10px;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  background: rgba(12, 15, 21, 0.82);
+  color: var(--text-h);
+  font: 800 11px/1.1 var(--mono);
+  text-transform: uppercase;
+}
+
 .lane {
   position: relative;
   min-height: 0;
@@ -488,6 +508,13 @@ code {
 
 .lane.locked .racer {
   opacity: 0.72;
+}
+
+.lane.targeted {
+  background:
+    linear-gradient(90deg, transparent 0 13%, rgba(255, 255, 255, 0.06) 13% 13.4%, transparent 13.4% 100%),
+    linear-gradient(90deg, transparent 0 4%, rgba(250, 204, 21, 0.12) 4% 96%, transparent 96%),
+    rgba(255, 255, 255, calc(0.03 + var(--depth) * 0.006));
 }
 
 .lane-stripe {
@@ -507,6 +534,7 @@ code {
 }
 
 .racer {
+  --racer-scale: 2;
   position: absolute;
   top: 50%;
   left: var(--racer-progress);
@@ -515,11 +543,22 @@ code {
   width: 22px;
   height: 25px;
   place-items: center;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) scale(var(--racer-scale));
+  transform-origin: center;
   border: 2px solid #111;
   background: var(--suit);
   image-rendering: pixelated;
   box-shadow:
+    3px 3px 0 rgba(0, 0, 0, 0.42),
+    inset 0 -5px 0 rgba(0, 0, 0, 0.22);
+}
+
+.racer.targeted {
+  z-index: 3;
+  box-shadow:
+    0 0 0 2px #facc15,
+    0 0 0 4px rgba(17, 17, 17, 0.9),
+    0 0 18px rgba(250, 204, 21, 0.7),
     3px 3px 0 rgba(0, 0, 0, 0.42),
     inset 0 -5px 0 rgba(0, 0, 0, 0.22);
 }
@@ -783,7 +822,7 @@ code {
 .racer.dead {
   height: 15px;
   opacity: 0.74;
-  transform: translate(-50%, -10%) rotate(90deg);
+  transform: translate(-50%, -10%) rotate(90deg) scale(var(--racer-scale));
   animation: none;
   filter: saturate(0.55);
 }
@@ -799,7 +838,7 @@ code {
 .body-marker {
   position: absolute;
   top: 50%;
-  left: calc(var(--racer-progress, 28%) + 30px);
+  left: calc(var(--racer-progress, 28%) + 54px);
   transform: translateY(-50%);
   color: #fecaca;
   font: 800 10px/1 var(--mono);
@@ -819,11 +858,11 @@ code {
 @keyframes step-bob {
   0%,
   100% {
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%) scale(var(--racer-scale));
   }
 
   50% {
-    transform: translate(-50%, -52%);
+    transform: translate(-50%, -52%) scale(var(--racer-scale));
   }
 }
 
@@ -880,10 +919,6 @@ code {
     0 0 12px var(--crosshair-color);
 }
 
-.crosshair-spent {
-  opacity: 0.5;
-}
-
 .crosshair::before,
 .crosshair::after {
   content: '';
@@ -919,6 +954,25 @@ code {
 
 .crosshair-yellow {
   --crosshair-color: #facc15;
+}
+
+.crosshair-spent {
+  --crosshair-color: #9ca3af;
+  opacity: 0.5;
+}
+
+.crosshair-bullet {
+  position: absolute;
+  right: -8px;
+  bottom: -8px;
+  width: 6px;
+  height: 12px;
+  border: 1px solid #111;
+  border-radius: 1px 1px 4px 4px;
+  background: #facc15;
+  box-shadow:
+    inset 0 -4px 0 rgba(0, 0, 0, 0.28),
+    2px 2px 0 rgba(0, 0, 0, 0.38);
 }
 
 @media (max-width: 900px) {

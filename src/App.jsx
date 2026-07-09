@@ -127,12 +127,16 @@ const ROOM_CODE = 'DR-2048'
 const ROUND_OPTIONS = [3, 5, 7]
 const COUNTDOWN_STEPS = ['3', '2', '1', 'go']
 const COUNTDOWN_STEP_MS = 500
-const WALK_SPEED = 0.081
-const RUN_SPEED = 0.1404
+const WALK_SPEED = 0.162
+const RUN_SPEED = WALK_SPEED * 2
 const TICK_MS = 80
-const FINISH_PROGRESS = 88
+const FINISH_PROGRESS = 93
 const HIT_WINDOW_PERCENT = 3.5
-const NPC_MAX_PROGRESS = 82
+const NPC_MAX_PROGRESS = 99
+const FAST_FORWARD_MULTIPLIER = 4
+const HEARTBEAT_INTERVAL_MS = 20000
+const FALLBACK_POLL_INTERVAL_MS = 10000
+const INPUT_SYNC_INTERVAL_MS = 1000
 const NPC_PATTERNS = [
   ['walk', 'walk', 'stop', 'walk', 'walk', 'stop', 'idle'],
   ['stop', 'walk', 'walk', 'idle', 'walk', 'stop', 'walk'],
@@ -140,10 +144,10 @@ const NPC_PATTERNS = [
   ['walk', 'walk', 'idle', 'stop', 'walk', 'walk', 'stop']
 ]
 const NPC_SPEEDS = {
-  idle: 0.027,
+  idle: WALK_SPEED / 3,
   stop: 0,
-  walk: 0.081,
-  run: 0.1404
+  walk: WALK_SPEED,
+  run: RUN_SPEED
 }
 
 const SOUND_PROFILES = {
@@ -180,19 +184,19 @@ const shuffleWithSeed = (items, seed) => {
 const getNpcStep = (racer, tick, seedParts) => {
   const baseStep =
     racer.npc.pattern[
-      (Math.floor(tick / 22) + racer.npc.offset) % racer.npc.pattern.length
+      (Math.floor(tick / 12) + racer.npc.offset) % racer.npc.pattern.length
     ]
-  const longBlock = Math.floor(tick / 38)
-  const shortBlock = Math.floor(tick / 9)
+  const longBlock = Math.floor(tick / 28)
+  const shortBlock = Math.floor(tick / 5)
   const longRoll = hashString(`${seedParts}:${racer.id}:long:${longBlock}`) % 100
   const shortRoll = hashString(`${seedParts}:${racer.id}:short:${shortBlock}`) % 100
-  if (longRoll < 16) {
+  if (tick > 18 && longRoll < 14) {
     return 'stop'
   }
-  if (longRoll > 88 || shortRoll > 94) {
+  if (longRoll > 80 || shortRoll > 86) {
     return 'run'
   }
-  if (shortRoll < 7) {
+  if (shortRoll < 5) {
     return 'stop'
   }
   return baseStep
@@ -270,6 +274,7 @@ function App() {
   const pressedKeys = useRef({ run: false, walk: false })
   const playingRequested = useRef(false)
   const audioContextRef = useRef(null)
+  const latestInputSnapshotRef = useRef(null)
   const activeState = STATE_COPY[state]
   const lobbyInProgress = !['menu', 'lobby'].includes(state)
   const movementLocked = state === 'countdown'
@@ -355,6 +360,11 @@ function App() {
     : []
   const controlledRacerEliminated = shotRacerIds.includes(controlledRacerId)
   const matchComplete = currentRound >= roundCount
+  const allHumanRacersEliminated =
+    humansAssigned.length > 0 &&
+    humansAssigned.every((racer) => shotRacerIds.includes(racer.id))
+  const raceSpeedMultiplier =
+    allHumanRacersEliminated && !matchComplete ? FAST_FORWARD_MULTIPLIER : 1
   const getLiveProgress = useCallback(
     racer => {
       if (shotRacerIds.includes(racer.id)) {
@@ -610,7 +620,7 @@ function App() {
     }
     const speed = movementMode === 'running' ? RUN_SPEED : WALK_SPEED
     const intervalId = window.setInterval(() => {
-      setControlledProgress(current => Math.min(current + speed, 86))
+      setControlledProgress(current => Math.min(current + speed, NPC_MAX_PROGRESS))
     }, TICK_MS)
     return () => window.clearInterval(intervalId)
   }, [controlledRacerEliminated, movementMode, state])
@@ -634,7 +644,7 @@ function App() {
                 const laneDrag = 0.78 + racer.depth * 0.05
                 const nextProgress =
                   (progressByLane[racer.id] ?? racer.progress) +
-                  NPC_SPEEDS[step] * laneDrag
+                  NPC_SPEEDS[step] * laneDrag * raceSpeedMultiplier
                 return [racer.id, Math.min(nextProgress, NPC_MAX_PROGRESS)]
               })
           )
@@ -643,7 +653,7 @@ function App() {
       })
     }, TICK_MS)
     return () => window.clearInterval(intervalId)
-  }, [npcSeedParts, roundRacers, shotRacerIds, state])
+  }, [npcSeedParts, raceSpeedMultiplier, roundRacers, shotRacerIds, state])
 
   const statusItems = useMemo(
     () => {
@@ -846,23 +856,19 @@ function App() {
     }
 
     heartbeat()
-    const intervalId = window.setInterval(heartbeat, 10000)
+    const intervalId = window.setInterval(heartbeat, HEARTBEAT_INTERVAL_MS)
     return () => window.clearInterval(intervalId)
   }, [activePlayerName, roomClosed, state, syncRoom])
 
   useEffect(() => {
-    if (roomClosed || !['lobby', 'countdown', 'playing'].includes(state)) {
-      return undefined
-    }
-
     const controlledLane = LANES.find((lane) => lane.id === controlledRacerId)
-    void syncRoom('input', {
+    latestInputSnapshotRef.current = {
       playerName: activePlayerName,
       movementMode,
       aim,
-      progress: Math.min((controlledLane?.progress ?? 0) + controlledProgress, 99),
+      progress: Math.min((controlledLane?.progress ?? 0) + controlledProgress, NPC_MAX_PROGRESS),
       firing: !localHasBullet,
-    })
+    }
   }, [
     activePlayerName,
     aim,
@@ -870,10 +876,23 @@ function App() {
     controlledProgress,
     localHasBullet,
     movementMode,
-    roomClosed,
-    state,
-    syncRoom,
   ])
+
+  useEffect(() => {
+    if (roomClosed || !['countdown', 'playing'].includes(state)) {
+      return undefined
+    }
+
+    const sendLatestInput = () => {
+      if (latestInputSnapshotRef.current) {
+        void syncRoom('input', latestInputSnapshotRef.current)
+      }
+    }
+
+    sendLatestInput()
+    const intervalId = window.setInterval(sendLatestInput, INPUT_SYNC_INTERVAL_MS)
+    return () => window.clearInterval(intervalId)
+  }, [roomClosed, state, syncRoom])
 
   useEffect(() => {
     if (state !== 'lobby') {
@@ -910,7 +929,7 @@ function App() {
     }
 
     refreshRoom()
-    const intervalId = window.setInterval(refreshRoom, 3000)
+    const intervalId = window.setInterval(refreshRoom, FALLBACK_POLL_INTERVAL_MS)
     return () => window.clearInterval(intervalId)
   }, [roomClosed, roomSyncState, state, syncRoom])
 
@@ -1590,6 +1609,12 @@ function App() {
               <strong>{COUNTDOWN_STEPS[countdownIndex]}</strong>
             </div>
           ) : null}
+          <div className='playfield-controls' aria-label='Controls'>
+            <span>Space to walk.</span>
+            <span>Left shift to run.</span>
+            <span>Mouse to aim and shoot.</span>
+            <span>You only get one bullet.</span>
+          </div>
           {roundRacers.map(lane => {
             const isHuman = lane.controller.type === 'human'
             const isControlled = lane.id === controlledRacerId
@@ -1605,11 +1630,30 @@ function App() {
               isWinner && roundWinner.finalProgress
                 ? roundWinner.finalProgress
                 : getLiveProgress(lane)
+            const isLocallyTargeted =
+              state === 'playing' &&
+              !isEliminated &&
+              lane.id === aim.laneId &&
+              Math.abs(racerProgress - aim.x) <= HIT_WINDOW_PERCENT
+            const isRemotelyTargeted =
+              state === 'playing' &&
+              !isEliminated &&
+              Object.entries(roomInputs).some(([playerName, input]) => {
+                if (playerName === activePlayerName || !input?.aim) {
+                  return false
+                }
+                return (
+                  input.aim.laneId === lane.id &&
+                  Math.abs(racerProgress - input.aim.x) <= HIT_WINDOW_PERCENT
+                )
+              })
+            const isTargeted = isLocallyTargeted || isRemotelyTargeted
             return (
               <div
                 className={[
                   'lane',
                   movementLocked ? 'locked' : '',
+                  isTargeted ? 'targeted' : '',
                   isControlled ? '' : '',
                   isEliminated ? '' : '',
                   isHuman && isRevealed ? '' : '',
@@ -1632,6 +1676,7 @@ function App() {
                   `archetype-${archetypeClass}`,
                   shapeClass,
                   isEliminated ? 'dead' : '',
+                  isTargeted ? 'targeted' : '',
                   isControlled && !isEliminated ? movementMode : '',
                   !isHuman && state === 'playing' && !isEliminated
                       ? npcMotionClass
@@ -1665,7 +1710,11 @@ function App() {
                     style={{
                       left: `${aim.x}%`
                     }}
-                  />
+                  >
+                    {localHasBullet ? (
+                      <span className='crosshair-bullet' aria-hidden='true' />
+                    ) : null}
+                  </span>
                 ) : null}
               </div>
             )

@@ -53,6 +53,32 @@ function startPlaying() {
   })()
 }
 
+function startPlayingWithFakeTimers() {
+  return (async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Start game' })).toBeTruthy(),
+    )
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole('button', { name: 'Start game' }))
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(screen.getByLabelText('Countdown')).toBeTruthy()
+    await act(async () => {
+      vi.advanceTimersByTime(2200)
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(screen.getByText('Playing')).toBeTruthy()
+    const playfield = screen.getByLabelText('20 lane race playfield')
+    mockPlayfieldBounds(playfield)
+    return playfield
+  })()
+}
+
 describe('game controls', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -153,6 +179,16 @@ describe('game controls', () => {
     expect(screen.getByTestId('local-crosshair').style.left).toBe('70%')
   })
 
+  it('shows controls at the bottom of the playfield', async () => {
+    await startPlaying()
+
+    const controls = screen.getByLabelText('Controls')
+    expect(within(controls).getByText('Space to walk.')).toBeTruthy()
+    expect(within(controls).getByText('Left shift to run.')).toBeTruthy()
+    expect(within(controls).getByText('Mouse to aim and shoot.')).toBeTruthy()
+    expect(within(controls).getByText('You only get one bullet.')).toBeTruthy()
+  })
+
   it('keeps the crosshair origin aligned with the pointer edge', async () => {
     const playfield = await startPlaying()
 
@@ -169,6 +205,25 @@ describe('game controls', () => {
     expect(screen.queryByText('down')).toBeNull()
   })
 
+  it('highlights a racer when the crosshair is over the target', async () => {
+    const playfield = await startPlaying()
+    const racer19 = screen.getByTestId('racer-19')
+    const progress = Number.parseFloat(racer19.style.getPropertyValue('--racer-progress'))
+
+    fireEvent.mouseMove(playfield, {
+      clientX: (progress / 100) * 1000,
+      clientY: 925,
+    })
+
+    expect(racer19.className).toContain('targeted')
+  })
+
+  it('shows a pixel bullet on the crosshair before firing', async () => {
+    await startPlaying()
+
+    expect(screen.getByTestId('local-crosshair').querySelector('.crosshair-bullet')).toBeTruthy()
+  })
+
   it('dims the local crosshair after firing instead of hiding it', async () => {
     const playfield = await startPlaying()
 
@@ -177,6 +232,7 @@ describe('game controls', () => {
     const crosshair = screen.getByTestId('local-crosshair')
     expect(crosshair.className).toContain('crosshair-spent')
     expect(crosshair.style.left).toBe('90%')
+    expect(crosshair.querySelector('.crosshair-bullet')).toBeNull()
   })
 
   it('eliminates a racer only when the shot is near that racer', async () => {
@@ -243,7 +299,7 @@ describe('game controls', () => {
     fireEvent.keyUp(window, { code: 'ShiftLeft' })
     const runEnd = Number.parseFloat(racer.style.getPropertyValue('--racer-progress'))
 
-    expect(runEnd - runStart).toBeGreaterThan((walkEnd - walkStart) * 1.5)
+    expect(runEnd - runStart).toBeGreaterThan((walkEnd - walkStart) * 1.9)
   })
 
   it('shows a straight checkered finish line on the playfield', async () => {
@@ -251,6 +307,35 @@ describe('game controls', () => {
 
     expect(screen.getByTestId('finish-line')).toBeTruthy()
     expect(playfield.querySelector('.finish-flag')).toBeNull()
+  })
+
+  it('lets NPC racers cross the visible finish line and end the round', async () => {
+    await startPlayingWithFakeTimers()
+
+    act(() => {
+      vi.advanceTimersByTime(70000)
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    vi.useRealTimers()
+
+    await waitFor(() =>
+      expect(
+        fetch.mock.calls.some(([, options]) => {
+          if (!options?.body) {
+            return false
+          }
+          const body = JSON.parse(options.body)
+          return (
+            body.action === 'round-over' &&
+            body.winnerType === 'npc' &&
+            body.finalProgress >= 93
+          )
+        }),
+      ).toBe(true),
+    )
   })
 
   it('uses the room code from a shareable join link', async () => {

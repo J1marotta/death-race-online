@@ -1,13 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createRoom,
+  finishRound,
   getRoom,
   joinRoom,
+  recordShot,
   sendPlayerHeartbeat,
   setPlayerReady,
+  showScoreboard,
   submitPlayerInput,
   startCountdown,
   startNextRound,
+  startPlaying,
 } from './api'
 
 describe('multiplayer api', () => {
@@ -62,6 +66,25 @@ describe('multiplayer api', () => {
     expect(result.room.phase).toBe('countdown')
     expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchObject({
       action: 'countdown',
+      playerName: 'James',
+    })
+  })
+
+  it('starts playing through the api', async () => {
+    fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ room: { phase: 'playing' } }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+        },
+      }),
+    )
+
+    const result = await startPlaying('DR-2048', { playerName: 'James' })
+
+    expect(result.room.phase).toBe('playing')
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchObject({
+      action: 'playing',
       playerName: 'James',
     })
   })
@@ -125,9 +148,77 @@ describe('multiplayer api', () => {
       }),
     )
 
-    const result = await startNextRound('DR-2048')
+    const result = await startNextRound('DR-2048', { playerName: 'James' })
 
     expect(result.room.round).toBe(2)
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchObject({
+      action: 'next-round',
+      playerName: 'James',
+    })
+  })
+
+  it('records shots through the api', async () => {
+    fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ room: { roomCode: 'DR-2048', roundState: {} } }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+        },
+      }),
+    )
+
+    const result = await recordShot('DR-2048', { playerName: 'Mia', laneId: 7 })
+
+    expect(result.room.roomCode).toBe('DR-2048')
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchObject({
+      action: 'shot',
+      playerName: 'Mia',
+      laneId: 7,
+    })
+  })
+
+  it('finishes rounds through the api', async () => {
+    fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ room: { phase: 'roundOver' } }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+        },
+      }),
+    )
+
+    const result = await finishRound('DR-2048', {
+      playerName: 'James',
+      laneId: 7,
+      winnerName: 'James',
+      winnerType: 'human',
+    })
+
+    expect(result.room.phase).toBe('roundOver')
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchObject({
+      action: 'round-over',
+      playerName: 'James',
+      laneId: 7,
+    })
+  })
+
+  it('shows scoreboards through the api', async () => {
+    fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ room: { phase: 'scoreboard' } }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+        },
+      }),
+    )
+
+    const result = await showScoreboard('DR-2048', { playerName: 'James' })
+
+    expect(result.room.phase).toBe('scoreboard')
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchObject({
+      action: 'scoreboard',
+      playerName: 'James',
+    })
   })
 
   it('submits player input through the api', async () => {

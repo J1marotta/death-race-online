@@ -33,12 +33,20 @@ function startPlaying() {
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Start game' })).toBeTruthy(),
     )
+    vi.useFakeTimers()
     fireEvent.click(screen.getByRole('button', { name: 'Start game' }))
-    const advance = await screen.findByRole('button', { name: 'Advance countdown' })
-    fireEvent.click(advance)
-    fireEvent.click(advance)
-    fireEvent.click(advance)
-    fireEvent.click(advance)
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(screen.getByLabelText('Countdown')).toBeTruthy()
+    await act(async () => {
+      vi.advanceTimersByTime(2200)
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    vi.useRealTimers()
+    await waitFor(() => expect(screen.getByText('Playing')).toBeTruthy())
     const playfield = screen.getByLabelText('20 lane race playfield')
     mockPlayfieldBounds(playfield)
     return playfield
@@ -49,15 +57,52 @@ describe('game controls', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     window.history.pushState({}, '', '/')
-    global.fetch = vi.fn(async (input) => {
+    let currentPhase = 'lobby'
+    let currentRound = 1
+    let currentShotRacerIds = []
+    let currentWinner = null
+    global.fetch = vi.fn(async (input, options = {}) => {
       const requestUrl = typeof input === 'string' ? input : input.url
       const roomCode = requestUrl.split('/').pop()
+      const body = options.body ? JSON.parse(options.body) : {}
+      if (body.action === 'countdown') {
+        currentPhase = 'countdown'
+        currentShotRacerIds = []
+        currentWinner = null
+      }
+      if (body.action === 'playing') {
+        currentPhase = 'playing'
+      }
+      if (body.action === 'shot') {
+        currentShotRacerIds = currentShotRacerIds.includes(body.laneId)
+          ? currentShotRacerIds
+          : [...currentShotRacerIds, body.laneId]
+      }
+      if (body.action === 'round-over') {
+        currentPhase = 'roundOver'
+        currentWinner = {
+          laneId: body.laneId,
+          winnerName: body.winnerName,
+          winnerType: body.winnerType,
+          finalProgress: body.finalProgress,
+        }
+      }
+      if (body.action === 'scoreboard') {
+        currentPhase = 'scoreboard'
+      }
+      if (body.action === 'next-round') {
+        currentPhase = 'countdown'
+        currentRound += 1
+        currentShotRacerIds = []
+        currentWinner = null
+      }
       return new Response(
         JSON.stringify({
           room: {
             roomCode,
-            phase: 'lobby',
+            phase: currentPhase,
             hostId: 'james',
+            round: currentRound,
             players: [
               { name: 'James', id: 'james', role: 'host', connected: true, ready: true },
               { name: 'Mia', id: 'mia', role: 'player', connected: true, ready: true },
@@ -68,6 +113,18 @@ describe('game controls', () => {
                 movementMode: 'running',
                 updatedAt: '2026-07-07T00:00:00.000Z',
               },
+            },
+            roundState: {
+              round: currentRound,
+              shotRacerIds: currentShotRacerIds,
+              shots:
+                body.action === 'shot'
+                  ? [{ shooterName: body.playerName, laneId: body.laneId }]
+                  : [],
+              winner: currentWinner,
+              scores: { James: 0, Mia: 0 },
+              history: [],
+              countdownStartedAt: new Date(Date.now()).toISOString(),
             },
           },
         }),
@@ -116,7 +173,7 @@ describe('game controls', () => {
       clientY: 925,
     })
 
-    expect(within(lane19).getByText('down')).toBeTruthy()
+    await waitFor(() => expect(within(lane19).getByText('down')).toBeTruthy())
   })
 
   it('advances the controlled racer while the walk key is held', async () => {
@@ -219,11 +276,7 @@ describe('game controls', () => {
       expect(screen.getByRole('button', { name: 'Start game' })).toBeTruthy(),
     )
     fireEvent.click(screen.getByRole('button', { name: 'Start game' }))
-    const advance = await screen.findByRole('button', { name: 'Advance countdown' })
-    fireEvent.click(advance)
-    fireEvent.click(advance)
-    fireEvent.click(advance)
-    fireEvent.click(advance)
+    await screen.findByLabelText('Countdown')
 
     expect(screen.getByLabelText('Lobby controls')).toBeTruthy()
     expect(screen.getByText('Room')).toBeTruthy()
@@ -310,7 +363,7 @@ describe('game controls', () => {
       expect(screen.getByRole('button', { name: 'Start game' })).toBeTruthy(),
     )
     fireEvent.click(screen.getByRole('button', { name: 'Start game' }))
-    await screen.findByRole('button', { name: 'Advance countdown' })
+    await screen.findByLabelText('Countdown')
 
     const postedActions = fetch.mock.calls
       .map(([, options]) => {

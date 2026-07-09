@@ -2,15 +2,19 @@ import { describe, expect, it } from 'vitest'
 import {
   canStartRoom,
   createRoomState,
+  finishRoomRound,
   joinRoomState,
   leaveRoomState,
   setPlayerHeartbeatState,
   setPlayerReadyState,
   setPlayerInputState,
   pruneDisconnectedPlayers,
+  recordRoomShot,
   serializeRoom,
+  showRoomScoreboard,
   startNextRound,
   startRoomCountdown,
+  startRoomPlaying,
   updateRoomSettings,
   shouldDestroyRoom,
 } from './roomState'
@@ -200,6 +204,38 @@ describe('roomState', () => {
     expect(nextRound.round).toBe(2)
   })
 
+  it('tracks shared round shots, winners, scores, and scoreboard phase', () => {
+    const room = createRoomState({
+      roomCode: 'DR-2048',
+      hostName: 'James',
+    })
+    const countdown = startRoomCountdown(room)
+    const playing = startRoomPlaying(countdown)
+    const shot = recordRoomShot(playing, { shooterName: 'James', laneId: 7 })
+    const duplicateShot = recordRoomShot(shot, { shooterName: 'James', laneId: 8 })
+    const roundOver = finishRoomRound(duplicateShot, {
+      laneId: 7,
+      winnerName: 'James',
+      winnerType: 'human',
+      finalProgress: 91,
+    })
+    const scoreboard = showRoomScoreboard(roundOver)
+
+    expect(countdown.roundState.shotRacerIds).toEqual([])
+    expect(playing.phase).toBe('playing')
+    expect(shot.roundState.shotRacerIds).toEqual([7])
+    expect(duplicateShot.roundState.shotRacerIds).toEqual([7])
+    expect(roundOver.phase).toBe('roundOver')
+    expect(roundOver.roundState.scores.James).toBe(1)
+    expect(roundOver.roundState.history[0]).toMatchObject({
+      round: 1,
+      winnerName: 'James',
+      winnerType: 'human',
+      laneId: 7,
+    })
+    expect(scoreboard.phase).toBe('scoreboard')
+  })
+
   it('starts the next round by incrementing the round and keeping the countdown phase', () => {
     const room = createRoomState({
       roomCode: 'DR-2048',
@@ -221,6 +257,12 @@ describe('roomState', () => {
       roomCode: 'DR-2048',
       phase: 'lobby',
       round: 1,
+      roundState: {
+        round: 1,
+        scores: {
+          James: 0,
+        },
+      },
     })
   })
 

@@ -97,11 +97,52 @@ export function startCountdown(roomCode, payload = {}) {
   })
 }
 
-export function startNextRound(roomCode) {
+export function startPlaying(roomCode, payload = {}) {
+  return requestJson(roomCode, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'playing',
+      ...payload,
+    }),
+  })
+}
+
+export function recordShot(roomCode, payload = {}) {
+  return requestJson(roomCode, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'shot',
+      ...payload,
+    }),
+  })
+}
+
+export function finishRound(roomCode, payload = {}) {
+  return requestJson(roomCode, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'round-over',
+      ...payload,
+    }),
+  })
+}
+
+export function showScoreboard(roomCode, payload = {}) {
+  return requestJson(roomCode, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'scoreboard',
+      ...payload,
+    }),
+  })
+}
+
+export function startNextRound(roomCode, payload = {}) {
   return requestJson(roomCode, {
     method: 'POST',
     body: JSON.stringify({
       action: 'next-round',
+      ...payload,
     }),
   })
 }

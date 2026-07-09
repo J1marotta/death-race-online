@@ -2,11 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import {
   createRoom,
+  finishRound,
   getRoom,
   joinRoom,
   leaveRoom,
+  recordShot,
   sendPlayerHeartbeat,
+  showScoreboard,
   startCountdown as apiStartCountdown,
+  startPlaying as apiStartPlaying,
   startNextRound as apiStartNextRound,
   setPlayerReady,
   submitPlayerInput,
@@ -86,8 +90,8 @@ const STATE_COPY = {
     eyebrow: 'NPC wins',
     title: 'Everyone gets shamed.',
     body: 'Human-controlled racers are revealed and highlighted before the scoreboard appears.',
-    action: 'Next round',
-    next: 'countdown'
+    action: 'Scoreboard',
+    next: 'scoreboard'
   },
   scoreboard: {
     eyebrow: 'Scoreboard',
@@ -119,6 +123,7 @@ const STATE_LABELS = {
 const ROOM_CODE = 'DR-2048'
 const ROUND_OPTIONS = [3, 5, 7]
 const COUNTDOWN_STEPS = ['3', '2', '1', 'go']
+const COUNTDOWN_STEP_MS = 500
 const WALK_SPEED = 0.018
 const RUN_SPEED = 0.018
 const TICK_MS = 80
@@ -226,6 +231,7 @@ function App() {
   const [currentPlayerName, setCurrentPlayerName] = useState('')
   const playfieldRef = useRef(null)
   const pressedKeys = useRef({ run: false, walk: false })
+  const playingRequested = useRef(false)
   const activeState = STATE_COPY[state]
   const lobbyInProgress = !['menu', 'lobby'].includes(state)
   const movementLocked = state === 'countdown'
@@ -258,6 +264,7 @@ function App() {
   const localPlayerName = activePlayerName
   const localPlayerIndex = Math.max(0, humanPlayers.indexOf(localPlayerName))
   const localPlayerColor = HUMAN_COLORS[localPlayerIndex % HUMAN_COLORS.length]
+  const roomInputs = useMemo(() => roomSnapshot?.inputs ?? {}, [roomSnapshot?.inputs])
   const roundRacers = useMemo(
     () => {
       const humanByLane = Object.fromEntries(
@@ -318,12 +325,24 @@ function App() {
       if (racer.id === controlledRacerId) {
         return Math.min(racer.progress + controlledProgress, 99)
       }
+      if (racer.controller.type === 'human') {
+        const syncedProgress = roomInputs[racer.controller.name]?.progress
+        if (Number.isFinite(syncedProgress)) {
+          return syncedProgress
+        }
+      }
       if (racer.controller.type === 'npc') {
         return npcProgressByLane[racer.id] ?? racer.progress
       }
       return racer.progress
     },
-    [controlledProgress, controlledRacerId, npcProgressByLane, shotRacerIds]
+    [
+      controlledProgress,
+      controlledRacerId,
+      npcProgressByLane,
+      roomInputs,
+      shotRacerIds,
+    ]
   )
   const rankedPlayers = [...humanPlayers].sort(
     (a, b) => scores[b] - scores[a] || humanPlayers.indexOf(a) - humanPlayers.indexOf(b)
@@ -376,7 +395,8 @@ function App() {
               roundWinner.controller.type === 'human'
                 ? `${roundWinner.controller.name} gained 1 point. Host can start the next round.`
                 : `${roundWinner.controller.name} was an NPC, so no human points were awarded.`,
-            action: matchComplete ? 'Show final scores' : 'Next round'
+            action: matchComplete ? 'Show final scores' : 'Next round',
+            next: matchComplete ? 'gameOver' : 'countdown'
           }
         : state === 'gameOver'
           ? {
@@ -385,6 +405,28 @@ function App() {
               body: `Final scores are locked after ${roundCount} rounds.`
             }
           : activeState
+
+  const resolveWinnerSnapshot = useCallback(
+    winnerSnapshot => {
+      if (!winnerSnapshot?.laneId) {
+        return null
+      }
+      const lane = roundRacers.find(racer => racer.id === Number(winnerSnapshot.laneId))
+      if (!lane) {
+        return null
+      }
+      return {
+        ...lane,
+        finalProgress: winnerSnapshot.finalProgress ?? getLiveProgress(lane),
+        controller: {
+          ...lane.controller,
+          name: winnerSnapshot.winnerName ?? lane.controller.name,
+          type: winnerSnapshot.winnerType ?? lane.controller.type,
+        },
+      }
+    },
+    [getLiveProgress, roundRacers]
+  )
 
   useEffect(() => {
     if (state !== 'playing' || controlledRacerEliminated) {
@@ -525,8 +567,67 @@ function App() {
     return () => window.clearInterval(intervalId)
   }, [roundRacers, shotRacerIds, state])
 
+  const statusItems = useMemo(
+    () => [
+      ['Room', activeRoomCode],
+      ['State', STATE_LABELS[state]],
+      ['Sync', roomSyncState],
+      ['Rounds', `${currentRound} / ${roundCount}`],
+      ['Racers', roundRacers.length]
+    ],
+    [
+      activeRoomCode,
+      currentRound,
+      roomSyncState,
+      roundCount,
+      roundRacers.length,
+      state,
+    ]
+  )
+
+  const syncRoom = useCallback(async (action, payload = {}, targetRoomCode = roomCode) => {
+    try {
+      let result
+      if (action === 'create') {
+        result = await createRoom(targetRoomCode, payload)
+      } else if (action === 'settings') {
+        result = await updateRoom(targetRoomCode, payload)
+      } else if (action === 'countdown') {
+        result = await apiStartCountdown(targetRoomCode, payload)
+      } else if (action === 'playing') {
+        result = await apiStartPlaying(targetRoomCode, payload)
+      } else if (action === 'next-round') {
+        result = await apiStartNextRound(targetRoomCode, payload)
+      } else if (action === 'shot') {
+        result = await recordShot(targetRoomCode, payload)
+      } else if (action === 'round-over') {
+        result = await finishRound(targetRoomCode, payload)
+      } else if (action === 'scoreboard') {
+        result = await showScoreboard(targetRoomCode, payload)
+      } else if (action === 'join') {
+        result = await joinRoom(targetRoomCode, payload)
+      } else if (action === 'ready') {
+        result = await setPlayerReady(targetRoomCode, payload)
+      } else if (action === 'heartbeat') {
+        result = await sendPlayerHeartbeat(targetRoomCode, payload)
+      } else if (action === 'input') {
+        result = await submitPlayerInput(targetRoomCode, payload)
+      } else {
+        result = await getRoom(targetRoomCode)
+      }
+      setRoomSnapshot(result.room)
+      setRoomSyncState('connected')
+      setRoomError('')
+      return result.room
+    } catch (error) {
+      setRoomError(error.message || 'Room request failed')
+      setRoomSyncState('offline')
+      return null
+    }
+  }, [roomCode])
+
   useEffect(() => {
-    if (state !== 'playing' || roundWinner) {
+    if (state !== 'playing' || roundWinner || !isCurrentHost) {
       return
     }
     const winner = roundRacers.find(
@@ -556,69 +657,28 @@ function App() {
             current[resolvedWinner.controller.name] + 1
         }))
       }
+      void syncRoom('round-over', {
+        playerName: activePlayerName,
+        laneId: resolvedWinner.id,
+        winnerName: resolvedWinner.controller.name,
+        winnerType: resolvedWinner.controller.type,
+        finalProgress: resolvedWinner.finalProgress,
+      })
       setState('roundOver')
     }
   }, [
+    activePlayerName,
     controlledProgress,
     currentRound,
     getLiveProgress,
+    isCurrentHost,
     npcTick,
     roundRacers,
     roundWinner,
     shotRacerIds,
-    state
+    state,
+    syncRoom,
   ])
-
-  const statusItems = useMemo(
-    () => [
-      ['Room', activeRoomCode],
-      ['State', STATE_LABELS[state]],
-      ['Sync', roomSyncState],
-      ['Rounds', `${currentRound} / ${roundCount}`],
-      ['Racers', roundRacers.length]
-    ],
-    [
-      activeRoomCode,
-      currentRound,
-      roomSyncState,
-      roundCount,
-      roundRacers.length,
-      state,
-    ]
-  )
-
-  const syncRoom = useCallback(async (action, payload = {}, targetRoomCode = roomCode) => {
-    try {
-      let result
-      if (action === 'create') {
-        result = await createRoom(targetRoomCode, payload)
-      } else if (action === 'settings') {
-        result = await updateRoom(targetRoomCode, payload)
-      } else if (action === 'countdown') {
-        result = await apiStartCountdown(targetRoomCode, payload)
-      } else if (action === 'next-round') {
-        result = await apiStartNextRound(targetRoomCode)
-      } else if (action === 'join') {
-        result = await joinRoom(targetRoomCode, payload)
-      } else if (action === 'ready') {
-        result = await setPlayerReady(targetRoomCode, payload)
-      } else if (action === 'heartbeat') {
-        result = await sendPlayerHeartbeat(targetRoomCode, payload)
-      } else if (action === 'input') {
-        result = await submitPlayerInput(targetRoomCode, payload)
-      } else {
-        result = await getRoom(targetRoomCode)
-      }
-      setRoomSnapshot(result.room)
-      setRoomSyncState('connected')
-      setRoomError('')
-      return result.room
-    } catch (error) {
-      setRoomError(error.message || 'Room request failed')
-      setRoomSyncState('offline')
-      return null
-    }
-  }, [roomCode])
 
   useEffect(() => {
     if (state === 'menu') {
@@ -639,13 +699,24 @@ function App() {
       return undefined
     }
 
+    const controlledLane = LANES.find((lane) => lane.id === controlledRacerId)
     void syncRoom('input', {
       playerName: activePlayerName,
       movementMode,
       aim,
+      progress: Math.min((controlledLane?.progress ?? 0) + controlledProgress, 99),
       firing: !localHasBullet,
     })
-  }, [activePlayerName, aim, localHasBullet, movementMode, state, syncRoom])
+  }, [
+    activePlayerName,
+    aim,
+    controlledRacerId,
+    controlledProgress,
+    localHasBullet,
+    movementMode,
+    state,
+    syncRoom,
+  ])
 
   useEffect(() => {
     if (state !== 'lobby') {
@@ -690,8 +761,76 @@ function App() {
     setBullets(createBulletState(humanPlayers))
     setShotRacerIds([])
     setRoundWinner(null)
+    playingRequested.current = false
     setAim({ x: 68, laneId: nextControlledRacerId })
   }, [controlledRacerId, humanLaneIds, humanPlayers])
+
+  useEffect(() => {
+    const roomRoundState = roomSnapshot?.roundState
+    if (!roomRoundState) {
+      return
+    }
+
+    if (roomSnapshot.round && roomSnapshot.round !== currentRound) {
+      setCurrentRound(roomSnapshot.round)
+    }
+    if (roomRoundState.scores) {
+      setScores(current => {
+        const nextScores = roomRoundState.scores
+        const currentKeys = Object.keys(current)
+        const nextKeys = Object.keys(nextScores)
+        const unchanged =
+          currentKeys.length === nextKeys.length &&
+          nextKeys.every(key => current[key] === nextScores[key])
+        return unchanged ? current : nextScores
+      })
+    }
+    if (roomRoundState.history) {
+      setRoundHistory(current =>
+        JSON.stringify(current) === JSON.stringify(roomRoundState.history)
+          ? current
+          : roomRoundState.history
+      )
+    }
+    if (roomRoundState.shotRacerIds) {
+      setShotRacerIds(current =>
+        JSON.stringify(current) === JSON.stringify(roomRoundState.shotRacerIds)
+          ? current
+          : roomRoundState.shotRacerIds
+      )
+    }
+    const syncedWinner = resolveWinnerSnapshot(roomRoundState.winner)
+    setRoundWinner(current => {
+      if (!syncedWinner && !current) {
+        return current
+      }
+      if (syncedWinner?.id === current?.id && syncedWinner?.finalProgress === current?.finalProgress) {
+        return current
+      }
+      return syncedWinner
+    })
+
+    if (
+      roomSnapshot.phase === 'countdown' &&
+      state !== 'countdown' &&
+      state !== 'playing'
+    ) {
+      resetRoundState()
+      setState('countdown')
+      return
+    }
+    if (['playing', 'roundOver', 'scoreboard'].includes(roomSnapshot.phase)) {
+      setState(current => (current === roomSnapshot.phase ? current : roomSnapshot.phase))
+    }
+  }, [
+    currentRound,
+    resetRoundState,
+    resolveWinnerSnapshot,
+    roomSnapshot?.phase,
+    roomSnapshot?.round,
+    roomSnapshot?.roundState,
+    state,
+  ])
 
   const startNextRound = () => {
     if (matchComplete) {
@@ -706,7 +845,7 @@ function App() {
     const nextHumanLaneIds = Object.values(nextAssignments)
     const nextControlledRacerId =
       nextAssignments[activePlayerName] ?? nextHumanLaneIds[0] ?? 1
-    void syncRoom('next-round')
+    void syncRoom('next-round', { playerName: activePlayerName })
     setCurrentRound(nextRound)
     resetRoundState(nextHumanLaneIds, nextControlledRacerId)
     setState('countdown')
@@ -744,6 +883,13 @@ function App() {
   }
 
   const moveToState = nextState => {
+    if (nextState === 'scoreboard') {
+      if (isCurrentHost) {
+        void syncRoom('scoreboard', { playerName: activePlayerName })
+      }
+      setState('scoreboard')
+      return
+    }
     if (nextState === 'countdown') {
       if (state === 'roundOver' || state === 'scoreboard') {
         startNextRound()
@@ -777,14 +923,6 @@ function App() {
   }
 
   useEffect(() => {
-    if (state !== 'lobby' || roomSnapshot?.phase !== 'countdown') {
-      return
-    }
-    resetRoundState()
-    setState('countdown')
-  }, [resetRoundState, roomSnapshot?.phase, state])
-
-  useEffect(() => {
     const handleUnload = () => {
       void leaveRoom(roomCode, { playerName: activePlayerName })
     }
@@ -792,14 +930,32 @@ function App() {
     window.addEventListener('beforeunload', handleUnload)
     return () => window.removeEventListener('beforeunload', handleUnload)
   }, [activePlayerName, roomCode])
-  const advanceCountdown = () => {
-    const nextIndex = countdownIndex + 1
-    if (nextIndex >= COUNTDOWN_STEPS.length) {
-      moveToState('playing')
-      return
+  useEffect(() => {
+    if (state !== 'countdown') {
+      return undefined
     }
-    setCountdownIndex(nextIndex)
-  }
+    const startedAt =
+      Date.parse(roomSnapshot?.roundState?.countdownStartedAt ?? '') || Date.now()
+    const updateCountdown = () => {
+      const elapsedSteps = Math.floor((Date.now() - startedAt) / COUNTDOWN_STEP_MS)
+      const nextIndex = Math.min(elapsedSteps, COUNTDOWN_STEPS.length - 1)
+      setCountdownIndex(nextIndex)
+      if (elapsedSteps >= COUNTDOWN_STEPS.length && isCurrentHost && !playingRequested.current) {
+        playingRequested.current = true
+        void syncRoom('playing', { playerName: activePlayerName })
+      }
+    }
+
+    updateCountdown()
+    const intervalId = window.setInterval(updateCountdown, 100)
+    return () => window.clearInterval(intervalId)
+  }, [
+    activePlayerName,
+    isCurrentHost,
+    roomSnapshot?.roundState?.countdownStartedAt,
+    state,
+    syncRoom,
+  ])
 
   const getAimFromPointer = event => {
     if (!playfieldRef.current) {
@@ -849,6 +1005,10 @@ function App() {
       firing: true,
     })
     if (shotHits) {
+      void syncRoom('shot', {
+        playerName: activePlayerName,
+        laneId: nextAim.laneId,
+      })
       setShotRacerIds(current =>
         current.includes(nextAim.laneId)
           ? current
@@ -1108,16 +1268,24 @@ function App() {
                 <small>Latest input: {latestInputSummary}</small>
               </div>
             ) : null}
-            {state === 'menu' ? null : state === 'lobby' || state === 'countdown' ? null : (
+            {['roundOver', 'scoreboard', 'gameOver'].includes(state) ? (
               <div className='actions'>
-                <button
-                  type='button'
-                  onClick={() => moveToState(activeStateCopy.next)}
-                >
-                  {activeStateCopy.action}
-                </button>
+                {state === 'gameOver' || isCurrentHost ? (
+                  <button
+                    type='button'
+                    onClick={() => moveToState(activeStateCopy.next)}
+                  >
+                    {activeStateCopy.action}
+                  </button>
+                ) : (
+                  <div className='assignment-summary' aria-label='Round host action'>
+                    <span>Host action</span>
+                    <strong>Waiting for host</strong>
+                    <p>The host advances the room from here.</p>
+                  </div>
+                )}
               </div>
-            )}
+            ) : null}
             {state === 'lobby' ? (
               <div className='assignment-summary' aria-label='Room readiness'>
                 <span>Room readiness</span>
@@ -1132,10 +1300,7 @@ function App() {
             {state === 'countdown' ? (
               <div className='countdown-panel' aria-label='Countdown'>
                 <span>{COUNTDOWN_STEPS[countdownIndex]}</span>
-                <p>Movement and shooting are locked until go.</p>
-                <button type='button' onClick={advanceCountdown}>
-                  Advance countdown
-                </button>
+                <p>Movement and shooting unlock when the room reaches go.</p>
               </div>
             ) : null}
             {state !== 'menu' ? (

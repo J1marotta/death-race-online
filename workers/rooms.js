@@ -7,8 +7,12 @@ import {
   setPlayerHeartbeatState,
   setPlayerReadyState,
   setPlayerInputState,
+  finishRoomRound,
+  recordRoomShot,
+  showRoomScoreboard,
   startNextRound,
   startRoomCountdown,
+  startRoomPlaying,
   updateRoomSettings,
   canStartRoom,
   shouldDestroyRoom,
@@ -176,7 +180,51 @@ class RoomLobbyObject {
     }
 
     if (action === 'next-round') {
+      if (toPlayerId(body.playerName ?? '') !== room.hostId) {
+        return json({ error: 'Only the host can start the next round' }, 403)
+      }
       const nextRoom = startNextRound(room)
+      await this.saveRoom(nextRoom)
+      return json({ room: serializeRoom(nextRoom) })
+    }
+
+    if (action === 'playing') {
+      if (toPlayerId(body.playerName ?? '') !== room.hostId) {
+        return json({ error: 'Only the host can start the round' }, 403)
+      }
+      const nextRoom = startRoomPlaying(room)
+      await this.saveRoom(nextRoom)
+      return json({ room: serializeRoom(nextRoom) })
+    }
+
+    if (action === 'shot') {
+      const nextRoom = recordRoomShot(room, {
+        shooterName: body.playerName ?? 'Player',
+        laneId: body.laneId,
+      })
+      await this.saveRoom(nextRoom)
+      return json({ room: serializeRoom(nextRoom) })
+    }
+
+    if (action === 'round-over') {
+      if (toPlayerId(body.playerName ?? '') !== room.hostId) {
+        return json({ error: 'Only the host can finish the round' }, 403)
+      }
+      const nextRoom = finishRoomRound(room, {
+        laneId: body.laneId,
+        winnerName: body.winnerName,
+        winnerType: body.winnerType,
+        finalProgress: body.finalProgress,
+      })
+      await this.saveRoom(nextRoom)
+      return json({ room: serializeRoom(nextRoom) })
+    }
+
+    if (action === 'scoreboard') {
+      if (toPlayerId(body.playerName ?? '') !== room.hostId) {
+        return json({ error: 'Only the host can show the scoreboard' }, 403)
+      }
+      const nextRoom = showRoomScoreboard(room)
       await this.saveRoom(nextRoom)
       return json({ room: serializeRoom(nextRoom) })
     }
@@ -212,6 +260,7 @@ class RoomLobbyObject {
         setPlayerInputState(room, body.playerName ?? 'Player', {
           movementMode: body.movementMode ?? 'stopped',
           aim: body.aim ?? null,
+          progress: body.progress ?? 0,
           firing: body.firing ?? false,
         }),
         PLAYER_STALE_MS,

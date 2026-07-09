@@ -1,5 +1,26 @@
 const MAX_PLAYERS = 20
 
+function createScoreState(players, currentScores = {}) {
+  return Object.fromEntries(
+    players.map((player) => [player.name, currentScores[player.name] ?? 0]),
+  )
+}
+
+function createRoundState(room, overrides = {}) {
+  const existing = room.roundState ?? {}
+  return {
+    round: room.round,
+    shotRacerIds: [],
+    shots: [],
+    winner: null,
+    scores: createScoreState(room.players, existing.scores),
+    history: existing.history ?? [],
+    phaseStartedAt: new Date().toISOString(),
+    ...overrides,
+    updatedAt: new Date().toISOString(),
+  }
+}
+
 export function toPlayerId(name) {
   return name.trim().toLowerCase().replace(/\s+/g, '-')
 }
@@ -28,6 +49,7 @@ export function createRoomState({ roomCode, hostName, privacy = 'public', roundC
     spectators: [],
     round: 1,
     inputs: {},
+    roundState: createRoundState({ players: [host], round: 1 }),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   }
@@ -187,15 +209,123 @@ export function startRoomCountdown(room) {
   return {
     ...room,
     phase: 'countdown',
+    roundState: createRoundState(room, {
+      scores: createScoreState(room.players, room.roundState?.scores),
+      history: room.roundState?.history ?? [],
+      countdownStartedAt: new Date().toISOString(),
+    }),
+    updatedAt: new Date().toISOString(),
+  }
+}
+
+export function startRoomPlaying(room) {
+  return {
+    ...room,
+    phase: 'playing',
+    roundState: createRoundState(room, {
+      ...(room.roundState ?? {}),
+      phase: 'playing',
+      playingStartedAt: new Date().toISOString(),
+    }),
+    updatedAt: new Date().toISOString(),
+  }
+}
+
+export function recordRoomShot(room, { shooterName, laneId }) {
+  if (!shooterName || !laneId) {
+    return room
+  }
+  const existingShots = room.roundState?.shots ?? []
+  if (existingShots.some((shot) => shot.shooterName === shooterName)) {
+    return room
+  }
+  const numericLaneId = Number(laneId)
+  const nextShotRacerIds = room.roundState?.shotRacerIds?.includes(numericLaneId)
+    ? room.roundState.shotRacerIds
+    : [...(room.roundState?.shotRacerIds ?? []), numericLaneId]
+  return {
+    ...room,
+    roundState: createRoundState(room, {
+      ...(room.roundState ?? {}),
+      shotRacerIds: nextShotRacerIds,
+      shots: [
+        ...existingShots,
+        {
+          shooterName,
+          laneId: numericLaneId,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    }),
+    updatedAt: new Date().toISOString(),
+  }
+}
+
+export function finishRoomRound(room, winner) {
+  if (!winner?.laneId) {
+    return room
+  }
+  const existingHistory = room.roundState?.history ?? []
+  const alreadyRecorded = existingHistory.some((entry) => entry.round === room.round)
+  const winnerEntry = {
+    round: room.round,
+    winnerName: winner.winnerName,
+    winnerType: winner.winnerType,
+    laneId: Number(winner.laneId),
+  }
+  const nextScores = {
+    ...createScoreState(room.players, room.roundState?.scores),
+  }
+  if (winner.winnerType === 'human' && winner.winnerName) {
+    nextScores[winner.winnerName] = (nextScores[winner.winnerName] ?? 0) + 1
+  }
+  return {
+    ...room,
+    phase: 'roundOver',
+    roundState: createRoundState(room, {
+      ...(room.roundState ?? {}),
+      winner: {
+        laneId: Number(winner.laneId),
+        winnerName: winner.winnerName,
+        winnerType: winner.winnerType,
+        finalProgress: winner.finalProgress,
+      },
+      scores: nextScores,
+      history: alreadyRecorded ? existingHistory : [...existingHistory, winnerEntry],
+      phase: 'roundOver',
+      roundOverAt: new Date().toISOString(),
+    }),
+    updatedAt: new Date().toISOString(),
+  }
+}
+
+export function showRoomScoreboard(room) {
+  return {
+    ...room,
+    phase: 'scoreboard',
+    roundState: createRoundState(room, {
+      ...(room.roundState ?? {}),
+      phase: 'scoreboard',
+      scoreboardStartedAt: new Date().toISOString(),
+    }),
     updatedAt: new Date().toISOString(),
   }
 }
 
 export function startNextRound(room) {
+  const nextRound = room.round + 1
   return {
     ...room,
     phase: 'countdown',
-    round: room.round + 1,
+    round: nextRound,
+    roundState: createRoundState(
+      { ...room, round: nextRound },
+      {
+        scores: createScoreState(room.players, room.roundState?.scores),
+        history: room.roundState?.history ?? [],
+        countdownStartedAt: new Date().toISOString(),
+      },
+    ),
     updatedAt: new Date().toISOString(),
   }
 }
@@ -211,6 +341,7 @@ export function serializeRoom(room) {
     spectators: room.spectators,
     round: room.round,
     inputs: room.inputs ?? {},
+    roundState: room.roundState ?? createRoundState(room),
     updatedAt: room.updatedAt,
   }
 }

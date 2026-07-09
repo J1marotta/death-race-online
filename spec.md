@@ -36,13 +36,15 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 1. Fill the race with exactly 20 racers, using NPCs for empty human slots.
 2. Secretly assign each active room player to one racer.
 3. Start a `3, 2, 1, go` countdown.
-4. Players move, aim, infer identities, and may fire their one shot.
-5. Shot racers are eliminated and remain visible as bodies.
-6. Eliminated players spectate.
-7. The round continues until a racer wins.
-8. Reveal/highlight all human-controlled racers after the winner is declared.
-9. If an NPC wins, show a shame/reveal moment.
-10. Show the scoreboard and next-round action.
+4. The host-owned room state advances from countdown to live play, and all clients follow that shared phase.
+5. Players move, aim, infer identities, and may fire their one shot.
+6. Shot racers are recorded in shared room state, eliminated for every client, and remain visible as bodies.
+7. Eliminated players spectate.
+8. The round continues until a racer wins.
+9. The host records the round winner in shared room state.
+10. Reveal/highlight all human-controlled racers after the winner is declared.
+11. If an NPC wins, show a shame/reveal moment.
+12. Show the shared scoreboard and next-round action.
 
 ## Player Controls
 

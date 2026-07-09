@@ -484,3 +484,14 @@ Last updated: 2026-07-09
 - Added client heartbeat calls for active room/game states.
 - Added regression tests for heartbeat updates, stale connected-player pruning, room closure, cleanup alarms, and the heartbeat API wrapper.
 - Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 44 : Sync Round Events Through Room State
+
+- Added shared `roundState` to room snapshots for shot racer IDs, one-shot records, winners, scores, history, and phase timestamps.
+- Added Worker/API actions for host-started live play, shared shots, host-recorded round-over, host-shown scoreboard, and host-started next round.
+- Replaced the manual countdown advance UI with a timestamp-driven countdown where the host advances the room to `playing` and other clients follow the room snapshot.
+- Sent local racer progress through the existing input snapshot so the host can evaluate winner detection against synced human progress while polling remains in place.
+- Made clients adopt shared shot eliminations, round winner, scores, history, scoreboard, and next-round snapshots from the room backend.
+- Fixed the round-over flow so it shows the scoreboard before next round/final scores, and hid invalid host-only progression controls from non-hosts.
+- Added regression tests across room helpers, API wrappers, Worker authorization/state transitions, and React round-state behavior.
+- Verified with `npm test`; `npm run lint`; `npm run build`.

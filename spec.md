@@ -21,6 +21,7 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 - Every connected player, including the host, must ready up before the game can start.
 - Only the host can start the game.
 - Connected players see the same lobby, countdown, round, and scoreboard state.
+- Room updates use a Cloudflare-compatible live transport, with polling only as a fallback.
 - The room side panel stays visible during live rounds so the room code, roster, readiness, and sync status remain visible.
 - Rooms are destroyed when the host leaves or when every client stops heartbeating.
 - Late joiners spectate until the next round.

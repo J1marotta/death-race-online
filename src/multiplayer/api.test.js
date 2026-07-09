@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createRoom,
+  createRoomSocket,
   finishRound,
   getRoom,
   joinRoom,
@@ -34,6 +35,22 @@ describe('multiplayer api', () => {
 
     expect(result.room.roomCode).toBe('DR-2048')
     expect(fetch).toHaveBeenCalled()
+  })
+
+  it('creates live room sockets through the api', () => {
+    const OriginalWebSocket = global.WebSocket
+    global.WebSocket = vi.fn(function WebSocket(url) {
+      return { url }
+    })
+
+    try {
+      const socket = createRoomSocket('DR-2048', 'Mia')
+
+      expect(socket.url).toContain('/api/rooms/DR-2048/live')
+      expect(socket.url).toContain('playerName=Mia')
+    } finally {
+      global.WebSocket = OriginalWebSocket
+    }
   })
 
   it('joins rooms through the api', async () => {

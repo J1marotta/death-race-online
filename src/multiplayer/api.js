@@ -1,5 +1,10 @@
 const DEFAULT_API_BASE = '/api/rooms'
 
+function roomUrl(roomCode) {
+  const base = import.meta.env.VITE_ROOMS_API_BASE ?? DEFAULT_API_BASE
+  return new URL(`${base}/${roomCode}`, window.location.origin)
+}
+
 async function requestJson(path, options = {}) {
   const base = import.meta.env.VITE_ROOMS_API_BASE ?? DEFAULT_API_BASE
   const response = await fetch(`${base}/${path}`, {
@@ -25,6 +30,15 @@ export function createRoom(roomCode, payload) {
       ...payload,
     }),
   })
+}
+
+export function createRoomSocket(roomCode, playerName) {
+  const url = roomUrl(`${roomCode}/live`)
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  if (playerName) {
+    url.searchParams.set('playerName', playerName)
+  }
+  return new WebSocket(url.toString())
 }
 
 export function joinRoom(roomCode, payload) {

@@ -495,3 +495,12 @@ Last updated: 2026-07-09
 - Fixed the round-over flow so it shows the scoreboard before next round/final scores, and hid invalid host-only progression controls from non-hosts.
 - Added regression tests across room helpers, API wrappers, Worker authorization/state transitions, and React round-state behavior.
 - Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 45 : Add Live Room Transport
+
+- Added a Cloudflare Durable Object WebSocket endpoint at the room `live` path.
+- Broadcast serialized room snapshots to connected sockets after room saves, and broadcast a close message when a room is destroyed.
+- Added a client live-room socket helper and React connection effect for active room/game states.
+- Kept HTTP polling as fallback when the socket is unavailable, closed, or in tests.
+- Added tests for live socket URL creation and Worker fallback behavior when WebSocket support is unavailable.
+- Verified with `npm test`; `npm run lint`; `npm run build`.

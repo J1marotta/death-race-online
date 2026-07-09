@@ -4,6 +4,5 @@ This file tracks remaining implementation work only. Design decisions live in `s
 
 ## Real Multiplayer
 
-- Replace polling-only room updates with a live transport or equivalent real-time update path suitable for Cloudflare.
 - Make host leave/end-room behavior visible to remaining clients instead of silently falling back to local/offline state.
 - Verify in two browser sessions that one host can create a lobby and another player can join the same lobby by code.

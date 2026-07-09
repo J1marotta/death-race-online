@@ -90,6 +90,24 @@ describe('rooms worker', () => {
     expect(room.roomCode).toBe('DR-SHARE')
   })
 
+  it('rejects live sockets when the runtime has no websocket support', async () => {
+    const state = createDurableObjectState()
+    const roomObject = new RoomLobbyObject(state, {})
+
+    await roomObject.fetch(postRoom('create', { hostName: 'James' }))
+    const response = await roomObject.fetch(
+      new Request('https://rooms.example/api/rooms/DR-TEST/live', {
+        headers: {
+          upgrade: 'websocket',
+        },
+      }),
+    )
+    const body = await response.json()
+
+    expect(response.status).toBe(501)
+    expect(body.error).toBe('Live transport unavailable')
+  })
+
   it('destroys rooms when the host leaves', async () => {
     const state = createDurableObjectState()
     const roomObject = new RoomLobbyObject(state, {})

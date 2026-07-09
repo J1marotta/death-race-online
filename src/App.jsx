@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import {
   createRoom,
+  createRoomSocket,
   finishRound,
   getRoom,
   joinRoom,
@@ -627,6 +628,63 @@ function App() {
   }, [roomCode])
 
   useEffect(() => {
+    if (
+      import.meta.env.MODE === 'test' ||
+      state === 'menu' ||
+      !activeRoomCode ||
+      typeof WebSocket !== 'function'
+    ) {
+      return undefined
+    }
+
+    let closed = false
+    const socket = createRoomSocket(activeRoomCode, activePlayerName)
+
+    socket.addEventListener('open', () => {
+      if (!closed) {
+        setRoomSyncState('live')
+        setRoomError('')
+      }
+    })
+    socket.addEventListener('message', (event) => {
+      if (closed) {
+        return
+      }
+      let message
+      try {
+        message = JSON.parse(event.data)
+      } catch {
+        return
+      }
+      if (message.type === 'room') {
+        setRoomSnapshot(message.room)
+        setRoomSyncState('live')
+        setRoomError('')
+      }
+      if (message.type === 'closed') {
+        setRoomSnapshot(null)
+        setRoomSyncState('closed')
+        setRoomError(message.error ?? 'Room closed')
+      }
+    })
+    socket.addEventListener('error', () => {
+      if (!closed) {
+        setRoomSyncState('polling')
+      }
+    })
+    socket.addEventListener('close', () => {
+      if (!closed) {
+        setRoomSyncState('polling')
+      }
+    })
+
+    return () => {
+      closed = true
+      socket.close()
+    }
+  }, [activePlayerName, activeRoomCode, state])
+
+  useEffect(() => {
     if (state !== 'playing' || roundWinner || !isCurrentHost) {
       return
     }
@@ -740,7 +798,10 @@ function App() {
   }, [activePlayerName, roomCode, state, syncRoom])
 
   useEffect(() => {
-    if (!['lobby', 'countdown', 'roundOver', 'scoreboard'].includes(state)) {
+    if (
+      roomSyncState === 'live' ||
+      !['lobby', 'countdown', 'playing', 'roundOver', 'scoreboard'].includes(state)
+    ) {
       return undefined
     }
 
@@ -751,7 +812,7 @@ function App() {
     refreshRoom()
     const intervalId = window.setInterval(refreshRoom, 3000)
     return () => window.clearInterval(intervalId)
-  }, [state, syncRoom])
+  }, [roomSyncState, state, syncRoom])
 
   const resetRoundState = useCallback((nextHumanLaneIds = humanLaneIds, nextControlledRacerId = controlledRacerId) => {
     setCountdownIndex(0)

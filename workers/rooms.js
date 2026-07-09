@@ -22,6 +22,18 @@ import {
 const PLAYER_STALE_MS = 45000
 const CLEANUP_ALARM_MS = PLAYER_STALE_MS + 1000
 
+function getRoomCodeFromPath(pathname) {
+  const pathParts = pathname.split('/').filter(Boolean)
+  const roomsIndex = pathParts.lastIndexOf('rooms')
+  if (roomsIndex >= 0 && pathParts[roomsIndex + 1]) {
+    return pathParts[roomsIndex + 1]
+  }
+  if (pathParts[pathParts.length - 1] === 'rooms') {
+    return undefined
+  }
+  return pathParts[pathParts.length - 1]
+}
+
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -39,6 +51,7 @@ class RoomLobbyObject {
   constructor(state, env) {
     this.state = state
     this.env = env
+    this.sessions = new Map()
   }
 
   async loadRoom() {
@@ -49,6 +62,7 @@ class RoomLobbyObject {
   async saveRoom(room) {
     await this.state.storage.put('room', room)
     await this.scheduleCleanupAlarm()
+    this.broadcast({ type: 'room', room: serializeRoom(room) })
     return room
   }
 
@@ -57,6 +71,7 @@ class RoomLobbyObject {
     if (typeof this.state.storage.deleteAlarm === 'function') {
       await this.state.storage.deleteAlarm()
     }
+    this.broadcast({ type: 'closed', error: 'Room closed' })
   }
 
   async scheduleCleanupAlarm() {
@@ -85,10 +100,61 @@ class RoomLobbyObject {
     await this.saveRoom(room)
   }
 
+  broadcast(message) {
+    const payload = JSON.stringify(message)
+    for (const [sessionId, socket] of this.sessions.entries()) {
+      try {
+        if (socket.readyState > 1) {
+          this.sessions.delete(sessionId)
+          continue
+        }
+        socket.send(payload)
+      } catch {
+        this.sessions.delete(sessionId)
+      }
+    }
+  }
+
+  async handleWebSocket() {
+    if (typeof WebSocketPair !== 'function') {
+      return json({ error: 'Live transport unavailable' }, 501)
+    }
+    const room = await this.loadRoom()
+    if (!room) {
+      return json({ error: 'Room not found' }, 404)
+    }
+
+    const pair = new WebSocketPair()
+    const [client, server] = Object.values(pair)
+    const sessionId = crypto.randomUUID()
+    server.accept()
+    this.sessions.set(sessionId, server)
+
+    const closeSession = () => {
+      this.sessions.delete(sessionId)
+    }
+    server.addEventListener('close', closeSession)
+    server.addEventListener('error', closeSession)
+    server.addEventListener('message', (event) => {
+      if (event.data === 'ping') {
+        server.send(JSON.stringify({ type: 'pong' }))
+      }
+    })
+    server.send(JSON.stringify({ type: 'room', room: serializeRoom(room) }))
+
+    return new Response(null, {
+      status: 101,
+      webSocket: client,
+    })
+  }
+
   async fetch(request) {
     const url = new URL(request.url)
-    const pathParts = url.pathname.split('/').filter(Boolean)
-    const roomCode = pathParts[pathParts.length - 1] ?? this.state.id.toString()
+    const roomCode = getRoomCodeFromPath(url.pathname) ?? this.state.id.toString()
+
+    if (request.headers.get('upgrade')?.toLowerCase() === 'websocket') {
+      return this.handleWebSocket()
+    }
 
     if (request.method === 'GET') {
       const room = await this.loadRoom()
@@ -280,8 +346,7 @@ class RoomLobbyObject {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url)
-    const pathParts = url.pathname.split('/').filter(Boolean)
-    const roomCode = pathParts[pathParts.length - 1]
+    const roomCode = getRoomCodeFromPath(url.pathname)
 
     if (!roomCode) {
       return json({ error: 'Room code required' }, 400)

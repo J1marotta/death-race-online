@@ -12,6 +12,7 @@ import {
   canStartRoom,
   shouldDestroyRoom,
   touchRoomPlayers,
+  toPlayerId,
 } from '../src/multiplayer/roomState.js'
 
 function json(data, status = 200) {
@@ -48,7 +49,9 @@ class RoomLobbyObject {
   }
 
   async fetch(request) {
-    const roomCode = this.state.id.toString()
+    const url = new URL(request.url)
+    const pathParts = url.pathname.split('/').filter(Boolean)
+    const roomCode = pathParts[pathParts.length - 1] ?? this.state.id.toString()
 
     if (request.method === 'GET') {
       const room = await this.loadRoom()
@@ -96,7 +99,7 @@ class RoomLobbyObject {
     }
 
     if (action === 'leave') {
-      const leavingHost = room.hostId === (body.playerName ?? 'Player').toLowerCase().replace(/\s+/g, '-')
+      const leavingHost = room.hostId === toPlayerId(body.playerName ?? 'Player')
       const nextRoom = pruneDisconnectedPlayers(
         touchRoomPlayers(leaveRoomState(room, body.playerName ?? 'Player')),
       )
@@ -118,6 +121,9 @@ class RoomLobbyObject {
     }
 
     if (action === 'countdown') {
+      if (toPlayerId(body.playerName ?? '') !== room.hostId) {
+        return json({ error: 'Only the host can start the game' }, 403)
+      }
       if (!canStartRoom(room)) {
         return json({ error: 'Room is not ready' }, 400)
       }
@@ -171,7 +177,8 @@ class RoomLobbyObject {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url)
-    const roomCode = url.pathname.split('/').filter(Boolean)[1]
+    const pathParts = url.pathname.split('/').filter(Boolean)
+    const roomCode = pathParts[pathParts.length - 1]
 
     if (!roomCode) {
       return json({ error: 'Room code required' }, 400)

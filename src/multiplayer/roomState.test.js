@@ -24,6 +24,7 @@ describe('roomState', () => {
     expect(room.players).toHaveLength(1)
     expect(room.players[0].role).toBe('host')
     expect(room.hostId).toBe('james')
+    expect(room.players[0].ready).toBe(false)
   })
 
   it('joins and leaves players cleanly', () => {
@@ -84,7 +85,7 @@ describe('roomState', () => {
 
     expect(left.hostId).toBe('mia')
     expect(left.players.find((player) => player.name === 'Mia').role).toBe('host')
-    expect(left.players.find((player) => player.name === 'Mia').ready).toBe(true)
+    expect(left.players.find((player) => player.name === 'Mia').ready).toBe(false)
   })
 
   it('tracks ready state for connected players', () => {
@@ -182,15 +183,17 @@ describe('roomState', () => {
     })
   })
 
-  it('only allows a room to start when every player is connected', () => {
+  it('only allows a room to start when every connected player is ready', () => {
     const room = createRoomState({
       roomCode: 'DR-2048',
       hostName: 'James',
     })
-    const joined = setPlayerReadyState(joinRoomState(room, 'Mia'), 'Mia', true)
+    const readyHost = setPlayerReadyState(room, 'James', true)
+    const joined = setPlayerReadyState(joinRoomState(readyHost, 'Mia'), 'Mia', true)
     const disconnected = leaveRoomState(joined, 'Mia')
 
-    expect(canStartRoom(room)).toBe(true)
+    expect(canStartRoom(room)).toBe(false)
+    expect(canStartRoom(readyHost)).toBe(true)
     expect(canStartRoom(joined)).toBe(true)
     expect(canStartRoom(disconnected)).toBe(false)
   })

@@ -1,12 +1,16 @@
 const MAX_PLAYERS = 20
 
+export function toPlayerId(name) {
+  return name.trim().toLowerCase().replace(/\s+/g, '-')
+}
+
 function createPlayerRecord(name, role = 'player') {
   return {
-    id: name.toLowerCase().replace(/\s+/g, '-'),
+    id: toPlayerId(name),
     name,
     role,
     connected: true,
-    ready: role === 'host',
+    ready: false,
     joinedAt: new Date().toISOString(),
   }
 }
@@ -41,7 +45,7 @@ export function joinRoomState(room, playerName) {
       ...room,
       players: room.players.map((player) =>
         player.name === playerName
-          ? { ...player, connected: true, ready: true, updatedAt: new Date().toISOString() }
+          ? { ...player, connected: true, updatedAt: new Date().toISOString() }
           : player,
       ),
       spectators: room.spectators.filter((spectator) => spectator !== playerName),
@@ -134,7 +138,7 @@ export function leaveRoomState(room, playerName) {
     hostId: nextHost,
     players: nextPlayers.map((player) =>
       player.id === nextHost
-        ? { ...player, role: 'host', ready: true, updatedAt: new Date().toISOString() }
+        ? { ...player, role: 'host', ready: false, updatedAt: new Date().toISOString() }
         : { ...player, updatedAt: new Date().toISOString() },
     ),
     spectators: room.spectators.includes(playerName)

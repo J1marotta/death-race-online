@@ -20,8 +20,8 @@ function createDurableObjectState(roomCode = 'DR-TEST') {
   }
 }
 
-function postRoom(action, body = {}) {
-  return new Request('https://rooms.example/api/rooms/DR-TEST', {
+function postRoom(action, body = {}, roomCode = 'DR-TEST') {
+  return new Request(`https://rooms.example/api/rooms/${roomCode}`, {
     method: 'POST',
     body: JSON.stringify({ action, ...body }),
     headers: {
@@ -72,6 +72,18 @@ describe('rooms worker', () => {
     expect(room.players.map((player) => player.name)).toEqual(['James', 'Mia'])
   })
 
+  it('preserves the requested room code instead of the object id', async () => {
+    const state = createDurableObjectState('opaque-object-id')
+    const roomObject = new RoomLobbyObject(state, {})
+
+    const response = await roomObject.fetch(
+      postRoom('create', { hostName: 'James' }, 'DR-SHARE'),
+    )
+    const { room } = await response.json()
+
+    expect(room.roomCode).toBe('DR-SHARE')
+  })
+
   it('destroys rooms when the host leaves', async () => {
     const state = createDurableObjectState()
     const roomObject = new RoomLobbyObject(state, {})
@@ -83,5 +95,30 @@ describe('rooms worker', () => {
 
     expect(body.destroyed).toBe(true)
     expect(state.store.has('room')).toBe(false)
+  })
+
+  it('requires the host and all ready players before starting countdown', async () => {
+    const state = createDurableObjectState()
+    const roomObject = new RoomLobbyObject(state, {})
+
+    await roomObject.fetch(postRoom('create', { hostName: 'James' }))
+    const tooEarlyResponse = await roomObject.fetch(
+      postRoom('countdown', { playerName: 'James' }),
+    )
+    await roomObject.fetch(postRoom('ready', { playerName: 'James', ready: true }))
+    await roomObject.fetch(postRoom('join', { playerName: 'Mia' }))
+    await roomObject.fetch(postRoom('ready', { playerName: 'Mia', ready: true }))
+    const nonHostResponse = await roomObject.fetch(
+      postRoom('countdown', { playerName: 'Mia' }),
+    )
+    const hostResponse = await roomObject.fetch(
+      postRoom('countdown', { playerName: 'James' }),
+    )
+    const { room } = await hostResponse.json()
+
+    expect(tooEarlyResponse.status).toBe(400)
+    expect(nonHostResponse.status).toBe(403)
+    expect(hostResponse.status).toBe(200)
+    expect(room.phase).toBe('countdown')
   })
 })

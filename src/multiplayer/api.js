@@ -77,11 +77,12 @@ export function submitPlayerInput(roomCode, payload) {
   })
 }
 
-export function startCountdown(roomCode) {
+export function startCountdown(roomCode, payload = {}) {
   return requestJson(roomCode, {
     method: 'POST',
     body: JSON.stringify({
       action: 'countdown',
+      ...payload,
     }),
   })
 }

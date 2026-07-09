@@ -1,6 +1,6 @@
 # Death Race Progress
 
-Last updated: 2026-07-07
+Last updated: 2026-07-09
 
 ## Current State
 
@@ -10,7 +10,7 @@ Last updated: 2026-07-07
 - Git branch: `codex/task-01-network-scope`
 - Initial commit: `45b2434 Initial Death Race project setup`
 - Planning cleanup commit: `d59ecfb Clean up project planning docs`
-- The app shows the playable Death Race shell with a 20-lane track, local controls, and a lobby shell that now syncs room state to the backend API.
+- The app shows the playable Death Race shell with a 20-lane track, local controls, and a backend-backed lobby flow.
 - Dependencies are installed locally.
 - Build output goes to `dist`, which is ignored by git.
 - The old workspace currently contains only a `.git` folder.
@@ -18,8 +18,9 @@ Last updated: 2026-07-07
 - Remote origin is `https://github.com/J1marotta/death-race-online.git`.
 - Cloudflare Pages is deployed for the front end.
 - A separate Cloudflare Worker is deployed for room coordination.
-- The front end currently syncs lobby create/settings/countdown actions to the backend API and shows room sync status in the HUD.
-- The lobby now joins through the backend API, hydrates the connected roster from server state, and leaves cleanly on teardown.
+- The front end currently syncs lobby create/join/settings/ready/countdown actions to the backend API and shows room sync status in the HUD.
+- The lobby now preserves shareable room codes, rejects joins to missing rooms, tracks the current client identity, shows ready/not-ready state from the server roster, and limits starting the game to the host after every connected player is ready.
+- The side panel stays visible during the round so the room code, roster, and room sync state remain inspectable while testing multiplayer.
 
 ## Completed
 
@@ -450,4 +451,17 @@ Last updated: 2026-07-07
 - Added worker regression tests for missing-room get/join, host-created join, and host-leave destruction.
 - Added a visible room error panel so failed joins show the backend rejection instead of silently entering a fake lobby.
 - Removed the completed placeholder-room and room-error items from `todo.md`.
+- Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 41 : Tighten Host Lobby Flow
+
+- Removed prototype state-tab buttons so users can no longer jump into fake local phases from the header.
+- Made lobby creation wait for the backend create response before entering the lobby.
+- Preserved the requested room code in the Worker instead of using the internal Durable Object id or the `rooms` path segment.
+- Kept current client identity in the UI so joined players ready up under their own username.
+- Hid the start-game control from non-host players.
+- Required the host identity and a fully ready roster before the Worker accepts countdown start.
+- Removed the implicit lobby cleanup leave call that could destroy the host room when starting the game.
+- Kept the lobby/room side panel visible while the round is running.
+- Added regression tests for host-only start, ready usernames, no leave-on-start, room-code preservation, and Worker countdown validation.
 - Verified with `npm test`; `npm run lint`; `npm run build`.

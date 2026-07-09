@@ -34,7 +34,7 @@ function startPlaying() {
       expect(screen.getByRole('button', { name: 'Start game' })).toBeTruthy(),
     )
     fireEvent.click(screen.getByRole('button', { name: 'Start game' }))
-    const advance = screen.getByRole('button', { name: 'Advance countdown' })
+    const advance = await screen.findByRole('button', { name: 'Advance countdown' })
     fireEvent.click(advance)
     fireEvent.click(advance)
     fireEvent.click(advance)
@@ -57,6 +57,7 @@ describe('game controls', () => {
           room: {
             roomCode,
             phase: 'lobby',
+            hostId: 'james',
             players: [
               { name: 'James', id: 'james', role: 'host', connected: true, ready: true },
               { name: 'Mia', id: 'mia', role: 'player', connected: true, ready: true },
@@ -198,7 +199,7 @@ describe('game controls', () => {
     expect(within(realPlayers).getByText('Mia')).toBeTruthy()
   })
 
-  it('hides the lobby panel once the game starts', async () => {
+  it('keeps the lobby panel visible once the game starts', async () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
 
@@ -206,13 +207,109 @@ describe('game controls', () => {
       expect(screen.getByRole('button', { name: 'Start game' })).toBeTruthy(),
     )
     fireEvent.click(screen.getByRole('button', { name: 'Start game' }))
-    const advance = screen.getByRole('button', { name: 'Advance countdown' })
+    const advance = await screen.findByRole('button', { name: 'Advance countdown' })
     fireEvent.click(advance)
     fireEvent.click(advance)
     fireEvent.click(advance)
     fireEvent.click(advance)
 
-    expect(screen.queryByLabelText('Lobby controls')).toBeNull()
+    expect(screen.getByLabelText('Lobby controls')).toBeTruthy()
     expect(screen.getByText('Room')).toBeTruthy()
+  })
+
+  it('does not show the start button to joined non-host players', async () => {
+    render(<App />)
+    fireEvent.change(screen.getByLabelText('Player name'), {
+      target: { value: 'Mia' },
+    })
+    fireEvent.change(screen.getByLabelText('Room code'), {
+      target: { value: 'WXYZ' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Join lobby' }))
+
+    await screen.findByLabelText('Host start status')
+    expect(screen.queryByRole('button', { name: 'Start game' })).toBeNull()
+    expect(screen.getByText('Waiting for host')).toBeTruthy()
+  })
+
+  it('marks the joined username ready', async () => {
+    global.fetch = vi.fn(async (input, options = {}) => {
+      const requestUrl = typeof input === 'string' ? input : input.url
+      const roomCode = requestUrl.split('/').pop()
+      const body = options.body ? JSON.parse(options.body) : {}
+      return new Response(
+        JSON.stringify({
+          room: {
+            roomCode,
+            phase: 'lobby',
+            hostId: 'james',
+            players: [
+              { name: 'James', id: 'james', role: 'host', connected: true, ready: true },
+              {
+                name: 'Mia',
+                id: 'mia',
+                role: 'player',
+                connected: true,
+                ready: body.action === 'ready',
+              },
+            ],
+            spectators: [],
+            inputs: {},
+          },
+        }),
+        {
+          status: 200,
+          headers: {
+            'content-type': 'application/json',
+          },
+        },
+      )
+    })
+
+    render(<App />)
+    fireEvent.change(screen.getByLabelText('Player name'), {
+      target: { value: 'Mia' },
+    })
+    fireEvent.change(screen.getByLabelText('Room code'), {
+      target: { value: 'WXYZ' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Join lobby' }))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Ready up' }))
+
+    await waitFor(() =>
+      expect(
+        fetch.mock.calls.some(([, options]) => {
+          if (!options?.body) {
+            return false
+          }
+          const body = JSON.parse(options.body)
+          return body.action === 'ready' && body.playerName === 'Mia'
+        }),
+      ).toBe(true),
+    )
+  })
+
+  it('does not leave the room while starting the game', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Start game' })).toBeTruthy(),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Start game' }))
+    await screen.findByRole('button', { name: 'Advance countdown' })
+
+    const postedActions = fetch.mock.calls
+      .map(([, options]) => {
+        if (!options?.body) {
+          return null
+        }
+        return JSON.parse(options.body).action
+      })
+      .filter(Boolean)
+
+    expect(postedActions).toContain('countdown')
+    expect(postedActions).not.toContain('leave')
   })
 })

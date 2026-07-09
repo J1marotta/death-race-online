@@ -56,9 +56,13 @@ describe('multiplayer api', () => {
       }),
     )
 
-    const result = await startCountdown('DR-2048')
+    const result = await startCountdown('DR-2048', { playerName: 'James' })
 
     expect(result.room.phase).toBe('countdown')
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchObject({
+      action: 'countdown',
+      playerName: 'James',
+    })
   })
 
   it('retrieves rooms through the api', async () => {

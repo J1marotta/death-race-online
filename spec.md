@@ -14,10 +14,14 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 ## Lobby And Match
 
 - Players join through a shareable room code/link.
+- The host creates a lobby and receives the room code to share.
+- Joining players enter the room code and their username.
 - Lobbies can be public or private.
 - The host chooses the number of rounds.
-- The host manually starts each round.
+- Every connected player, including the host, must ready up before the game can start.
+- Only the host can start the game.
 - Connected players see the same lobby, countdown, round, and scoreboard state.
+- The room side panel stays visible during live rounds so the room code, roster, readiness, and sync status remain visible.
 - Late joiners spectate until the next round.
 - Player names are visible in the lobby and scoreboard.
 - Player names are not attached to racers during live gameplay.
@@ -104,8 +108,8 @@ Running has no stamina, cooldown, noise meter, or extra UI. The risk is behavior
 - Current app stack is React + Vite + JavaScript + npm + Oxlint.
 - React should own shell UI, lobby, scoreboard, and top-level state.
 - High-frequency gameplay should be isolated from ordinary React UI rendering where practical.
-- MVP implementation scope: start from the playable loop, then replace the mocked lobby with real shared multiplayer state.
-- MVP backend choice: real-time server state is required for friends to join and play in the same room.
+- Current networking scope: the lobby is backed by Cloudflare room state; live gameplay still needs authoritative shared round state.
+- MVP backend choice: server state is required for friends to join and play in the same room.
 - MVP deployment target: deploy the multiplayer game so friends can reach the same hosted room.
 - MVP platform target: desktop/laptop first; mobile and tablet controls are deferred until the laptop loop works.
 - Keep lobby, player, and round state behind small modules so real-time networking can own the authoritative session later.
@@ -116,5 +120,5 @@ Running has no stamina, cooldown, noise meter, or extra UI. The risk is behavior
 
 ## Open Design Decisions
 
-- Which realtime transport and server model to use for shared lobbies and round sync.
+- Which live transport should replace polling for shared lobbies and round sync.
 - Whether Defender should connect to this game at all if the user later provides its source.

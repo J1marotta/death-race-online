@@ -1,12 +1,23 @@
 const DEFAULT_API_BASE = '/api/rooms'
+const PRODUCTION_API_BASE = 'https://death-race-rooms.james-marotta.workers.dev/api/rooms'
+
+export function getRoomsApiBase(hostname = window.location.hostname) {
+  if (import.meta.env.VITE_ROOMS_API_BASE) {
+    return import.meta.env.VITE_ROOMS_API_BASE
+  }
+  if (!['localhost', '127.0.0.1', ''].includes(hostname)) {
+    return PRODUCTION_API_BASE
+  }
+  return DEFAULT_API_BASE
+}
 
 function roomUrl(roomCode) {
-  const base = import.meta.env.VITE_ROOMS_API_BASE ?? DEFAULT_API_BASE
+  const base = getRoomsApiBase()
   return new URL(`${base}/${roomCode}`, window.location.origin)
 }
 
 async function requestJson(path, options = {}) {
-  const base = import.meta.env.VITE_ROOMS_API_BASE ?? DEFAULT_API_BASE
+  const base = getRoomsApiBase()
   const response = await fetch(`${base}/${path}`, {
     headers: {
       'content-type': 'application/json; charset=utf-8',

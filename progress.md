@@ -514,3 +514,10 @@ Last updated: 2026-07-09
 - Made host-leave destruction responses include `Host left the room`.
 - Added regression tests for closed-room UI and host-leave response text.
 - Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 47 : Fix Production Rooms API Fallback
+
+- Found that the deployed Pages app was calling a relative `/api/rooms` path even though the real room backend is the deployed Worker.
+- Added a production fallback so non-local browser hosts use the `death-race-rooms` Worker API unless `VITE_ROOMS_API_BASE` is explicitly configured.
+- Added regression coverage for local and production rooms API base selection.
+- Verified with `npm test`; `npm run lint`; `npm run build`.

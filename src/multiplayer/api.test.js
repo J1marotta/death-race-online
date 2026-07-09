@@ -4,6 +4,7 @@ import {
   createRoomSocket,
   finishRound,
   getRoom,
+  getRoomsApiBase,
   joinRoom,
   recordShot,
   sendPlayerHeartbeat,
@@ -51,6 +52,14 @@ describe('multiplayer api', () => {
     } finally {
       global.WebSocket = OriginalWebSocket
     }
+  })
+
+  it('uses the deployed rooms worker from production pages hosts', () => {
+    expect(getRoomsApiBase('death-race-online.pages.dev')).toBe(
+      'https://death-race-rooms.james-marotta.workers.dev/api/rooms',
+    )
+    expect(getRoomsApiBase('localhost')).toBe('/api/rooms')
+    expect(getRoomsApiBase('127.0.0.1')).toBe('/api/rooms')
   })
 
   it('joins rooms through the api', async () => {

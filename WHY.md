@@ -1,93 +1,655 @@
 # Why Death Race Works
 
-Death Race is a small browser game about suspicion. The trick is not raw speed; it is trying to move like a believable nobody while reading which tiny pixel person is actually another human. Every round fills a 20-racer track, hides the human assignments, gives each human one shot, and lets the mess resolve only when a racer reaches the finish.
+Death Race is a browser game about suspicion.
+
+On the surface, it is twenty little racers moving toward a finish line. Underneath, it is a social deduction game wearing running shoes. Every human secretly controls one racer. Nobody gets a name tag during the race. Everyone gets one bullet. The real game is not "can I go fast?" It is "can I move just naturally enough that nobody realizes which one is me?"
+
+That is the heartbeat of the project:
+
+- Hide in a crowd.
+- Read other people's movement tells.
+- Spend your one shot wisely.
+- Survive long enough for your racer to cross the line.
+
+The rest of the engineering exists to protect that feeling.
+
+## The Plain-Language Version
+
+Think of the game as three connected places:
+
+1. The arcade cabinet: the React app in the browser.
+2. The race office: the Cloudflare Worker API.
+3. The official clipboard: one Durable Object per room code.
+
+The browser draws the track, handles keyboard and mouse input, and shows the lobby. The Worker receives room actions like "create", "join", "ready", "start", "shot", and "next round". The Durable Object is the single source of truth for one lobby. If room `DR-ABCD` exists, that room has exactly one official room object coordinating it.
+
+That matters because multiplayer games get weird when every browser invents its own truth. If one player thinks Mia is ready, another thinks she is not, and the host thinks the room started already, the game stops feeling like a game and starts feeling like a broken group chat. The Durable Object is the referee holding the clipboard.
 
 ## What We Built
 
-The project is now a local single-browser MVP. It has a lobby, public/private setting, round-count controls, 20 visible racers, hidden human assignments, NPC fillers, countdown, keyboard movement, mouse aiming, one-shot firing, eliminations, dead bodies, spectators, winner reveal, scoreboard, round history, and final match state.
+The project is now a deployed multiplayer prototype, not just a local mockup.
 
-The first important decision was restraint. We did not start with accounts, servers, persistence, WebSockets, matchmaking, mobile controls, or deployment. Those are useful later, but they would have made the first playable loop harder to feel. Good game engineering often starts by protecting the toy at the center. Here, the toy is: “Can I tell which racer is you?”
+Players can:
 
-## The Architecture
+- Create a lobby.
+- Receive a room code.
+- Share that code.
+- Join from another browser with a username.
+- See the real connected roster.
+- Ready up.
+- Start only when everyone is ready.
+- Enter the same countdown and playing state.
+- Send live movement/input snapshots.
+- Shoot once per round.
+- Share shot, winner, scoreboard, and next-round state.
+- See a closed-room state if the host leaves or the room expires.
 
-The app is a React + Vite project. React owns the shell, state, lobby, controls, scoreboard, and the current rendered playfield.
+The current live loop is intentionally desktop/laptop first. Touch controls, accounts, permanent profiles, and ranked play can come later. Right now the important promise is simpler: a friend can open the site, type your code, join your lobby, ready up, and play.
 
-The main runtime files are:
+## The Architecture In One Picture
 
-- `src/main.jsx`: boots React into the page.
-- `src/App.jsx`: owns the game state and renders the full MVP.
-- `src/App.css`: owns the game layout, track, pixel racers, crosshairs, bodies, reveal highlights, and panels.
-- `src/index.css`: owns the base theme variables and document reset.
-- `spec.md`: the design source of truth.
-- `todo.md`: what remains, now mostly guardrails and future parking-lot work.
-- `progress.md`: the build log and verification history.
-- `README.md`: commands and manual QA.
+```text
+Cloudflare Pages
+  hosts the React/Vite app
+        |
+        v
+src/multiplayer/api.js
+  wraps room API calls and WebSocket URLs
+        |
+        v
+Cloudflare Worker: workers/rooms.js
+  routes requests to the right room
+        |
+        v
+Durable Object: RoomLobbyObject
+  stores one room snapshot
+  validates host-only actions
+  broadcasts live updates
+  cleans up abandoned rooms
+        |
+        v
+All connected browsers
+  receive room snapshots
+  render the same lobby/game phase
+```
 
-The state is intentionally local and in-memory. That means a refresh resets the game, which is fine for this MVP. It also means the game can be understood without chasing server calls or storage layers. When networking arrives later, the important lesson is to replace the transport, not the game idea.
+The clean idea is this: the browser is allowed to be lively and visual, but the room state lives on the server.
 
-## The Game Loop
+## The Codebase Tour
 
-The loop is:
+The repo is small enough to understand without a map, but the map helps.
 
-1. The lobby picks a round count and starts.
-2. The round fills exactly 20 racers.
-3. Humans are secretly assigned to specific lanes.
-4. The countdown blocks movement and shooting until `go`.
-5. The player moves with `Space` and `Left Shift`.
-6. NPCs walk, pause, and sometimes run.
-7. Mouse movement aims; Mouse 1 fires once.
-8. Shot racers stay down.
-9. The round ends only when a living racer reaches the finish.
-10. Human-controlled racers are revealed.
-11. Scoreboard awards 1 point for a human winner and 0 for an NPC.
-12. The host starts the next round or reaches final scores.
+### Frontend
 
-That shape matters because it keeps the social tension intact. If the round ended when someone was shot, players would optimize around shooting. Instead, a shot is a dramatic interruption inside a race that still continues.
+- `src/main.jsx`
+  Boots React into the page.
 
-## Why These Technical Choices
+- `src/App.jsx`
+  The main game surface. It owns the visible game states: menu, lobby, countdown, playing, round over, scoreboard, and game over. It also handles local input, aiming, shooting, UI state, room sync, and rendering the 20-lane playfield.
 
-Vite is fast and plain. React is familiar and good at stateful UI. JavaScript modules are enough for this stage. Oxlint gives a quick guardrail against common mistakes.
+- `src/App.css`
+  The visual world: the 1200px laptop layout, lobby panels, racer sprites, crosshairs, bodies, checkered finish line, countdown overlay, and responsive behavior.
 
-The playfield is DOM/CSS rather than canvas right now. Earlier planning allowed canvas, but as the UI grew, the MVP became a state-heavy prototype with panels, controls, labels, scoreboard, and simple pixel racers. CSS gets us to a readable prototype quickly. A future canvas renderer can still replace the track if animation or performance needs grow.
+- `src/index.css`
+  Global theme variables and document-level styling.
 
-The constants are intentionally close to the game code: speed, tick rate, finish threshold, assignments, NPC patterns, and colors. In an early game, tuning is learning. Hiding these values behind a clever abstraction too early would make the game harder to adjust.
+### Multiplayer Helpers
 
-## Bugs And Fixes
+- `src/multiplayer/api.js`
+  The frontend's phone line to the room backend. It knows how to create, join, ready, heartbeat, submit input, start countdowns, record shots, finish rounds, and open the live room WebSocket.
 
-One important bug appeared during shooting work: the aim state tried to initialize from `controlledRacerId` before that value existed. The fix was simple but instructive: define the derived constant before any state initializer that uses it. React state initializers run during render, so order matters.
+  It also has an important production rule: on localhost, use `/api/rooms`; on deployed Pages hosts, call the deployed Worker at `https://death-race-rooms.james-marotta.workers.dev/api/rooms`.
 
-Another issue came from winner detection. Oxlint warned that a hook depended on `getLiveProgress`, but the function was being recreated each render. The fix was to wrap it in `useCallback` with explicit dependencies. That made the winner detection effect honest about what it reads.
+- `src/multiplayer/roomState.js`
+  Pure room-state logic shared by the app and Worker. This is where room rules live: creating rooms, joining rooms, readying players, pruning stale players, starting countdowns, recording shots, finishing rounds, showing the scoreboard, and deciding if a room should be destroyed.
 
-A subtler UI bug showed up in shooting: using the previous aim state during a click could fire at the last mouse position instead of the clicked lane. The fix was to calculate aim directly from the click event and use that exact result for the shot.
+This file is especially important because it keeps the rules from splitting into two slightly different versions. When both the client tests and Worker use the same room helper logic, the game has fewer places to lie to itself.
 
-The asset cleanup also mattered. Starter Vite/React assets were removed so the project no longer visually or structurally felt like a template. That kind of cleanup is not vanity; it reduces confusion about what belongs to the product.
+### Backend
 
-## Pitfalls To Avoid Later
+- `workers/rooms.js`
+  The Cloudflare Worker and Durable Object room coordinator.
 
-Do not add networking before the local state shape is stable. Multiplayer will multiply every unclear decision.
+  It handles:
 
-Do not attach player names to racers during live play. That would break the core hidden-identity design.
+  - HTTP room actions.
+  - CORS for the deployed Pages app.
+  - WebSocket live connections.
+  - Durable Object storage.
+  - Room broadcasts.
+  - Host-only validation.
+  - Heartbeats.
+  - Stale player pruning.
+  - Cleanup alarms.
 
-Do not let NPCs shoot unless the design changes deliberately. The current MVP uses NPCs as movement camouflage, not active attackers.
+- `wrangler.worker.jsonc`
+  Worker deployment config, including the Durable Object binding.
 
-Do not make running a stamina system by accident. The design says running is risky because people can read it, not because a meter punishes it.
+- `wrangler.jsonc`
+  Cloudflare Pages deployment config.
 
-Do not overwrite Defender code. No Defender source was found here, and integration is intentionally waiting for the user to identify or provide it.
+### Tests
 
-## How Good Engineers Worked Here
+- `src/App.test.jsx`
+  UI and gameplay regression tests: movement, aiming, shooting, lobby controls, join flow, hidden roster derivation, side panel behavior, transport status hiding, and finish line rendering.
 
-The work moved in small commits. Each task changed one behavior surface, ran lint/build, updated progress, and pushed. That makes the history readable and reversible.
+- `src/multiplayer/api.test.js`
+  API wrapper tests: room calls, WebSocket URL creation, production API fallback, and payload behavior.
 
-The docs stayed split by purpose. `spec.md` explains the design. `progress.md` explains what happened. `todo.md` explains what remains. When those files blur together, teams start arguing with stale notes.
+- `src/multiplayer/roomState.test.js`
+  Pure state-rule tests: joins, readiness, spectators, shots, stale cleanup, round transitions, scores, and room destruction decisions.
 
-The implementation followed the playable loop first. A finished small loop teaches more than a perfect architecture around an untested idea. In game terms, we built the steering wheel before designing the parking garage.
+- `workers/rooms.test.js`
+  Worker behavior tests: no placeholder rooms, CORS, host leave destruction, cleanup alarms, ready requirements, WebSocket fallback, and round-event authorization.
 
-## What Comes Next
+### Docs
 
-The parking lot is still real future work: accounts, persistent scores, mobile/tablet controls, sound, richer art, backend, real-time multiplayer, and deployment. Those should come after more playtesting of the current loop.
+- `spec.md`
+  The design source of truth.
 
-The next engineering step should probably be extracting game state helpers from `App.jsx` once the behavior stops changing every task. Right now, keeping it together made iteration fast. Later, separating state transitions, racer simulation, and UI panels will make multiplayer easier.
+- `todo.md`
+  What is left to do. Currently it says none.
 
-The next design step is to play it and watch what feels unfair. Hidden-identity games live or die on tells: how readable movement is, how tempting running feels, how often NPCs accidentally look human, and whether one bullet creates drama without ending the fun too early.
+- `progress.md`
+  The build log. This is the trail of decisions, fixes, and verification steps.
 
-That is the heart of Death Race: not the track, not the bullets, but the moment where someone moves just a little too confidently and everyone starts wondering.
+- `README.md`
+  Commands, deployment notes, and manual QA.
+
+- `WHY.md`
+  This file. The story of how the pieces fit and what to learn from them.
+
+## How A Lobby Works
+
+Here is the exact flow we wanted:
+
+1. Host clicks `Create lobby`.
+2. The app generates a room code like `DR-1JLQ`.
+3. The browser sends `action: create` to the Worker.
+4. The Worker routes that code to one Durable Object.
+5. The Durable Object creates a room with James as host.
+6. The host sees the room code and real player list.
+7. A friend enters their username and the code.
+8. The friend sends `action: join`.
+9. The room adds them as a connected player.
+10. Everyone sees the updated roster.
+11. Each connected player clicks `Ready up`.
+12. The Worker only allows the host to start when every connected player is ready.
+13. The host starts the countdown.
+14. Both browsers follow the same room phase into live play.
+
+That last part is the difference between a fake lobby and a real lobby. A fake lobby changes only your screen. This lobby changes the shared room snapshot.
+
+## How Live Play Works
+
+During live play, every browser still renders its own scene. That keeps the UI fast and simple. But important events are shared through the room:
+
+- Local movement sends input snapshots.
+- The latest input snapshot is stored in the room.
+- Shots are recorded in room state.
+- Shot racers are eliminated for every client.
+- The host records the winner.
+- The shared scoreboard and round history come from the room.
+- The host starts the next round.
+
+The host currently acts as the authority for round progression: countdown to playing, winner recording, scoreboard, and next round. That is a good prototype tradeoff. It is simpler than building a full authoritative game server, but far more real than a local-only demo.
+
+If this ever becomes competitive, that tradeoff should be revisited. A serious version would move more simulation authority server-side, because client-owned movement and hidden assignments are easy for a determined player to inspect or tamper with.
+
+For friends testing a hidden-identity party game, the current architecture is the right kind of honest: real multiplayer rooms, clear state ownership, enough synchronization to play, and not too much infrastructure too early.
+
+## The Durable Object Idea
+
+A normal serverless function is like a front desk worker who forgets every conversation after answering it. That is fine for simple requests, but awkward for a live game room.
+
+A Durable Object is different. It is more like assigning one room manager to one room code. Every request for `DR-1JLQ` goes to the same coordinator. That coordinator can keep room state, schedule cleanup, and broadcast changes to connected sockets.
+
+That is why Durable Objects fit this project:
+
+- A room code naturally maps to one room owner.
+- Multiplayer state needs one official version.
+- WebSockets need a place to live.
+- Cleanup should happen even when players disappear.
+
+The Worker uses `idFromName(roomCode)` so the same room code always routes to the same Durable Object.
+
+## WebSockets And Polling
+
+The app uses WebSockets for live room updates and HTTP polling as a fallback.
+
+WebSocket:
+
+- Fast.
+- Pushes updates immediately.
+- Good for lobby roster, readiness, shots, and phase changes.
+
+Polling fallback:
+
+- Slower.
+- Less elegant.
+- Extremely useful when sockets fail, tests run without socket support, or a browser/network gets fussy.
+
+Good engineers often keep a boring backup path around. It is like having a manual door next to an automatic one. Most people use the automatic door. When it jams, the manual door keeps the building usable.
+
+## Why React And Vite
+
+React is good for this because the game currently has a lot of stateful UI:
+
+- Lobby controls.
+- Player rows.
+- Ready states.
+- Error panels.
+- Scoreboards.
+- Round states.
+- Conditional side panels.
+- Crosshairs and reveal tags.
+
+Vite is fast and plain. It gives a tight local loop without making the project feel bigger than it is.
+
+We did not reach for a heavy game engine because the first playable version is about proving the hidden-identity loop. A full engine can be helpful later, but early on it would mostly add ceremony. This game needed a clear track, clean input, and honest multiplayer state more than it needed a physics system.
+
+## Why DOM And CSS Instead Of Canvas
+
+The earliest spec allowed a 2D canvas renderer. The current implementation uses DOM and CSS for the playfield.
+
+That was a practical choice.
+
+The game needed:
+
+- 20 readable lanes.
+- Pixel-style racers.
+- Crosshairs.
+- Bodies.
+- Reveal labels.
+- A checkered finish line.
+- A responsive 1200px layout.
+- Lots of UI around the track.
+
+CSS handles that well. It also makes testing easier because the test suite can query lanes, buttons, labels, and markers directly.
+
+Canvas may still be useful later if animation complexity grows, if performance becomes a problem, or if the art direction becomes more elaborate. But switching to canvas should be a response to pressure, not a reflex.
+
+## The Most Important Technical Decisions
+
+### 1. Real Rooms, Not Fake UI
+
+The project had some early local/prototype behavior. That was useful while shaping the game, but it became dangerous once the goal became "my friends can join and play."
+
+The rule now is simple: if the UI says there is a room, the backend room should exist.
+
+That led to fixes like:
+
+- No placeholder room on `GET`.
+- No joining a room before the host creates it.
+- Room code comes from the user's requested code, not an internal object id.
+- Join errors are visible instead of silently entering a fake lobby.
+
+### 2. Everyone Ready Means Everyone
+
+The host can only start when every connected player, including the host, is ready. That rule lives in `canStartRoom`.
+
+This kind of rule belongs in shared state logic, not scattered button checks. Buttons are allowed to explain and reflect the rule. The backend must enforce it.
+
+### 3. Host-Only Round Control
+
+Only the host can start countdowns, advance live play, record round winners, show scoreboards, and start next rounds.
+
+Without that, every client becomes a little steering wheel. One enthusiastic guest could move the room forward before everyone else is ready. Host-only control keeps the shared state calm.
+
+### 4. Heartbeats Are Per Player
+
+A major cleanup bug came from the wrong kind of "touch." If every room request refreshed every player, disconnected players never looked stale. The room would think everyone was still present because any activity kept everybody alive.
+
+The fix was per-player heartbeats. Each browser refreshes only its own timestamp. That lets the room tell the difference between "Mia is still here" and "James clicked something."
+
+### 5. Internal State Should Not Become UI Noise
+
+The visible `Sync` status flickered between transport states like `live` and `connected`. Internally, that information helps with recovery. Visually, it was just noise.
+
+We kept the internal state and removed the visible flicker.
+
+This is a small lesson with a big reach: not every useful engineering detail deserves a place on screen. Users need confidence, not a networking diary.
+
+## Bugs We Hit And What They Taught Us
+
+### The Hardcoded Room Problem
+
+At one point, the UI still behaved like the room was hardcoded. That is classic prototype residue. The screen looked interactive, but the mental model was still "local demo."
+
+The fix was to audit the button flow against the desired real flow:
+
+- Host creates lobby.
+- Host gets code.
+- Player enters code and username.
+- Player joins that exact room.
+- Everyone sees the same roster.
+- Everyone readies up.
+- Host starts.
+
+Lesson: when a user gives you a flow, test against the flow, not against individual components. A button can work in isolation and still fail the story.
+
+### Placeholder Rooms
+
+The Worker originally allowed missing rooms to appear through `GET` or `join` behavior. That made the UI feel like it worked, but it was not trustworthy.
+
+The fix was to allow only the explicit `create` action to create a room. Missing `GET` and `join` now return `Room not found`.
+
+Lesson: fake success is worse than honest failure. A clear error gives you something to fix. A fake room lets the bug put on a nice jacket and walk around.
+
+### Room Code Preservation
+
+Durable Objects have internal ids, but users care about shareable room codes. We hit a path parsing issue where the room code could drift toward internal or wrong path values.
+
+The fix was to parse the room code from `/api/rooms/:roomCode` and preserve the requested code inside the room snapshot.
+
+Lesson: identifiers have audiences. Internal ids are for infrastructure. Room codes are for humans. Do not mix them casually.
+
+### Production API Fallback
+
+The deployed Pages app initially tried to call relative `/api/rooms`. That can work in local dev or with Pages Functions, but our room backend is a separate deployed Worker.
+
+The fix was `getRoomsApiBase`:
+
+- Localhost uses `/api/rooms`.
+- Production Pages hosts use the deployed Worker URL.
+- `VITE_ROOMS_API_BASE` can override it when needed.
+
+Lesson: local paths can lie. Production has origins, routing, CORS, and deployment boundaries. Always test the deployed shape.
+
+### CORS Preflight
+
+After the frontend pointed at the Worker, the browser still blocked requests because the Worker did not answer CORS preflight requests.
+
+The fix was:
+
+- Add CORS headers to JSON responses.
+- Add an `OPTIONS` response for preflight.
+- Add Worker tests for both.
+
+Lesson: Postman and unit tests are not a browser. Browsers enforce rules that server-to-server tools do not. If the app runs in a browser, verify in a browser.
+
+### WebSocket Runtime Differences
+
+The Worker supports WebSockets in Cloudflare, but tests and some runtimes may not expose `WebSocketPair`.
+
+The fix was to return a clear `501` response when live transport is unavailable, while keeping HTTP polling as fallback.
+
+Lesson: graceful degradation is not pessimism. It is how you keep debugging from turning into archaeology.
+
+### Host Leave And Room Destruction
+
+Rooms needed to die when the host leaves or when everyone disconnects. Otherwise old rooms linger and confuse players.
+
+The fix combined:
+
+- Host-leave detection.
+- `shouldDestroyRoom`.
+- Per-player heartbeat timestamps.
+- Durable Object cleanup alarms.
+- A closed-room UI state.
+
+Lesson: multiplayer is not only about connecting people. It is also about cleaning up after the connection disappears.
+
+### Janky NPCs
+
+The NPCs were disappearing, reappearing, and racing too aggressively. That broke the hidden-identity promise because they felt obviously artificial.
+
+The fix was to make NPCs stick to lanes, calm their winning behavior, and later match their movement speed to player speed when walk/run speed increased.
+
+Lesson: simulation bugs are design bugs. If NPCs behave strangely, players stop reading social tells and start reading implementation flaws.
+
+### Mouse Aim And Click-To-Kill
+
+There were control bugs where the mouse felt offset, movement felt stuck, and clicking too broadly could kill. These are dangerous because a hidden-identity game needs players to trust the controls.
+
+The fixes included:
+
+- Calculating aim from playfield geometry.
+- Matching the crosshair to the mouse more closely.
+- Only eliminating a racer when the shot is near that racer.
+- Adding regression tests for mouse movement and click behavior.
+
+Lesson: input code deserves tests. When controls feel unfair, players blame the game even if the idea is good.
+
+### Finish Line Problems
+
+At one point, crossing the finish line did not feel reliable. Later, the finish marker itself looked angled and unclear.
+
+The fixes were both mechanical and visual:
+
+- Finish detection uses a clear progress threshold.
+- The winner's final position is preserved.
+- The finish line is now straight with a black-and-white checkered flag treatment.
+
+Lesson: the win condition should feel obvious. A race game should not make players negotiate with the finish line.
+
+### Sidebar Focus
+
+During networking work, the side panel stayed visible during live rounds because it was useful for inspecting room code, roster, readiness, and sync status. Once the room flow was proven, that testing UI became clutter.
+
+The fix was to hide the side panel during countdown and live play, then add a countdown overlay inside the playfield.
+
+Lesson: debug-friendly UI and player-friendly UI are not always the same. Keep the debug value while you need it, then remove the training wheels from the stage.
+
+## Tests: The Safety Net We Actually Used
+
+This project has a useful spread of tests:
+
+- UI tests for user-visible behavior.
+- API wrapper tests for request shape and URL decisions.
+- Pure state tests for room rules.
+- Worker tests for backend behavior.
+- Live browser smoke tests for deployment reality.
+
+The live smoke tests caught things that unit tests could not:
+
+- Production API routing.
+- CORS.
+- Actual two-browser join flow.
+- Latest deployed Pages behavior.
+- Live input sync from guest to host.
+
+That is the lesson: different tests catch different lies.
+
+Unit tests catch logic lies. Browser tests catch integration lies. Live deployment tests catch environment lies.
+
+## Deployment Shape
+
+The frontend is deployed to Cloudflare Pages. The room backend is deployed as a separate Cloudflare Worker.
+
+Useful commands:
+
+```bash
+npm test
+npm run lint
+npm run build
+npm run deploy:cloudflare
+npm run deploy:rooms
+```
+
+The Pages deploy serves the static Vite build. The Worker deploy updates the Durable Object-backed room API.
+
+When code changes only the frontend, deploy Pages. When code changes `workers/rooms.js`, deploy the Worker too.
+
+The production app currently talks to:
+
+- Pages frontend: the latest `death-race-online.pages.dev` deployment.
+- Rooms Worker: `https://death-race-rooms.james-marotta.workers.dev`.
+
+## What Is Still Prototype-Shaped
+
+The game is real enough for friends to join and play, but it is not hardened like a competitive production game.
+
+Important caveats:
+
+- The client still renders and participates heavily in gameplay simulation.
+- Hidden assignments are deterministic and client-derived, which is fine for friendly testing but not secure against inspection.
+- Host-owned progression is practical, but a more competitive version would use stronger server authority.
+- No accounts or persistent player identity exist yet.
+- Mobile and tablet controls are deferred.
+- Defender integration is still waiting on actual Defender source files or a clear integration plan.
+
+That is not a failure. It is an honest stage. The project is now past fake multiplayer and into real playtest territory.
+
+## How Good Engineers Think Through This Project
+
+### They Protect The Core Experience
+
+The core experience is not "use WebSockets" or "deploy to Cloudflare." The core experience is hidden-identity racing with one shot.
+
+Good engineering keeps asking: does this change make that experience clearer, fairer, faster, or easier to test?
+
+### They Separate Design Truth From Work Logs
+
+The docs have distinct jobs:
+
+- `spec.md` says what the game is supposed to be.
+- `todo.md` says what remains.
+- `progress.md` says what happened.
+- `WHY.md` explains why the project is shaped this way.
+
+That split prevents stale plans from masquerading as current truth.
+
+### They Replace Fake Features With Honest Features
+
+Prototype buttons are useful while exploring. They become liabilities when they pretend to be product.
+
+The lobby work improved when we stopped accepting "looks like a lobby" and demanded "a second browser can join this lobby by code."
+
+### They Make Bugs Pay Rent
+
+Every serious bug became a regression test:
+
+- Missing rooms stay missing.
+- Host-only start is enforced.
+- CORS is covered.
+- Production API fallback is covered.
+- Mouse click shooting is covered.
+- Side panel hiding is covered.
+- Finish line rendering is covered.
+
+A bug without a test is a story you might have to relive.
+
+### They Verify Where The Risk Lives
+
+For local logic, run unit tests.
+
+For UI behavior, use React Testing Library.
+
+For Cloudflare behavior, test the Worker and deploy it.
+
+For "friends can join", open two browser sessions against the deployed URL.
+
+That last one matters. The user's real requirement was not "the join function returns a room." It was "I can open another browser and join my lobby." We verified the requirement at that level.
+
+## Lessons To Carry Forward
+
+### Multiplayer Is Mostly State Discipline
+
+The hard part is not opening a socket. The hard part is deciding who is allowed to change what, when, and how everyone else learns about it.
+
+In Death Race:
+
+- The room owns the roster.
+- The room owns readiness.
+- The host controls phase transitions.
+- The room records shots and winners.
+- Clients render and send input.
+
+That boundary is what keeps the game understandable.
+
+### The Backend Should Enforce The Rules
+
+A disabled button is nice. A backend check is necessary.
+
+The UI can hide `Start game` from guests, but the Worker still rejects non-host countdown requests. That is the right layering. Frontend constraints help honest users. Backend constraints protect the state.
+
+### Deployment Is Part Of The Product
+
+The game did not work for friends until the deployed Pages app, deployed Worker, CORS, production API base, and room flow all lined up.
+
+"It works locally" is a useful checkpoint, not the finish line.
+
+### UI Should Earn Its Space
+
+The `Sync` label was useful while debugging. Then it became flicker. The sidebar was useful while proving multiplayer. Then it got in the way of the race.
+
+Good UI changes as the product matures. First it exposes mechanics. Later it hides machinery.
+
+### Small Modules Beat Grand Architecture
+
+`roomState.js` is a good example of the right abstraction size. It is not a grand framework. It is just the shared room rules in one place.
+
+That kind of module pays off quickly:
+
+- Easy to test.
+- Easy to import in the Worker.
+- Easy to reason about.
+- Harder for frontend and backend rules to drift apart.
+
+### Write Tests For The Behavior You Fear Losing
+
+The best regression tests here came directly from scary bugs:
+
+- "Clicking anywhere gets a kill."
+- "Room is still hardcoded."
+- "Join lobby button does not work."
+- "Host leaves but room still exists."
+- "Production cannot reach Worker."
+- "CORS blocks the browser."
+- "The sidebar hides when play starts."
+
+Those are not abstract correctness tests. They are memory aids. They say: this hurt once, do not let it hurt again.
+
+## Future Pitfalls And How To Avoid Them
+
+### Cheating And Hidden Information
+
+Right now, hidden identity is presentation-level secrecy. For casual play, that is fine. For competitive play, move hidden assignments and authoritative simulation deeper into the backend.
+
+Avoid future pain by deciding the trust model early:
+
+- Friendly party game: current approach is acceptable.
+- Competitive game: server authority and secret assignment handling become mandatory.
+
+### Latency And Fairness
+
+If players are far apart geographically, shots and movement can feel unfair. A future version may need server timestamps, reconciliation, or clearer rules around when a shot counts.
+
+Do not solve this before real playtests demand it. But do not forget it exists.
+
+### Room Cleanup
+
+Disconnected players, abandoned tabs, sleeping laptops, and closed browsers are normal. Heartbeats and cleanup alarms are the first layer. Future work may need stronger reconnection behavior and clearer "rejoin as same player" flows.
+
+### UI Overflow
+
+The game targets up to 20 humans. The current sidebar and roster have been shaped for laptop play, but large real lobbies will still need careful scanning, grouping, and maybe compact states.
+
+### State Explosion
+
+As more features arrive, `App.jsx` can become too crowded. That is normal for a fast prototype, but not something to ignore forever.
+
+Likely future extractions:
+
+- Gameplay simulation helpers.
+- Round transition hooks.
+- Input synchronization hooks.
+- Lobby panel components.
+- Scoreboard components.
+
+Extract when the behavior has settled enough that the new boundary is obvious.
+
+## The Best Mental Model
+
+Death Race is a party game with a race track, a room clipboard, and a radio.
+
+The track is what players see.
+
+The clipboard is the Durable Object holding the official room state.
+
+The radio is the WebSocket telling everyone when the clipboard changes.
+
+When the game feels good, players should forget the clipboard and radio exist. They should only feel the tension of twenty racers, one secret identity, one bullet, and a finish line that suddenly feels much too far away.
+
+That is why the architecture matters. Not because Cloudflare is shiny. Not because WebSockets are exciting. Because the technology gets out of the way just enough for the suspicion to breathe.

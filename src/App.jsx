@@ -1596,109 +1596,111 @@ function App() {
           </div>
         ) : null}
 
-        <div
-          className='playfield'
-          aria-label='20 lane race playfield'
-          onMouseMove={updateAimFromPointer}
-          onMouseDown={fireLocalShot}
-          ref={playfieldRef}
-        >
-          <span className='finish-line' data-testid='finish-line' aria-hidden='true' />
-          {state === 'countdown' ? (
-            <div className='playfield-countdown' aria-label='Countdown'>
-              <strong>{COUNTDOWN_STEPS[countdownIndex]}</strong>
-            </div>
-          ) : null}
+        <div className='playfield-stack'>
+          <div
+            className='playfield'
+            aria-label='20 lane race playfield'
+            onMouseMove={updateAimFromPointer}
+            onMouseDown={fireLocalShot}
+            ref={playfieldRef}
+          >
+            <span className='finish-line' data-testid='finish-line' aria-hidden='true' />
+            {state === 'countdown' ? (
+              <div className='playfield-countdown' aria-label='Countdown'>
+                <strong>{COUNTDOWN_STEPS[countdownIndex]}</strong>
+              </div>
+            ) : null}
+            {roundRacers.map(lane => {
+              const isHuman = lane.controller.type === 'human'
+              const isControlled = lane.id === controlledRacerId
+              const isEliminated = shotRacerIds.includes(lane.id)
+              const isRevealed = state === 'roundOver' || state === 'scoreboard'
+              const isWinner = roundWinner?.id === lane.id
+              const archetypeClass = lane.archetype.toLowerCase()
+              const npcStep = getNpcStep(lane, npcTick, npcSeedParts)
+              const npcMotionClass =
+                npcStep === 'run' ? 'running' : npcStep === 'walk' ? 'walking' : ''
+              const shapeClass = lane.shapeClass
+              const racerProgress =
+                isWinner && roundWinner.finalProgress
+                  ? roundWinner.finalProgress
+                  : getLiveProgress(lane)
+              return (
+                <div
+                  className={[
+                    'lane',
+                    movementLocked ? 'locked' : '',
+                    isControlled ? '' : '',
+                    isEliminated ? '' : '',
+                    isHuman && isRevealed ? '' : '',
+                    isWinner ? '' : ''
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  key={lane.id}
+                  data-testid={`lane-${lane.id}`}
+                  style={{
+                    '--depth': lane.depth,
+                    '--racer-progress': `${racerProgress}%`
+                  }}
+                >
+                  <span className='lane-number'>{lane.id}</span>
+                  <span className='lane-stripe' />
+                  <span
+                    className={[
+                    'racer',
+                    `archetype-${archetypeClass}`,
+                    shapeClass,
+                    isEliminated ? 'dead' : '',
+                    isControlled && !isEliminated ? movementMode : '',
+                    !isHuman && state === 'playing' && !isEliminated
+                        ? npcMotionClass
+                        : ''
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    style={{ '--racer-progress': `${racerProgress}%` }}
+                    data-testid={`racer-${lane.id}`}
+                    title={lane.archetype}
+                  >
+                    <span className='racer-head' />
+                    <span className='racer-body' />
+                    <span className='racer-shadow' />
+                  </span>
+                  {isEliminated ? (
+                    <span className='body-marker'>down</span>
+                  ) : null}
+                  {isWinner ? (
+                    <span className='winner-marker'>winner</span>
+                  ) : null}
+                  {isHuman && isRevealed ? (
+                    <span className='reveal-tag'>{lane.controller.name}</span>
+                  ) : null}
+                  {state === 'playing' &&
+                  lane.id === aim.laneId &&
+                  !controlledRacerEliminated ? (
+                    <span
+                      className={`crosshair crosshair-${localPlayerColor} ${localHasBullet ? '' : 'crosshair-spent'}`}
+                      data-testid='local-crosshair'
+                      style={{
+                        left: `${aim.x}%`
+                      }}
+                    >
+                      {localHasBullet ? (
+                        <span className='crosshair-bullet' aria-hidden='true' />
+                      ) : null}
+                    </span>
+                  ) : null}
+                </div>
+              )
+            })}
+          </div>
           <div className='playfield-controls' aria-label='Controls'>
             <span>Space to walk.</span>
             <span>Left shift to run.</span>
             <span>Mouse to aim and shoot.</span>
             <span>You only get one bullet.</span>
           </div>
-          {roundRacers.map(lane => {
-            const isHuman = lane.controller.type === 'human'
-            const isControlled = lane.id === controlledRacerId
-            const isEliminated = shotRacerIds.includes(lane.id)
-            const isRevealed = state === 'roundOver' || state === 'scoreboard'
-            const isWinner = roundWinner?.id === lane.id
-            const archetypeClass = lane.archetype.toLowerCase()
-            const npcStep = getNpcStep(lane, npcTick, npcSeedParts)
-            const npcMotionClass =
-              npcStep === 'run' ? 'running' : npcStep === 'walk' ? 'walking' : ''
-            const shapeClass = lane.shapeClass
-            const racerProgress =
-              isWinner && roundWinner.finalProgress
-                ? roundWinner.finalProgress
-                : getLiveProgress(lane)
-            return (
-              <div
-                className={[
-                  'lane',
-                  movementLocked ? 'locked' : '',
-                  isControlled ? '' : '',
-                  isEliminated ? '' : '',
-                  isHuman && isRevealed ? '' : '',
-                  isWinner ? '' : ''
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                key={lane.id}
-                data-testid={`lane-${lane.id}`}
-                style={{
-                  '--depth': lane.depth,
-                  '--racer-progress': `${racerProgress}%`
-                }}
-              >
-                <span className='lane-number'>{lane.id}</span>
-                <span className='lane-stripe' />
-                <span
-                  className={[
-                  'racer',
-                  `archetype-${archetypeClass}`,
-                  shapeClass,
-                  isEliminated ? 'dead' : '',
-                  isControlled && !isEliminated ? movementMode : '',
-                  !isHuman && state === 'playing' && !isEliminated
-                      ? npcMotionClass
-                      : ''
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  style={{ '--racer-progress': `${racerProgress}%` }}
-                  data-testid={`racer-${lane.id}`}
-                  title={lane.archetype}
-                >
-                  <span className='racer-head' />
-                  <span className='racer-body' />
-                  <span className='racer-shadow' />
-                </span>
-                {isEliminated ? (
-                  <span className='body-marker'>down</span>
-                ) : null}
-                {isWinner ? (
-                  <span className='winner-marker'>winner</span>
-                ) : null}
-                {isHuman && isRevealed ? (
-                  <span className='reveal-tag'>{lane.controller.name}</span>
-                ) : null}
-                {state === 'playing' &&
-                lane.id === aim.laneId &&
-                !controlledRacerEliminated ? (
-                  <span
-                    className={`crosshair crosshair-${localPlayerColor} ${localHasBullet ? '' : 'crosshair-spent'}`}
-                    data-testid='local-crosshair'
-                    style={{
-                      left: `${aim.x}%`
-                    }}
-                  >
-                    {localHasBullet ? (
-                      <span className='crosshair-bullet' aria-hidden='true' />
-                    ) : null}
-                  </span>
-                ) : null}
-              </div>
-            )
-          })}
         </div>
       </section>
     </main>

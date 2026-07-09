@@ -598,3 +598,10 @@ Last updated: 2026-07-09
 - Reduced the playfield height and racer scale by `50%` so all 20 racers fit back into frame without scrolling.
 - Kept the crosshair bullet marker, grey spent crosshair, control reminders, faster movement, NPC finish behavior, and Cloudflare request throttling intact.
 - Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 56 : Move Controls Below Game Window
+
+- Moved the control reminder strip out of the playfield so it no longer overlays the game window.
+- Kept the reminder visible directly below the race area.
+- Added regression coverage that confirms the controls are outside `.playfield`.
+- Verified with `npm test`; `npm run lint`; `npm run build`.

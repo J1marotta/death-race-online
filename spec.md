@@ -63,7 +63,7 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 - Mouse 1: fire.
 
 Running has no stamina, cooldown, noise meter, or extra UI. The risk is behavioral: running makes intent easier to read and may draw shots.
-Control reminders are visible at the bottom of the playfield during the race.
+Control reminders are visible below the playfield during the race.
 
 ## Shooting And Aiming
 

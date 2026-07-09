@@ -179,7 +179,7 @@ describe('game controls', () => {
     expect(screen.getByTestId('local-crosshair').style.left).toBe('70%')
   })
 
-  it('shows controls at the bottom of the playfield', async () => {
+  it('shows controls below the playfield', async () => {
     await startPlaying()
 
     const controls = screen.getByLabelText('Controls')
@@ -187,6 +187,7 @@ describe('game controls', () => {
     expect(within(controls).getByText('Left shift to run.')).toBeTruthy()
     expect(within(controls).getByText('Mouse to aim and shoot.')).toBeTruthy()
     expect(within(controls).getByText('You only get one bullet.')).toBeTruthy()
+    expect(controls.closest('.playfield')).toBeNull()
   })
 
   it('keeps the crosshair origin aligned with the pointer edge', async () => {

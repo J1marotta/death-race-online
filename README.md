@@ -65,7 +65,7 @@ Run `npm run dev`, open the local Vite URL, and check:
 - Countdown blocks movement and shooting until `go`.
 - `Space` walks and `Left Shift` runs the local hidden racer during play.
 - Mouse movement aims the local crosshair; Mouse 1 fires once, removes the bullet marker, greys the crosshair, and dims it.
-- Control reminders are visible at the bottom of the playfield.
+- Control reminders are visible below the playfield.
 - Shot racers stay visible as bodies and eliminated humans become spectators.
 - A round ends only when a non-eliminated racer reaches the finish.
 - Human winners get 1 point; NPC winners get 0 human points.

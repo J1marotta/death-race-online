@@ -10,6 +10,7 @@ import {
   startRoomCountdown,
   updateRoomSettings,
   canStartRoom,
+  shouldDestroyRoom,
   touchRoomPlayers,
 } from '../src/multiplayer/roomState.js'
 
@@ -32,17 +33,9 @@ class RoomLobbyObject {
     this.env = env
   }
 
-  async loadRoom(roomCode) {
+  async loadRoom() {
     const existing = await this.state.storage.get('room')
-    if (existing) {
-      return pruneDisconnectedPlayers(existing)
-    }
-    const created = createRoomState({
-      roomCode,
-      hostName: 'Host',
-    })
-    await this.state.storage.put('room', created)
-    return created
+    return existing ? pruneDisconnectedPlayers(existing) : null
   }
 
   async saveRoom(room) {
@@ -50,11 +43,18 @@ class RoomLobbyObject {
     return room
   }
 
+  async destroyRoom() {
+    await this.state.storage.delete('room')
+  }
+
   async fetch(request) {
     const roomCode = this.state.id.toString()
-    const room = await this.loadRoom(roomCode)
 
     if (request.method === 'GET') {
+      const room = await this.loadRoom()
+      if (!room) {
+        return json({ error: 'Room not found' }, 404)
+      }
       const nextRoom = pruneDisconnectedPlayers(room)
       await this.saveRoom(nextRoom)
       return json({ room: serializeRoom(nextRoom) })
@@ -78,18 +78,32 @@ class RoomLobbyObject {
       return json({ room: serializeRoom(nextRoom) }, 201)
     }
 
+    const room = await this.loadRoom()
+    if (!room) {
+      return json({ error: 'Room not found' }, 404)
+    }
+
     if (action === 'join') {
       const nextRoom = pruneDisconnectedPlayers(
         touchRoomPlayers(joinRoomState(room, body.playerName ?? 'Player')),
       )
+      if (shouldDestroyRoom(nextRoom)) {
+        await this.destroyRoom()
+        return json({ room: null, destroyed: true })
+      }
       await this.saveRoom(nextRoom)
       return json({ room: serializeRoom(nextRoom) })
     }
 
     if (action === 'leave') {
+      const leavingHost = room.hostId === (body.playerName ?? 'Player').toLowerCase().replace(/\s+/g, '-')
       const nextRoom = pruneDisconnectedPlayers(
         touchRoomPlayers(leaveRoomState(room, body.playerName ?? 'Player')),
       )
+      if (shouldDestroyRoom(nextRoom, { hostLeft: leavingHost })) {
+        await this.destroyRoom()
+        return json({ room: null, destroyed: true })
+      }
       await this.saveRoom(nextRoom)
       return json({ room: serializeRoom(nextRoom) })
     }
@@ -124,6 +138,10 @@ class RoomLobbyObject {
           setPlayerReadyState(room, body.playerName ?? 'Player', body.ready ?? true),
         ),
       )
+      if (shouldDestroyRoom(nextRoom)) {
+        await this.destroyRoom()
+        return json({ room: null, destroyed: true })
+      }
       await this.saveRoom(nextRoom)
       return json({ room: serializeRoom(nextRoom) })
     }
@@ -138,6 +156,10 @@ class RoomLobbyObject {
           }),
         ),
       )
+      if (shouldDestroyRoom(nextRoom)) {
+        await this.destroyRoom()
+        return json({ room: null, destroyed: true })
+      }
       await this.saveRoom(nextRoom)
       return json({ room: serializeRoom(nextRoom) })
     }

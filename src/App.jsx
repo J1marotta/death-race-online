@@ -191,6 +191,7 @@ function App() {
   const [roundHistory, setRoundHistory] = useState([])
   const [roomSnapshot, setRoomSnapshot] = useState(null)
   const [roomSyncState, setRoomSyncState] = useState('local')
+  const [roomError, setRoomError] = useState('')
   const playfieldRef = useRef(null)
   const pressedKeys = useRef({ run: false, walk: false })
   const activeState = STATE_COPY[state]
@@ -508,8 +509,10 @@ function App() {
       }
       setRoomSnapshot(result.room)
       setRoomSyncState('connected')
+      setRoomError('')
       return result.room
-    } catch {
+    } catch (error) {
+      setRoomError(error.message || 'Room request failed')
       setRoomSyncState('offline')
       return null
     }
@@ -712,6 +715,29 @@ function App() {
         </code>
       </div>
 
+      {roomSnapshot ? (
+        <div className='player-list' aria-label='Real players'>
+          <div className='list-heading'>
+            <span>Real players</span>
+            <strong>{roomSnapshot.players.filter((player) => player.connected).length}</strong>
+          </div>
+          {roomSnapshot.players
+            .filter((player) => player.connected)
+            .map((player) => (
+              <div className='player-row' key={player.id}>
+                <span>{player.name}</span>
+                <small>
+                  {player.role === 'host'
+                    ? 'Host'
+                    : player.ready
+                      ? 'Ready'
+                      : 'Not ready'}
+                </small>
+              </div>
+            ))}
+        </div>
+      ) : null}
+
       <button
         type='button'
         className='host-start'
@@ -722,7 +748,7 @@ function App() {
           ? `${STATE_LABELS[state]} in progress`
           : !hostCanStart
             ? 'Waiting for room'
-            : 'Start round'}
+            : 'Start game'}
       </button>
 
       <div className='control-group'>
@@ -780,11 +806,17 @@ function App() {
           />
           <button
             type='button'
-            onClick={() => {
+            onClick={async () => {
               const targetRoomCode = roomCodeInput.trim().toUpperCase() || roomCode
               setRoomCode(targetRoomCode)
-              void syncRoom('join', { playerName: joinName || PLAYERS[0] }, targetRoomCode)
-              setState('lobby')
+              const room = await syncRoom(
+                'join',
+                { playerName: joinName || PLAYERS[0] },
+                targetRoomCode,
+              )
+              if (room) {
+                setState('lobby')
+              }
             }}
           >
             Join
@@ -802,7 +834,7 @@ function App() {
           })
         }
       >
-        Ready up
+        Ready
       </button>
 
       <div className='player-list' aria-label='Lobby players'>
@@ -880,11 +912,17 @@ function App() {
           />
           <button
             type='button'
-            onClick={() => {
+            onClick={async () => {
               const targetRoomCode = roomCodeInput.trim().toUpperCase() || roomCode
               setRoomCode(targetRoomCode)
-              void syncRoom('join', { playerName: joinName || PLAYERS[0] }, targetRoomCode)
-              setState('lobby')
+              const room = await syncRoom(
+                'join',
+                { playerName: joinName || PLAYERS[0] },
+                targetRoomCode,
+              )
+              if (room) {
+                setState('lobby')
+              }
             }}
           >
             Join lobby
@@ -935,6 +973,12 @@ function App() {
             </p>
             <h2 id='state-title'>{activeStateCopy.title}</h2>
             <p>{activeStateCopy.body}</p>
+            {roomError ? (
+              <div className='assignment-summary' aria-label='Room error'>
+                <span>Room error</span>
+                <strong>{roomError}</strong>
+              </div>
+            ) : null}
             {roomSnapshot ? (
               <div className='assignment-summary' aria-label='Room sync'>
                 <span>Room sync</span>
@@ -1022,7 +1066,11 @@ function App() {
                 </div>
               </div>
             ) : null}
-            {state === 'menu' ? renderMenuActions() : renderLobby()}
+            {state === 'menu'
+              ? renderMenuActions()
+              : state === 'lobby'
+                ? renderLobby()
+                : null}
           </div>
         )}
 

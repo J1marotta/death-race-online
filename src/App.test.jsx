@@ -31,9 +31,9 @@ function startPlaying() {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Start round' })).toBeTruthy(),
+      expect(screen.getByRole('button', { name: 'Start game' })).toBeTruthy(),
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Start round' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Start game' }))
     const advance = screen.getByRole('button', { name: 'Advance countdown' })
     fireEvent.click(advance)
     fireEvent.click(advance)
@@ -160,6 +160,25 @@ describe('game controls', () => {
     )
   })
 
+  it('shows an error when joining a missing room', async () => {
+    fetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'Room not found' }), {
+        status: 404,
+        headers: {
+          'content-type': 'application/json',
+        },
+      }),
+    )
+    render(<App />)
+    fireEvent.change(screen.getByLabelText('Room code'), {
+      target: { value: 'NOPE' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Join lobby' }))
+
+    await waitFor(() => expect(screen.getByLabelText('Room error')).toBeTruthy())
+    expect(screen.getByText('Room not found')).toBeTruthy()
+  })
+
   it('shows the latest synced room input in the lobby', async () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
@@ -167,5 +186,33 @@ describe('game controls', () => {
     await waitFor(() =>
       expect(screen.getByText('Latest input: Mia running')).toBeTruthy(),
     )
+  })
+
+  it('shows connected real players in the lobby', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
+
+    const realPlayers = await screen.findByLabelText('Real players')
+    expect(realPlayers).toBeTruthy()
+    expect(within(realPlayers).getByText('James')).toBeTruthy()
+    expect(within(realPlayers).getByText('Mia')).toBeTruthy()
+  })
+
+  it('hides the lobby panel once the game starts', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Start game' })).toBeTruthy(),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Start game' }))
+    const advance = screen.getByRole('button', { name: 'Advance countdown' })
+    fireEvent.click(advance)
+    fireEvent.click(advance)
+    fireEvent.click(advance)
+    fireEvent.click(advance)
+
+    expect(screen.queryByLabelText('Lobby controls')).toBeNull()
+    expect(screen.getByText('Room')).toBeTruthy()
   })
 })

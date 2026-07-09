@@ -11,6 +11,7 @@ import {
   startNextRound,
   startRoomCountdown,
   updateRoomSettings,
+  shouldDestroyRoom,
 } from './roomState'
 
 describe('roomState', () => {
@@ -192,5 +193,18 @@ describe('roomState', () => {
     expect(canStartRoom(room)).toBe(true)
     expect(canStartRoom(joined)).toBe(true)
     expect(canStartRoom(disconnected)).toBe(false)
+  })
+
+  it('destroys a room when nobody is connected or the host is gone', () => {
+    const room = createRoomState({
+      roomCode: 'DR-2048',
+      hostName: 'James',
+    })
+    const joined = joinRoomState(room, 'Mia')
+    const hostLeft = leaveRoomState(joined, 'James')
+    const everyoneLeft = leaveRoomState(hostLeft, 'Mia')
+
+    expect(shouldDestroyRoom(hostLeft, { hostLeft: true })).toBe(true)
+    expect(shouldDestroyRoom(everyoneLeft)).toBe(true)
   })
 })

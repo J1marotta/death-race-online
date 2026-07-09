@@ -434,3 +434,20 @@ Last updated: 2026-07-07
 - Kept room creation on a generated code path so new lobbies no longer reuse the same baked-in room identity.
 - Verified with `npm run test`; `npm run lint`; `npm run build`.
 - /usage: tokensUsed 1815200, timeUsedSeconds 3815.
+
+### task 39 : Track Real Players And Destroy Orphaned Rooms
+
+- Added a visible real-players panel in the lobby so the connected human roster is easy to read at a glance.
+- Added room cleanup rules so the worker destroys lobbies when the host leaves or when no users remain connected.
+- Added regression coverage for the room cleanup helper and the real-players UI panel.
+- Verified with `npm run test`; `npm run lint`; `npm run build`.
+- /usage: tokensUsed 1815200, timeUsedSeconds 3815.
+
+### task 40 : Reject Placeholder Room Joins
+
+- Audited the room worker and found it was creating placeholder rooms for `GET` and `join` requests before any host had created the lobby.
+- Changed the worker so only the explicit `create` action can create a room; `GET` and `join` now return `Room not found` for missing rooms.
+- Added worker regression tests for missing-room get/join, host-created join, and host-leave destruction.
+- Added a visible room error panel so failed joins show the backend rejection instead of silently entering a fake lobby.
+- Removed the completed placeholder-room and room-error items from `todo.md`.
+- Verified with `npm test`; `npm run lint`; `npm run build`.

@@ -202,3 +202,8 @@ export function touchRoomPlayers(room) {
     updatedAt,
   }
 }
+
+export function shouldDestroyRoom(room, { hostLeft = false } = {}) {
+  const activePlayers = room.players.filter((player) => player.connected)
+  return hostLeft || activePlayers.length === 0
+}

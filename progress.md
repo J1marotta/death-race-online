@@ -547,3 +547,11 @@ Last updated: 2026-07-09
 - Updated `spec.md` to match the new live-play presentation.
 - Added regression coverage for the hidden transport status, focused playfield, faster movement, and finish line.
 - Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 51 : Tune Movement And Clean Finish Line
+
+- Increased walking speed by another `50%`.
+- Doubled the current running speed so running is clearly faster than walking.
+- Scaled NPC idle/walk movement with the new walking pace so NPCs keep blending into the pack.
+- Removed the extra checkered flag element that was sitting on top of the finish line, leaving the straight checkered finish marker only.
+- Added regression coverage for run-vs-walk speed and the cleaned finish line.

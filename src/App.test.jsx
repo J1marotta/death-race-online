@@ -197,14 +197,42 @@ describe('game controls', () => {
     expect(racer.style.getPropertyValue('--racer-progress')).not.toBe(
       startingProgress,
     )
-    expect(endingValue - startingValue).toBeGreaterThan(0.2)
+    expect(endingValue - startingValue).toBeGreaterThan(0.3)
     expect(playfield).toBeTruthy()
   })
 
-  it('shows a straight checkered finish line on the playfield', async () => {
+  it('advances the controlled racer faster while running than walking', async () => {
     await startPlaying()
+    vi.useFakeTimers()
+    const controlledLane = screen
+      .getByTestId('local-crosshair')
+      .closest('[data-testid^="lane-"]')
+    const racer = controlledLane.querySelector('[data-testid^="racer-"]')
+
+    const walkStart = Number.parseFloat(racer.style.getPropertyValue('--racer-progress'))
+    fireEvent.keyDown(window, { code: 'Space' })
+    act(() => {
+      vi.advanceTimersByTime(400)
+    })
+    fireEvent.keyUp(window, { code: 'Space' })
+    const walkEnd = Number.parseFloat(racer.style.getPropertyValue('--racer-progress'))
+
+    const runStart = Number.parseFloat(racer.style.getPropertyValue('--racer-progress'))
+    fireEvent.keyDown(window, { code: 'ShiftLeft' })
+    act(() => {
+      vi.advanceTimersByTime(400)
+    })
+    fireEvent.keyUp(window, { code: 'ShiftLeft' })
+    const runEnd = Number.parseFloat(racer.style.getPropertyValue('--racer-progress'))
+
+    expect(runEnd - runStart).toBeGreaterThan(walkEnd - walkStart)
+  })
+
+  it('shows a straight checkered finish line on the playfield', async () => {
+    const playfield = await startPlaying()
 
     expect(screen.getByTestId('finish-line')).toBeTruthy()
+    expect(playfield.querySelector('.finish-flag')).toBeNull()
   })
 
   it('uses the room code from a shareable join link', async () => {

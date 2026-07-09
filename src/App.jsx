@@ -125,8 +125,8 @@ const ROOM_CODE = 'DR-2048'
 const ROUND_OPTIONS = [3, 5, 7]
 const COUNTDOWN_STEPS = ['3', '2', '1', 'go']
 const COUNTDOWN_STEP_MS = 500
-const WALK_SPEED = 0.054
-const RUN_SPEED = 0.054
+const WALK_SPEED = 0.081
+const RUN_SPEED = 0.108
 const TICK_MS = 80
 const FINISH_PROGRESS = 88
 const HIT_WINDOW_PERCENT = 3.5
@@ -138,9 +138,9 @@ const NPC_PATTERNS = [
   ['walk', 'walk', 'idle', 'stop', 'walk', 'walk', 'stop']
 ]
 const NPC_SPEEDS = {
-  idle: 0.018,
+  idle: 0.027,
   stop: 0,
-  walk: 0.054
+  walk: 0.081
 }
 
 const hashString = value => {
@@ -1465,9 +1465,7 @@ function App() {
           onMouseDown={fireLocalShot}
           ref={playfieldRef}
         >
-          <span className='finish-line' data-testid='finish-line' aria-hidden='true'>
-            <span className='finish-flag' />
-          </span>
+          <span className='finish-line' data-testid='finish-line' aria-hidden='true' />
           {state === 'countdown' ? (
             <div className='playfield-countdown' aria-label='Countdown'>
               <strong>{COUNTDOWN_STEPS[countdownIndex]}</strong>

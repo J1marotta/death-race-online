@@ -233,6 +233,7 @@ export function pruneDisconnectedPlayers(room, staleAfterMs = 120000) {
 }
 
 export function leaveRoomState(room, playerName) {
+  const updatedAt = new Date().toISOString()
   const nextPlayers = room.players.map((player) =>
     player.name === playerName ? { ...player, connected: false, ready: false } : player,
   )
@@ -242,19 +243,33 @@ export function leaveRoomState(room, playerName) {
   const nextHost = hostStillConnected
     ? room.hostId
     : nextPlayers.find((player) => player.connected)?.id ?? room.hostId
+  const nextScores =
+    room.roundState?.scores && Object.hasOwn(room.roundState.scores, playerName)
+      ? {
+          ...room.roundState.scores,
+          [playerName]: 0,
+        }
+      : null
 
   return {
     ...room,
     hostId: nextHost,
     players: nextPlayers.map((player) =>
       player.id === nextHost
-        ? { ...player, role: 'host', ready: false, updatedAt: new Date().toISOString() }
-        : { ...player, updatedAt: new Date().toISOString() },
+        ? { ...player, role: 'host', ready: false, updatedAt }
+        : { ...player, updatedAt },
     ),
+    roundState: nextScores
+      ? {
+          ...room.roundState,
+          scores: nextScores,
+          updatedAt,
+        }
+      : room.roundState,
     spectators: room.spectators.includes(playerName)
       ? room.spectators
       : [...room.spectators, playerName],
-    updatedAt: new Date().toISOString(),
+    updatedAt,
   }
 }
 

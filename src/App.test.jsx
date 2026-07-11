@@ -11,6 +11,7 @@ import { join } from 'node:path'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import { createNpcProfile, getNpcStep } from './npcBehavior'
 
 const appStyles = readFileSync(join(process.cwd(), 'src', 'App.css'), 'utf8')
 
@@ -33,35 +34,50 @@ function mockPlayfieldBounds(playfield) {
 function installAudioContextMock(initialState = 'running') {
   const started = []
   const stopped = []
-  const context = {
-    state: initialState,
-    currentTime: 1,
-    destination: {},
-    resume: vi.fn(() => {
-      context.state = 'running'
-      return Promise.resolve()
-    }),
-    createGain: vi.fn(() => ({
-      connect: vi.fn(),
-      gain: {
-        exponentialRampToValueAtTime: vi.fn(),
-        setValueAtTime: vi.fn(),
-      },
-    })),
-    createOscillator: vi.fn(() => ({
-      connect: vi.fn((gain) => gain),
-      frequency: {
-        setValueAtTime: vi.fn(),
-      },
-      start: vi.fn((time) => started.push(time)),
-      stop: vi.fn((time) => stopped.push(time)),
-      type: 'square',
-    })),
+  const contexts = []
+  const createContext = () => {
+    const context = {
+      state: initialState,
+      currentTime: 1,
+      destination: {},
+      resume: vi.fn(() => {
+        context.state = 'running'
+        return Promise.resolve()
+      }),
+      createGain: vi.fn(() => ({
+        connect: vi.fn(),
+        gain: {
+          exponentialRampToValueAtTime: vi.fn(),
+          setValueAtTime: vi.fn(),
+        },
+      })),
+      createOscillator: vi.fn(() => ({
+        connect: vi.fn((gain) => gain),
+        frequency: {
+          setValueAtTime: vi.fn(),
+        },
+        start: vi.fn((time) => started.push(time)),
+        stop: vi.fn((time) => stopped.push(time)),
+        type: 'square',
+      })),
+    }
+    contexts.push(context)
+    return context
   }
   vi.stubGlobal('AudioContext', vi.fn(function AudioContextMock() {
-    return context
+    return createContext()
   }))
-  return { context, started, stopped }
+  return {
+    get context() {
+      return contexts[0]
+    },
+    get latestContext() {
+      return contexts.at(-1)
+    },
+    contexts,
+    started,
+    stopped,
+  }
 }
 
 function startPlaying() {
@@ -351,6 +367,37 @@ describe('game controls', () => {
     expect(playfield.querySelector('.finish-flag')).toBeNull()
   })
 
+  it('gives NPCs staggered behavior cycle timing', () => {
+    const pattern = ['walk', 'idle', 'stop', 'walk']
+    const profiles = Array.from({ length: 12 }, (_, index) =>
+      createNpcProfile(
+        {
+          id: index + 1,
+          progress: 7 + index,
+          depth: Math.floor(index / 4),
+          shapeClass: `shape-${index % 8}`,
+        },
+        pattern,
+      ),
+    )
+
+    expect(new Set(profiles.map((profile) => profile.cycleTicks)).size).toBeGreaterThan(3)
+    expect(new Set(profiles.map((profile) => profile.longCycleTicks)).size).toBeGreaterThan(3)
+    expect(new Set(profiles.map((profile) => profile.shortCycleTicks)).size).toBeGreaterThan(3)
+
+    const firstCycleChangeTicks = profiles.map((profile, index) => {
+      const racer = { id: index + 1, npc: profile }
+      const startingStep = getNpcStep(racer, 0, 'test-room')
+      for (let tick = 1; tick < 40; tick += 1) {
+        if (getNpcStep(racer, tick, 'test-room') !== startingStep) {
+          return tick
+        }
+      }
+      return 40
+    })
+    expect(new Set(firstCycleChangeTicks).size).toBeGreaterThan(2)
+  })
+
   it('keeps the finish line behind larger racers without forcing a taller page', () => {
     expect(appStyles).toMatch(/\.finish-line\s*{[\s\S]*z-index:\s*1;/)
     expect(appStyles).toMatch(/\.lane\s*{[\s\S]*z-index:\s*2;/)
@@ -417,6 +464,23 @@ describe('game controls', () => {
     expect(audio.context.resume).toHaveBeenCalled()
     expect(audio.started.length - startedBeforeNextRound).toBe(3)
     expect(screen.getByLabelText('Countdown')).toBeTruthy()
+  })
+
+  it('recreates audio after the game starts if the browser closed the context', async () => {
+    const audio = installAudioContextMock()
+    const playfield = await startPlayingWithFakeTimers()
+    const startedBeforeShot = audio.started.length
+    audio.context.state = 'closed'
+
+    fireEvent.mouseDown(playfield, { clientX: 900, clientY: 925 })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(audio.contexts).toHaveLength(2)
+    expect(audio.latestContext.state).toBe('running')
+    expect(audio.started.length - startedBeforeShot).toBe(2)
   })
 
   it('keeps between-round panels free of repeated room details', async () => {

@@ -72,6 +72,32 @@ export function leaveRoom(roomCode, payload) {
   })
 }
 
+export function leaveRoomOnUnload(roomCode, payload) {
+  const body = JSON.stringify({
+    action: 'leave',
+    ...payload,
+  })
+  const url = roomUrl(roomCode).toString()
+  if (navigator.sendBeacon) {
+    const sent = navigator.sendBeacon(
+      url,
+      new Blob([body], { type: 'text/plain;charset=UTF-8' }),
+    )
+    if (sent) {
+      return true
+    }
+  }
+  void fetch(url, {
+    method: 'POST',
+    body,
+    headers: {
+      'content-type': 'text/plain;charset=UTF-8',
+    },
+    keepalive: true,
+  }).catch(() => {})
+  return false
+}
+
 export function updateRoom(roomCode, payload) {
   return requestJson(roomCode, {
     method: 'POST',

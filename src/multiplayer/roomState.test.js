@@ -313,6 +313,25 @@ describe('roomState', () => {
     expect(canStartRoom(disconnected)).toBe(false)
   })
 
+  it('clears a leaving player score when their browser session ends', () => {
+    const room = createRoomState({
+      roomCode: 'DR-2048',
+      hostName: 'James',
+    })
+    const joined = joinRoomState(room, 'Mia')
+    const scored = finishRoomRound(joined, {
+      laneId: 7,
+      winnerName: 'Mia',
+      winnerType: 'human',
+      finalProgress: 93,
+    })
+    const left = leaveRoomState(scored, 'Mia')
+
+    expect(scored.roundState.scores.Mia).toBe(1)
+    expect(left.roundState.scores.Mia).toBe(0)
+    expect(left.roundState.scores.James).toBe(0)
+  })
+
   it('destroys a room when nobody is connected or the host is gone', () => {
     const room = createRoomState({
       roomCode: 'DR-2048',

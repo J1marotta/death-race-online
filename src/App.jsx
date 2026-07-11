@@ -6,7 +6,7 @@ import {
   finishRound,
   getRoom,
   joinRoom,
-  leaveRoom,
+  leaveRoomOnUnload,
   recordShot,
   renameRoomPlayer,
   sendPlayerHeartbeat,
@@ -19,6 +19,7 @@ import {
   updateRoom,
 } from './multiplayer/api'
 import { canStartRoom } from './multiplayer/roomState'
+import { createNpcProfile, getNpcStep, hashString } from './npcBehavior'
 
 const PLAYERS = ['James', 'Mia', 'Noah', 'Ava']
 const LATE_JOINERS = ['Riley']
@@ -159,15 +160,6 @@ const SOUND_PROFILES = {
   save: [440, 554],
 }
 
-const hashString = value => {
-  let hash = 2166136261
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index)
-    hash = Math.imul(hash, 16777619)
-  }
-  return hash >>> 0
-}
-
 const shuffleWithSeed = (items, seed) => {
   const result = [...items]
   let state = seed || 1
@@ -179,27 +171,6 @@ const shuffleWithSeed = (items, seed) => {
     result[swapIndex] = current
   }
   return result
-}
-
-const getNpcStep = (racer, tick, seedParts) => {
-  const baseStep =
-    racer.npc.pattern[
-      (Math.floor(tick / 12) + racer.npc.offset) % racer.npc.pattern.length
-    ]
-  const longBlock = Math.floor(tick / 28)
-  const shortBlock = Math.floor(tick / 5)
-  const longRoll = hashString(`${seedParts}:${racer.id}:long:${longBlock}`) % 100
-  const shortRoll = hashString(`${seedParts}:${racer.id}:short:${shortBlock}`) % 100
-  if (tick > 18 && longRoll < 14) {
-    return 'stop'
-  }
-  if (longRoll > 80 || shortRoll > 86) {
-    return 'run'
-  }
-  if (shortRoll < 5) {
-    return 'stop'
-  }
-  return baseStep
 }
 
 const createHumanAssignments = (players, seedParts) => {
@@ -323,6 +294,7 @@ function App() {
         const humanController = humanByLane[lane.id]
         const npcPattern =
           NPC_PATTERNS[(lane.id + lane.depth) % NPC_PATTERNS.length]
+        const npcProfile = createNpcProfile(lane, npcPattern)
         return {
           ...lane,
           controller:
@@ -338,9 +310,7 @@ function App() {
                   color: 'npc'
                 },
           npc: {
-            pattern: npcPattern,
-            offset: lane.id % npcPattern.length,
-            progress: 0
+            ...npcProfile
           }
         }
       })
@@ -444,39 +414,92 @@ function App() {
             }
           : activeState
 
-  const playSound = useCallback((soundName) => {
+  const getAudioContext = useCallback(() => {
     const AudioContext = window.AudioContext ?? window.webkitAudioContext
-    const notes = SOUND_PROFILES[soundName]
-    if (!AudioContext || !notes) {
-      return
+    if (!AudioContext) {
+      return null
     }
-    const audioContext =
-      audioContextRef.current?.state === 'closed'
-        ? new AudioContext()
-        : audioContextRef.current ?? new AudioContext()
-    audioContextRef.current = audioContext
-    const scheduleSound = () => {
-      const now = audioContext.currentTime + 0.01
-      notes.forEach((frequency, index) => {
-        const oscillator = audioContext.createOscillator()
-        const gain = audioContext.createGain()
-        const startAt = now + index * 0.055
-        oscillator.type = soundName === 'shot' ? 'sawtooth' : 'square'
-        oscillator.frequency.setValueAtTime(frequency, startAt)
-        gain.gain.setValueAtTime(0.0001, startAt)
-        gain.gain.exponentialRampToValueAtTime(soundName === 'shot' ? 0.06 : 0.035, startAt + 0.01)
-        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.13)
-        oscillator.connect(gain).connect(audioContext.destination)
-        oscillator.start(startAt)
-        oscillator.stop(startAt + 0.14)
-      })
+    const audioContext = audioContextRef.current
+    if (!audioContext || audioContext.state === 'closed') {
+      audioContextRef.current = new AudioContext()
     }
-    if (audioContext.state === 'suspended') {
-      void audioContext.resume().then(scheduleSound).catch(() => {})
-      return
-    }
-    scheduleSound()
+    return audioContextRef.current
   }, [])
+
+  const resumeAudio = useCallback(() => {
+    const audioContext = getAudioContext()
+    if (!audioContext) {
+      return Promise.resolve(null)
+    }
+    if (audioContext.state === 'running') {
+      return Promise.resolve(audioContext)
+    }
+    if (typeof audioContext.resume !== 'function') {
+      return Promise.resolve(audioContext)
+    }
+    return Promise.resolve(audioContext.resume())
+      .then(() => audioContext)
+      .catch(() => {
+        if (audioContextRef.current === audioContext) {
+          audioContextRef.current = null
+        }
+        return null
+      })
+  }, [getAudioContext])
+
+  const playSound = useCallback((soundName) => {
+    const notes = SOUND_PROFILES[soundName]
+    if (!notes) {
+      return
+    }
+    const audioContext = getAudioContext()
+    if (!audioContext) {
+      return
+    }
+    audioContextRef.current = audioContext
+    const scheduleSound = (readyContext) => {
+      if (!readyContext || readyContext.state === 'closed') {
+        return
+      }
+      try {
+        const now = readyContext.currentTime + 0.01
+        notes.forEach((frequency, index) => {
+          const oscillator = readyContext.createOscillator()
+          const gain = readyContext.createGain()
+          const startAt = now + index * 0.055
+          oscillator.type = soundName === 'shot' ? 'sawtooth' : 'square'
+          oscillator.frequency.setValueAtTime(frequency, startAt)
+          gain.gain.setValueAtTime(0.0001, startAt)
+          gain.gain.exponentialRampToValueAtTime(soundName === 'shot' ? 0.06 : 0.035, startAt + 0.01)
+          gain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.13)
+          oscillator.connect(gain).connect(readyContext.destination)
+          oscillator.start(startAt)
+          oscillator.stop(startAt + 0.14)
+        })
+      } catch {
+        if (audioContextRef.current === readyContext) {
+          audioContextRef.current = null
+        }
+      }
+    }
+    if (audioContext.state !== 'running' && typeof audioContext.resume === 'function') {
+      void resumeAudio().then(scheduleSound)
+      return
+    }
+    scheduleSound(audioContext)
+  }, [getAudioContext, resumeAudio])
+
+  useEffect(() => {
+    const unlockAudio = () => {
+      void resumeAudio()
+    }
+    window.addEventListener('pointerdown', unlockAudio, true)
+    window.addEventListener('keydown', unlockAudio, true)
+    return () => {
+      window.removeEventListener('pointerdown', unlockAudio, true)
+      window.removeEventListener('keydown', unlockAudio, true)
+    }
+  }, [resumeAudio])
 
   const handleRoomClosed = useCallback((message = 'Room closed') => {
     setRoomSnapshot(null)
@@ -1130,13 +1153,28 @@ function App() {
   }
 
   useEffect(() => {
-    const handleUnload = () => {
-      void leaveRoom(roomCode, { playerName: activePlayerName })
+    if (!roomSnapshot) {
+      return undefined
+    }
+    let sessionEnded = false
+    const handleSessionEnd = () => {
+      if (sessionEnded) {
+        return
+      }
+      sessionEnded = true
+      setScores(createScoreState(PLAYERS))
+      setRoundHistory([])
+      setCurrentRound(1)
+      leaveRoomOnUnload(roomCode, { playerName: activePlayerName })
     }
 
-    window.addEventListener('beforeunload', handleUnload)
-    return () => window.removeEventListener('beforeunload', handleUnload)
-  }, [activePlayerName, roomCode])
+    window.addEventListener('pagehide', handleSessionEnd)
+    window.addEventListener('beforeunload', handleSessionEnd)
+    return () => {
+      window.removeEventListener('pagehide', handleSessionEnd)
+      window.removeEventListener('beforeunload', handleSessionEnd)
+    }
+  }, [activePlayerName, roomCode, roomSnapshot])
   useEffect(() => {
     if (roomClosed || state !== 'countdown') {
       return undefined

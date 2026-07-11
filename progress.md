@@ -621,3 +621,12 @@ Last updated: 2026-07-11
 - Allowed the playfield to expand only during focused gameplay, capped by viewport space, so larger racers get more room without forcing scrolling.
 - Added regression coverage for the racer scale, finish-line layering, and focused-only playfield height.
 - Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 59 : Stabilize Audio, Session Scores, And NPC Timing
+
+- Reworked Web Audio handling so player gestures unlock/resume audio, closed contexts are recreated, and sounds are scheduled only after a context is ready.
+- Added a session-end leave path that uses `sendBeacon` with a keepalive fallback and resets local score/round state when the browser session ends.
+- Cleared a leaving player's shared score in room state so stale disconnected sessions cannot rejoin with old points.
+- Moved NPC timing logic into a helper module and gave each NPC seeded cycle lengths and offsets for base movement, short pauses, long pauses, and initial delay.
+- Added regression coverage for post-start audio recovery, session-end leave beacons, score clearing on leave, and staggered NPC cycle timing.
+- Verified with `npm test`; `npm run lint`; `npm run build`.

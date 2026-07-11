@@ -6,6 +6,7 @@ import {
   getRoom,
   getRoomsApiBase,
   joinRoom,
+  leaveRoomOnUnload,
   recordShot,
   renameRoomPlayer,
   sendPlayerHeartbeat,
@@ -76,6 +77,24 @@ describe('multiplayer api', () => {
     const result = await joinRoom('DR-2048', { playerName: 'Mia' })
 
     expect(result.room.roomCode).toBe('DR-2048')
+  })
+
+  it('uses sendBeacon for browser-session leave requests', async () => {
+    const sendBeacon = vi.fn(() => true)
+    Object.defineProperty(window.navigator, 'sendBeacon', {
+      configurable: true,
+      value: sendBeacon,
+    })
+
+    const sent = leaveRoomOnUnload('DR-2048', { playerName: 'James' })
+
+    expect(sent).toBe(true)
+    expect(sendBeacon).toHaveBeenCalledWith(
+      expect.stringContaining('/api/rooms/DR-2048'),
+      expect.any(Blob),
+    )
+    await expect(sendBeacon.mock.calls[0][1].text()).resolves.toContain('"action":"leave"')
+    await expect(sendBeacon.mock.calls[0][1].text()).resolves.toContain('"playerName":"James"')
   })
 
   it('starts countdowns through the api', async () => {

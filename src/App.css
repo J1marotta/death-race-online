@@ -432,7 +432,7 @@ code {
   display: grid;
   grid-template-rows: repeat(20, 1fr);
   height: 520px;
-  min-height: 520px;
+  min-height: 0;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -444,12 +444,16 @@ code {
   user-select: none;
 }
 
+.hero-panel.game-focused .playfield {
+  height: clamp(520px, calc(100svh - 220px), 620px);
+}
+
 .finish-line {
   position: absolute;
   top: 0;
   right: 7%;
   bottom: 0;
-  z-index: 4;
+  z-index: 1;
   width: 16px;
   pointer-events: none;
   background:
@@ -496,6 +500,7 @@ code {
 
 .lane {
   position: relative;
+  z-index: 2;
   min-height: 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   background:
@@ -528,7 +533,7 @@ code {
 }
 
 .racer {
-  --racer-scale: 1;
+  --racer-scale: 1.2;
   position: absolute;
   top: 50%;
   left: var(--racer-progress);

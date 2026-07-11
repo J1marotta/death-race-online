@@ -613,3 +613,11 @@ Last updated: 2026-07-11
 - Removed repeated room-status and round-setup cards from round-over and scoreboard states because the top bar already shows room and round context.
 - Added regression coverage for next-round audio resume/playback and the trimmed between-round panel.
 - Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 58 : Enlarge Racers And Layer Finish Line Behind Them
+
+- Increased racer silhouettes by `20%` using the shared racer scale so every character variant grows consistently.
+- Lowered the finish-line stacking layer and raised lane content above it so the checkered line sits behind racers instead of covering them.
+- Allowed the playfield to expand only during focused gameplay, capped by viewport space, so larger racers get more room without forcing scrolling.
+- Added regression coverage for the racer scale, finish-line layering, and focused-only playfield height.
+- Verified with `npm test`; `npm run lint`; `npm run build`.

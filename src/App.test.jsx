@@ -6,9 +6,13 @@ import {
   waitFor,
   within,
 } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+
+const appStyles = readFileSync(join(process.cwd(), 'src', 'App.css'), 'utf8')
 
 const PLAYFIELD_RECT = {
   left: 0,
@@ -345,6 +349,16 @@ describe('game controls', () => {
 
     expect(screen.getByTestId('finish-line')).toBeTruthy()
     expect(playfield.querySelector('.finish-flag')).toBeNull()
+  })
+
+  it('keeps the finish line behind larger racers without forcing a taller page', () => {
+    expect(appStyles).toMatch(/\.finish-line\s*{[\s\S]*z-index:\s*1;/)
+    expect(appStyles).toMatch(/\.lane\s*{[\s\S]*z-index:\s*2;/)
+    expect(appStyles).toMatch(/\.racer\s*{[\s\S]*--racer-scale:\s*1\.2;/)
+    expect(appStyles).toMatch(/\.playfield\s*{[\s\S]*height:\s*520px;/)
+    expect(appStyles).toMatch(
+      /\.hero-panel\.game-focused \.playfield\s*{[\s\S]*height:\s*clamp\(520px,\s*calc\(100svh - 220px\),\s*620px\);/,
+    )
   })
 
   it('lets NPC racers cross the visible finish line and end the round', async () => {

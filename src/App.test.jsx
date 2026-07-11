@@ -26,6 +26,40 @@ function mockPlayfieldBounds(playfield) {
   vi.spyOn(playfield, 'getBoundingClientRect').mockReturnValue(PLAYFIELD_RECT)
 }
 
+function installAudioContextMock(initialState = 'running') {
+  const started = []
+  const stopped = []
+  const context = {
+    state: initialState,
+    currentTime: 1,
+    destination: {},
+    resume: vi.fn(() => {
+      context.state = 'running'
+      return Promise.resolve()
+    }),
+    createGain: vi.fn(() => ({
+      connect: vi.fn(),
+      gain: {
+        exponentialRampToValueAtTime: vi.fn(),
+        setValueAtTime: vi.fn(),
+      },
+    })),
+    createOscillator: vi.fn(() => ({
+      connect: vi.fn((gain) => gain),
+      frequency: {
+        setValueAtTime: vi.fn(),
+      },
+      start: vi.fn((time) => started.push(time)),
+      stop: vi.fn((time) => stopped.push(time)),
+      type: 'square',
+    })),
+  }
+  vi.stubGlobal('AudioContext', vi.fn(function AudioContextMock() {
+    return context
+  }))
+  return { context, started, stopped }
+}
+
 function startPlaying() {
   return (async () => {
     render(<App />)
@@ -167,6 +201,7 @@ describe('game controls', () => {
   afterEach(() => {
     cleanup()
     vi.useRealTimers()
+    vi.unstubAllGlobals()
   })
 
   it('moves the local crosshair to the lane under the mouse', async () => {
@@ -339,6 +374,57 @@ describe('game controls', () => {
         }),
       ).toBe(true),
     )
+  })
+
+  it('resumes audio and plays the start cue when the next round begins', async () => {
+    const audio = installAudioContextMock()
+    await startPlayingWithFakeTimers()
+
+    act(() => {
+      vi.advanceTimersByTime(70000)
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    vi.useRealTimers()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Scoreboard' }))
+    const nextRoundButton = await screen.findByRole('button', { name: 'Next round' })
+    const startedBeforeNextRound = audio.started.length
+    audio.context.state = 'suspended'
+
+    fireEvent.click(nextRoundButton)
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(audio.context.resume).toHaveBeenCalled()
+    expect(audio.started.length - startedBeforeNextRound).toBe(3)
+    expect(screen.getByLabelText('Countdown')).toBeTruthy()
+  })
+
+  it('keeps between-round panels free of repeated room details', async () => {
+    await startPlayingWithFakeTimers()
+
+    act(() => {
+      vi.advanceTimersByTime(70000)
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    vi.useRealTimers()
+
+    await screen.findByLabelText('Winner reveal')
+    expect(screen.queryByLabelText('Room status')).toBeNull()
+    expect(screen.queryByLabelText('Round setup')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Scoreboard' }))
+    await screen.findByLabelText('Scoreboard')
+    expect(screen.queryByLabelText('Room status')).toBeNull()
+    expect(screen.queryByLabelText('Round setup')).toBeNull()
   })
 
   it('uses the room code from a shareable join link', async () => {

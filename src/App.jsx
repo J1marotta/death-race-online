@@ -350,7 +350,6 @@ function App() {
   const humansAssigned = roundRacers.filter(
     racer => racer.controller.type === 'human'
   )
-  const npcCount = roundRacers.length - humansAssigned.length
   const localHasBullet = bullets[localPlayerName] ?? true
   const eliminatedHumans = humansAssigned.filter(racer =>
     shotRacerIds.includes(racer.id)
@@ -407,19 +406,6 @@ function App() {
   const isCurrentHost =
     Boolean(currentRoomPlayer?.connected) && currentRoomPlayer?.id === roomSnapshot?.hostId
   const hostCanStart = state === 'lobby' ? isCurrentHost && roomReady : true
-  const roomHostName =
-    roomSnapshot?.players.find((player) => player.id === roomSnapshot.hostId)?.name ??
-    PLAYERS[0]
-  const latestInputEntry = roomSnapshot
-    ? Object.entries(roomSnapshot.inputs ?? {}).sort(
-        (a, b) =>
-          new Date(b[1]?.updatedAt ?? 0).getTime() -
-          new Date(a[1]?.updatedAt ?? 0).getTime(),
-      )[0]
-    : null
-  const latestInputSummary = latestInputEntry
-    ? `${latestInputEntry[0]} ${latestInputEntry[1]?.movementMode ?? 'stopped'}`
-    : 'No live input yet'
   const roomClosed = roomSyncState === 'closed'
   const gameplayFocused = ['countdown', 'playing'].includes(state)
   const activeStateCopy =
@@ -464,25 +450,32 @@ function App() {
     if (!AudioContext || !notes) {
       return
     }
-    const audioContext = audioContextRef.current ?? new AudioContext()
+    const audioContext =
+      audioContextRef.current?.state === 'closed'
+        ? new AudioContext()
+        : audioContextRef.current ?? new AudioContext()
     audioContextRef.current = audioContext
-    if (audioContext.state === 'suspended') {
-      void audioContext.resume()
+    const scheduleSound = () => {
+      const now = audioContext.currentTime + 0.01
+      notes.forEach((frequency, index) => {
+        const oscillator = audioContext.createOscillator()
+        const gain = audioContext.createGain()
+        const startAt = now + index * 0.055
+        oscillator.type = soundName === 'shot' ? 'sawtooth' : 'square'
+        oscillator.frequency.setValueAtTime(frequency, startAt)
+        gain.gain.setValueAtTime(0.0001, startAt)
+        gain.gain.exponentialRampToValueAtTime(soundName === 'shot' ? 0.06 : 0.035, startAt + 0.01)
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.13)
+        oscillator.connect(gain).connect(audioContext.destination)
+        oscillator.start(startAt)
+        oscillator.stop(startAt + 0.14)
+      })
     }
-    const now = audioContext.currentTime
-    notes.forEach((frequency, index) => {
-      const oscillator = audioContext.createOscillator()
-      const gain = audioContext.createGain()
-      const startAt = now + index * 0.055
-      oscillator.type = soundName === 'shot' ? 'sawtooth' : 'square'
-      oscillator.frequency.setValueAtTime(frequency, startAt)
-      gain.gain.setValueAtTime(0.0001, startAt)
-      gain.gain.exponentialRampToValueAtTime(soundName === 'shot' ? 0.06 : 0.035, startAt + 0.01)
-      gain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.13)
-      oscillator.connect(gain).connect(audioContext.destination)
-      oscillator.start(startAt)
-      oscillator.stop(startAt + 0.14)
-    })
+    if (audioContext.state === 'suspended') {
+      void audioContext.resume().then(scheduleSound).catch(() => {})
+      return
+    }
+    scheduleSound()
   }, [])
 
   const handleRoomClosed = useCallback((message = 'Room closed') => {
@@ -1017,6 +1010,7 @@ function App() {
       setState('gameOver')
       return
     }
+    playSound('start')
     const nextRound = currentRound + 1
     const nextAssignments = createHumanAssignments(
       humanPlayers,
@@ -1507,17 +1501,6 @@ function App() {
                 ) : null}
               </div>
             ) : null}
-            {roomSnapshot && state !== 'lobby' ? (
-              <div className='assignment-summary' aria-label='Room status'>
-                <span>Room status</span>
-                <strong>{roomSnapshot.phase}</strong>
-                <p>
-                  {roomSnapshot.players.length} connected, {roomSnapshot.spectators.length} spectating.
-                </p>
-                <small>Host: {roomHostName}</small>
-                <small>Latest input: {latestInputSummary}</small>
-              </div>
-            ) : null}
             {['roundOver', 'scoreboard', 'gameOver'].includes(state) ? (
               <div className='actions'>
                 {state === 'gameOver' || isCurrentHost ? (
@@ -1540,15 +1523,6 @@ function App() {
               <div className='countdown-panel' aria-label='Countdown'>
                 <span>{COUNTDOWN_STEPS[countdownIndex]}</span>
                 <p>Movement and shooting unlock when the room reaches go.</p>
-              </div>
-            ) : null}
-            {state !== 'menu' && state !== 'lobby' ? (
-              <div className='assignment-summary' aria-label='Round setup'>
-                <span>Round setup</span>
-                <strong>{roundRacers.length} racers</strong>
-                <p>
-                  {humansAssigned.length} hidden humans, {npcCount} NPCs.
-                </p>
               </div>
             ) : null}
             {state === 'roundOver' && roundWinner ? (

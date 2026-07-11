@@ -1,6 +1,6 @@
 # Death Race Progress
 
-Last updated: 2026-07-09
+Last updated: 2026-07-11
 
 ## Current State
 
@@ -604,4 +604,12 @@ Last updated: 2026-07-09
 - Moved the control reminder strip out of the playfield so it no longer overlays the game window.
 - Kept the reminder visible directly below the race area.
 - Added regression coverage that confirms the controls are outside `.playfield`.
+- Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 57 : Restore Between-Round Sound And Trim Round UI
+
+- Resumed suspended Web Audio contexts before scheduling sounds so cues keep working after browser audio suspension.
+- Played the start cue when the host begins the next round, not only on the first game start.
+- Removed repeated room-status and round-setup cards from round-over and scoreboard states because the top bar already shows room and round context.
+- Added regression coverage for next-round audio resume/playback and the trimmed between-round panel.
 - Verified with `npm test`; `npm run lint`; `npm run build`.

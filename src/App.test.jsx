@@ -245,6 +245,17 @@ describe('game controls', () => {
     expect(controls.closest('.playfield')).toBeNull()
   })
 
+  it('keeps a clear sound toggle outside the playfield', async () => {
+    const playfield = await startPlaying()
+    const muteButton = screen.getByRole('button', { name: 'Mute sound' })
+
+    expect(muteButton.closest('.playfield')).toBeNull()
+    expect(playfield.contains(muteButton)).toBe(false)
+
+    fireEvent.click(muteButton)
+    expect(screen.getByRole('button', { name: 'Unmute sound' })).toBeTruthy()
+  })
+
   it('keeps the crosshair origin aligned with the pointer edge', async () => {
     const playfield = await startPlaying()
 
@@ -384,6 +395,8 @@ describe('game controls', () => {
     expect(new Set(profiles.map((profile) => profile.cycleTicks)).size).toBeGreaterThan(3)
     expect(new Set(profiles.map((profile) => profile.longCycleTicks)).size).toBeGreaterThan(3)
     expect(new Set(profiles.map((profile) => profile.shortCycleTicks)).size).toBeGreaterThan(3)
+    expect(new Set(profiles.map((profile) => profile.moveCadenceTicks)).size).toBeGreaterThan(1)
+    expect(new Set(profiles.map((profile) => profile.bobDelayMs)).size).toBeGreaterThan(5)
 
     const firstCycleChangeTicks = profiles.map((profile, index) => {
       const racer = { id: index + 1, npc: profile }
@@ -396,6 +409,36 @@ describe('game controls', () => {
       return 40
     })
     expect(new Set(firstCycleChangeTicks).size).toBeGreaterThan(2)
+  })
+
+  it('staggers live NPC bobbing and movement cadence', async () => {
+    await startPlayingWithFakeTimers()
+
+    const npcRacers = screen
+      .getAllByTestId(/^racer-/)
+      .filter((racer) => racer.className.includes('npc-bobbing'))
+    expect(npcRacers.length).toBeGreaterThan(10)
+    expect(npcRacers.every((racer) => racer.style.getPropertyValue('--bob-duration'))).toBe(true)
+    expect(new Set(npcRacers.map((racer) => racer.style.getPropertyValue('--bob-delay'))).size)
+      .toBeGreaterThan(5)
+
+    const startingProgress = new Map(
+      npcRacers.map((racer) => [
+        racer.dataset.testid,
+        racer.style.getPropertyValue('--racer-progress'),
+      ]),
+    )
+    act(() => {
+      vi.advanceTimersByTime(80)
+    })
+    const movedRacers = npcRacers.filter(
+      (racer) =>
+        racer.style.getPropertyValue('--racer-progress') !==
+        startingProgress.get(racer.dataset.testid),
+    )
+
+    expect(movedRacers.length).toBeGreaterThan(0)
+    expect(movedRacers.length).toBeLessThan(npcRacers.length)
   })
 
   it('keeps the finish line behind larger racers without forcing a taller page', () => {
@@ -481,6 +524,32 @@ describe('game controls', () => {
     expect(audio.contexts).toHaveLength(2)
     expect(audio.latestContext.state).toBe('running')
     expect(audio.started.length - startedBeforeShot).toBe(2)
+  })
+
+  it('plays background music during gameplay and stops it when muted', async () => {
+    const audio = installAudioContextMock()
+    await startPlayingWithFakeTimers()
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(audio.started.length).toBeGreaterThanOrEqual(7)
+    const startedBeforeMute = audio.started.length
+    const stoppedBeforeMute = audio.stopped.length
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mute sound' }))
+
+    expect(screen.getByRole('button', { name: 'Unmute sound' })).toBeTruthy()
+    expect(audio.stopped.length).toBeGreaterThan(stoppedBeforeMute)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Unmute sound' }))
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(audio.started.length).toBeGreaterThan(startedBeforeMute)
   })
 
   it('keeps between-round panels free of repeated room details', async () => {

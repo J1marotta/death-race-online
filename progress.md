@@ -630,3 +630,13 @@ Last updated: 2026-07-11
 - Moved NPC timing logic into a helper module and gave each NPC seeded cycle lengths and offsets for base movement, short pauses, long pauses, and initial delay.
 - Added regression coverage for post-start audio recovery, session-end leave beacons, score clearing on leave, and staggered NPC cycle timing.
 - Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 60 : Add Gameplay Music And Stagger NPC Motion
+
+- Added generated Web Audio background music that starts during live gameplay and stops outside the round.
+- Added a clear top-right `Mute sound` / `Unmute sound` button outside the game area.
+- Made mute stop both background music and short sound effects.
+- Added per-NPC movement cadence and phase so NPC progress changes no longer all land on the same visible interval.
+- Made every live NPC bob, including idle and stopped NPCs, with staggered animation delay and duration.
+- Added regression coverage for the sound toggle, gameplay music, all-NPC bobbing, and staggered NPC movement cadence.
+- Verified with `npm test`; `npm run lint`; `npm run build`.

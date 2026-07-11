@@ -35,6 +35,15 @@
   font-size: 42px;
 }
 
+.top-actions {
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+  margin-left: auto;
+}
+
 .top-room-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(84px, 1fr));
@@ -62,6 +71,21 @@
   color: var(--text-h);
   font: 900 16px/1.2 var(--mono);
   overflow-wrap: anywhere;
+}
+
+.sound-toggle {
+  min-width: 118px;
+  padding: 0 14px;
+  border-color: rgba(250, 204, 21, 0.45);
+  background: rgba(250, 204, 21, 0.1);
+  color: #fde68a;
+  white-space: nowrap;
+}
+
+.sound-toggle.muted {
+  border-color: rgba(156, 163, 175, 0.42);
+  background: rgba(156, 163, 175, 0.08);
+  color: var(--text);
 }
 
 .state-tabs {
@@ -808,6 +832,11 @@ code {
   animation: step-bob 360ms ease-in-out infinite;
 }
 
+.racer.npc-bobbing {
+  animation: step-bob var(--bob-duration, 620ms) ease-in-out infinite;
+  animation-delay: var(--bob-delay, 0ms);
+}
+
 .racer.dead {
   height: 15px;
   opacity: 0.74;
@@ -969,6 +998,11 @@ code {
   .hero-panel {
     grid-template-columns: 1fr;
     display: grid;
+  }
+
+  .top-actions {
+    width: 100%;
+    margin-left: 0;
   }
 
   .state-tabs,

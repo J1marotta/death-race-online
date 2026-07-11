@@ -9,6 +9,7 @@ export const hashString = value => {
 
 export const createNpcProfile = (lane, npcPattern) => {
   const seed = hashString(`${lane.id}:${lane.progress}:${lane.depth}:${lane.shapeClass}`)
+  const moveCadenceTicks = 1 + ((seed >>> 2) % 4)
   return {
     pattern: npcPattern,
     offset: lane.id % npcPattern.length,
@@ -19,6 +20,13 @@ export const createNpcProfile = (lane, npcPattern) => {
     shortCycleTicks: 4 + ((seed >>> 18) % 7),
     shortCycleOffsetTicks: (seed >>> 23) % 11,
     initialDelayTicks: 8 + ((seed >>> 27) % 9),
+    moveCadenceTicks,
+    movePhaseTicks: (seed >>> 11) % moveCadenceTicks,
+    speedJitter: 0.88 + ((seed >>> 15) % 25) / 100,
+    bobDelayMs: (seed >>> 19) % 900,
+    idleBobMs: 620 + ((seed >>> 23) % 220),
+    walkBobMs: 470 + ((seed >>> 27) % 130),
+    runBobMs: 290 + ((seed >>> 30) % 90),
   }
 }
 

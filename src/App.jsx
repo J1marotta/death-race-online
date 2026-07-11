@@ -159,6 +159,8 @@ const SOUND_PROFILES = {
   shot: [160, 90],
   save: [440, 554],
 }
+const MUSIC_SEQUENCE = [110, 146.83, 164.81, 130.81, 196, 174.61, 146.83, 123.47]
+const MUSIC_INTERVAL_MS = 280
 
 const shuffleWithSeed = (items, seed) => {
   const result = [...items]
@@ -241,10 +243,13 @@ function App() {
   const [playerNameDraft, setPlayerNameDraft] = useState(PLAYERS[0])
   const [createLobbyPending, setCreateLobbyPending] = useState(false)
   const [renamePending, setRenamePending] = useState(false)
+  const [soundMuted, setSoundMuted] = useState(false)
   const playfieldRef = useRef(null)
   const pressedKeys = useRef({ run: false, walk: false })
   const playingRequested = useRef(false)
   const audioContextRef = useRef(null)
+  const musicNodesRef = useRef(null)
+  const soundMutedRef = useRef(false)
   const latestInputSnapshotRef = useRef(null)
   const activeState = STATE_COPY[state]
   const lobbyInProgress = !['menu', 'lobby'].includes(state)
@@ -447,7 +452,94 @@ function App() {
       })
   }, [getAudioContext])
 
+  const stopBackgroundMusic = useCallback(() => {
+    const nodes = musicNodesRef.current
+    if (!nodes) {
+      return
+    }
+    musicNodesRef.current = null
+    window.clearInterval(nodes.intervalId)
+    const stopAt = nodes.audioContext.currentTime + 0.08
+    try {
+      nodes.masterGain.gain.exponentialRampToValueAtTime(0.0001, stopAt)
+    } catch {
+      // Ignore browsers that reject ramps on a closing context.
+    }
+    nodes.oscillators.forEach((oscillator) => {
+      try {
+        oscillator.stop(stopAt + 0.04)
+      } catch {
+        // Oscillators may already be stopped when the tab is closing.
+      }
+    })
+  }, [])
+
+  const startBackgroundMusic = useCallback(() => {
+    if (soundMutedRef.current || musicNodesRef.current) {
+      return
+    }
+    void resumeAudio().then((audioContext) => {
+      if (!audioContext || soundMutedRef.current || musicNodesRef.current) {
+        return
+      }
+      const now = audioContext.currentTime + 0.02
+      const masterGain = audioContext.createGain()
+      masterGain.gain.setValueAtTime(0.0001, now)
+      masterGain.gain.exponentialRampToValueAtTime(0.026, now + 0.5)
+      masterGain.connect(audioContext.destination)
+
+      const bass = audioContext.createOscillator()
+      bass.type = 'square'
+      bass.frequency.setValueAtTime(55, now)
+      bass.connect(masterGain)
+      bass.start(now)
+
+      const drone = audioContext.createOscillator()
+      drone.type = 'sawtooth'
+      drone.frequency.setValueAtTime(82.41, now)
+      drone.connect(masterGain)
+      drone.start(now)
+
+      const nodes = {
+        audioContext,
+        intervalId: 0,
+        masterGain,
+        noteIndex: 0,
+        oscillators: [bass, drone],
+      }
+
+      const playMusicNote = () => {
+        if (musicNodesRef.current !== nodes || soundMutedRef.current) {
+          return
+        }
+        const noteNow = audioContext.currentTime + 0.01
+        const noteOscillator = audioContext.createOscillator()
+        const noteGain = audioContext.createGain()
+        noteOscillator.type = 'triangle'
+        noteOscillator.frequency.setValueAtTime(
+          MUSIC_SEQUENCE[nodes.noteIndex % MUSIC_SEQUENCE.length],
+          noteNow,
+        )
+        noteGain.gain.setValueAtTime(0.0001, noteNow)
+        noteGain.gain.exponentialRampToValueAtTime(0.018, noteNow + 0.02)
+        noteGain.gain.exponentialRampToValueAtTime(0.0001, noteNow + 0.2)
+        noteOscillator.connect(noteGain)
+        noteGain.connect(masterGain)
+        noteOscillator.start(noteNow)
+        noteOscillator.stop(noteNow + 0.22)
+        nodes.noteIndex += 1
+      }
+
+      musicNodesRef.current = nodes
+      playMusicNote()
+      nodes.intervalId = window.setInterval(playMusicNote, MUSIC_INTERVAL_MS)
+    })
+  }, [resumeAudio])
+
   const playSound = useCallback((soundName) => {
+    if (soundMutedRef.current) {
+      return
+    }
     const notes = SOUND_PROFILES[soundName]
     if (!notes) {
       return
@@ -488,6 +580,37 @@ function App() {
     }
     scheduleSound(audioContext)
   }, [getAudioContext, resumeAudio])
+
+  useEffect(() => {
+    soundMutedRef.current = soundMuted
+    if (soundMuted) {
+      stopBackgroundMusic()
+    }
+  }, [soundMuted, stopBackgroundMusic])
+
+  useEffect(() => {
+    if (state === 'playing' && !soundMuted) {
+      startBackgroundMusic()
+      return undefined
+    }
+    stopBackgroundMusic()
+    return undefined
+  }, [soundMuted, startBackgroundMusic, state, stopBackgroundMusic])
+
+  useEffect(() => () => stopBackgroundMusic(), [stopBackgroundMusic])
+
+  const toggleSound = () => {
+    setSoundMuted((current) => {
+      const nextMuted = !current
+      soundMutedRef.current = nextMuted
+      if (nextMuted) {
+        stopBackgroundMusic()
+      } else {
+        void resumeAudio()
+      }
+      return nextMuted
+    })
+  }
 
   useEffect(() => {
     const unlockAudio = () => {
@@ -657,10 +780,20 @@ function App() {
                   return [racer.id, progressByLane[racer.id] ?? racer.progress]
                 }
                 const step = getNpcStep(racer, nextTick, npcSeedParts)
+                const cadence = racer.npc.moveCadenceTicks ?? 1
+                const shouldAdvance =
+                  ((nextTick + (racer.npc.movePhaseTicks ?? 0)) % cadence) === 0
+                if (!shouldAdvance) {
+                  return [racer.id, progressByLane[racer.id] ?? racer.progress]
+                }
                 const laneDrag = 0.78 + racer.depth * 0.05
                 const nextProgress =
                   (progressByLane[racer.id] ?? racer.progress) +
-                  NPC_SPEEDS[step] * laneDrag * raceSpeedMultiplier
+                  NPC_SPEEDS[step] *
+                    laneDrag *
+                    raceSpeedMultiplier *
+                    cadence *
+                    (racer.npc.speedJitter ?? 1)
                 return [racer.id, Math.min(nextProgress, NPC_MAX_PROGRESS)]
               })
           )
@@ -1487,16 +1620,26 @@ function App() {
           <p className='eyebrow'>Death race</p>
           <h1>Read the racer, hide the tell.</h1>
         </div>
-        {state !== 'menu' ? (
-          <div className='top-room-summary' aria-label='Room overview'>
-            {statusItems.map(([label, value]) => (
-              <div key={label}>
-                <span>{label}</span>
-                <strong>{value}</strong>
-              </div>
-            ))}
-          </div>
-        ) : null}
+        <div className='top-actions'>
+          {state !== 'menu' ? (
+            <div className='top-room-summary' aria-label='Room overview'>
+              {statusItems.map(([label, value]) => (
+                <div key={label}>
+                  <span>{label}</span>
+                  <strong>{value}</strong>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          <button
+            type='button'
+            className={`sound-toggle ${soundMuted ? 'muted' : ''}`}
+            aria-label={soundMuted ? 'Unmute sound' : 'Mute sound'}
+            onClick={toggleSound}
+          >
+            {soundMuted ? 'Unmute sound' : 'Mute sound'}
+          </button>
+        </div>
       </header>
 
       {state === 'menu' ? (
@@ -1632,6 +1775,12 @@ function App() {
               const npcStep = getNpcStep(lane, npcTick, npcSeedParts)
               const npcMotionClass =
                 npcStep === 'run' ? 'running' : npcStep === 'walk' ? 'walking' : ''
+              const npcBobDuration =
+                npcStep === 'run'
+                  ? lane.npc.runBobMs
+                  : npcStep === 'walk'
+                    ? lane.npc.walkBobMs
+                    : lane.npc.idleBobMs
               const shapeClass = lane.shapeClass
               const racerProgress =
                 isWinner && roundWinner.finalProgress
@@ -1666,12 +1815,20 @@ function App() {
                     isEliminated ? 'dead' : '',
                     isControlled && !isEliminated ? movementMode : '',
                     !isHuman && state === 'playing' && !isEliminated
-                        ? npcMotionClass
+                        ? `npc-bobbing ${npcMotionClass}`
                         : ''
                     ]
                       .filter(Boolean)
                       .join(' ')}
-                    style={{ '--racer-progress': `${racerProgress}%` }}
+                    style={{
+                      '--racer-progress': `${racerProgress}%`,
+                      ...(!isHuman
+                        ? {
+                            '--bob-delay': `-${lane.npc.bobDelayMs}ms`,
+                            '--bob-duration': `${npcBobDuration}ms`,
+                          }
+                        : {})
+                    }}
                     data-testid={`racer-${lane.id}`}
                     title={lane.archetype}
                   >

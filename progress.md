@@ -687,3 +687,12 @@ Last updated: 2026-07-13
 - Added bug-museum entries for the NPCs that idled forever and the gameplay music that sounded like static.
 - Updated the prototype-shaped caveats to reflect server adjudication and the name-only identity limitation.
 - Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 65 : Add Worker Observability And Verify WebSocket Costs
+
+- Investigated the 8-player test that showed ~60k worker hits: at 20Hz input per player (160 messages/second), 60k messages is roughly 6 minutes of active play, and Cloudflare bills incoming Durable Object WebSocket messages at a 20:1 ratio, so 60k raw messages bill as ~3k requests (~$0.0005). Analytics show raw counts; billing applies the ratio.
+- Confirmed from Cloudflare pricing docs: outgoing WebSocket broadcasts are free, protocol pings and setWebSocketAutoResponse replies are free, and duration (not requests) is the dominant Durable Object cost, which hibernation and the self-stopping input ticker already control.
+- Enabled Workers Logs on the rooms worker with automatic invocation logs disabled, because per-invocation logs at 20Hz input would generate ~576k events/hour for one 8-player room and swamp log limits.
+- Added low-volume structured lifecycle logEvent calls: room_created, room_destroyed, socket_opened, socket_closed, socket_error, input_ticker_started, input_ticker_stopped, and round_adjudicated.
+- Noted a future cost lever: event-driven input sends (mode changes plus ~2Hz progress corrections, full rate near the finish) would cut message volume ~90% if player counts grow.
+- Verified with `npm test`; `npm run lint`; `npm run build`.

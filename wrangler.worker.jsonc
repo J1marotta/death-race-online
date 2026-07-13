@@ -3,6 +3,16 @@
   "name": "death-race-rooms",
   "main": "workers/rooms.js",
   "compatibility_date": "2026-07-07",
+  // Workers Logs with automatic invocation logs disabled: at 20Hz input per
+  // player, per-invocation logs would generate ~576k events/hour for a single
+  // 8-player room. Explicit lifecycle logEvent calls carry the signal instead.
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "invocation_logs": false,
+      "head_sampling_rate": 1
+    }
+  },
   "durable_objects": {
     "bindings": [
       {

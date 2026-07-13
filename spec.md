@@ -138,6 +138,8 @@ Control reminders are visible below the playfield during the race.
 - Input broadcasts are batched: clients send input at 20Hz over the live socket (deduped when unchanged), and the Durable Object rebroadcasts compact input deltas on a 50ms ticker that stops itself when traffic goes quiet so the object can hibernate.
 - Rendering targets 60fps: local movement advances on a requestAnimationFrame delta-time loop, and remote racers are dead-reckoned from their last synced progress and movement mode, easing toward the extrapolated target instead of snapping per sync.
 - Keep Cloudflare usage modest: prefer WebSocket pushes over polling, throttle heartbeat/fallback requests, slow fallback polling, and destroy rooms when the host leaves or everyone disconnects.
+- Cost model: incoming WebSocket messages bill as Durable Object requests at a 20:1 ratio (outgoing broadcasts, protocol pings, and auto-responses are free); duration is the dominant cost at scale, controlled via hibernation and the self-stopping input ticker.
+- Observability: Workers Logs is enabled on the rooms worker with automatic invocation logs disabled (per-message invocation logs would swamp limits at 20Hz input); the worker emits explicit structured lifecycle events for room create/destroy, socket open/close/error, input ticker start/stop, and server adjudications.
 - Use a renderer that can support 20 visible pixel-art lanes, mouse crosshairs, dead bodies, and reveal highlights at the `1200px` target.
 - Keep all gameplay constants easy to tune.
 - Defender integration must wait until the user provides or identifies Defender source files. No Defender source was found in the active repo or old workspace.

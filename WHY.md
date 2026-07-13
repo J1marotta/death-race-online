@@ -502,6 +502,19 @@ The Pages deploy serves the static Vite build. The Worker deploy updates the Dur
 
 When code changes only the frontend, deploy Pages. When code changes `workers/rooms.js`, deploy the Worker too.
 
+## What The WebSockets Actually Cost
+
+An 8-player playtest showed ~60k worker hits, which looked alarming. It is not, once you know how Cloudflare counts:
+
+- Analytics show raw message counts, but billing applies a 20:1 ratio to incoming Durable Object WebSocket messages. 60k raw messages bill as ~3k requests — about $0.0005.
+- Outgoing broadcasts are free, so the 20Hz delta fan-out to every socket costs nothing.
+- Protocol pings and `setWebSocketAutoResponse` replies are free.
+- Duration, not requests, is the dominant Durable Object cost at scale. Hibernatable sockets and the self-stopping input ticker keep idle rooms at zero duration.
+
+Observability follows the same cost discipline: Workers Logs is enabled, but automatic invocation logs are off, because logging every 20Hz input invocation would produce ~576k log events per hour for one busy room. The worker instead emits a handful of structured lifecycle events — room created/destroyed, sockets opened/closed, ticker started/stopped, rounds adjudicated — which is what you actually query when something goes wrong.
+
+Lesson: measure before optimizing, and know which meter you are reading. The scary number was a raw analytics count; the billable number was 20x smaller and the real cost lever (duration) was already handled.
+
 The production app currently talks to:
 
 - Pages frontend: the latest `death-race-online.pages.dev` deployment.

@@ -65,6 +65,12 @@ async function readJson(request) {
   return request.json().catch(() => ({}))
 }
 
+// Structured lifecycle events for Workers Logs. Kept deliberately low-volume:
+// never log per input message, only room/socket/round lifecycle moments.
+function logEvent(event, data = {}) {
+  console.log({ event, ...data })
+}
+
 class RoomLobbyObject {
   constructor(state, env) {
     this.state = state
@@ -108,6 +114,7 @@ class RoomLobbyObject {
   }
 
   async destroyRoom(reason = 'Room closed') {
+    logEvent('room_destroyed', { roomCode: this.room?.roomCode, reason })
     this.room = null
     this.stopInputTicker()
     await this.state.storage.delete('room')
@@ -123,12 +130,17 @@ class RoomLobbyObject {
     }
     this.idleInputTicks = 0
     this.inputTickerId = setInterval(() => this.broadcastInputs(), INPUT_BROADCAST_MS)
+    logEvent('input_ticker_started', {
+      roomCode: this.room?.roomCode,
+      sockets: this.liveSockets().length,
+    })
   }
 
   stopInputTicker() {
     if (this.inputTickerId !== null) {
       clearInterval(this.inputTickerId)
       this.inputTickerId = null
+      logEvent('input_ticker_stopped', { roomCode: this.room?.roomCode })
     }
     this.idleInputTicks = 0
   }
@@ -158,6 +170,11 @@ class RoomLobbyObject {
   async applyInputUpdate(room) {
     const adjudicated = adjudicateRoundWinner(room)
     if (adjudicated !== room) {
+      logEvent('round_adjudicated', {
+        roomCode: adjudicated.roomCode,
+        round: adjudicated.round,
+        winner: adjudicated.roundState?.winner,
+      })
       return this.saveRoom(adjudicated)
     }
     this.room = room
@@ -228,11 +245,32 @@ class RoomLobbyObject {
     if (typeof server.serializeAttachment === 'function') {
       server.serializeAttachment({ playerName })
     }
+    logEvent('socket_opened', {
+      roomCode: room.roomCode,
+      playerName,
+      sockets: this.liveSockets().length,
+    })
     server.send(JSON.stringify({ type: 'room', room: serializeRoom(room) }))
 
     return new Response(null, {
       status: 101,
       webSocket: client,
+    })
+  }
+
+  webSocketClose(socket, code) {
+    logEvent('socket_closed', {
+      roomCode: this.room?.roomCode,
+      playerName: this.socketPlayerName(socket),
+      code,
+      sockets: this.liveSockets().length,
+    })
+  }
+
+  webSocketError(socket) {
+    logEvent('socket_error', {
+      roomCode: this.room?.roomCode,
+      playerName: this.socketPlayerName(socket),
     })
   }
 
@@ -347,6 +385,7 @@ class RoomLobbyObject {
         roundCount: body.roundCount ?? 5,
       })
       await this.saveRoom(nextRoom)
+      logEvent('room_created', { roomCode, hostId: nextRoom.hostId })
       return json({ room: serializeRoom(nextRoom) }, 201)
     }
 

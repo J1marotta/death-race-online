@@ -108,6 +108,7 @@ Control reminders are visible below the playfield during the race.
 - The playfield and HUD must read well at `1200px` wide on a laptop.
 - Crosshairs, bullet indicators, dead bodies, winner state, and reveal highlights should be readable at a glance.
 - Light sound cues support key actions such as creating/joining lobbies, readying, starting, shooting, and saving a display name.
+- Live gameplay plays mellow elevator-style generated background music: soft sine-pad seventh chords, a gentle triangle melody, and a quiet bass note per chord change, with a mute toggle.
 
 ## Suggested State Model
 

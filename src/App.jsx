@@ -171,8 +171,32 @@ const SOUND_PROFILES = {
   shot: [160, 90],
   save: [440, 554],
 }
-const MUSIC_SEQUENCE = [110, 146.83, 164.81, 130.81, 196, 174.61, 146.83, 123.47]
-const MUSIC_INTERVAL_MS = 280
+// Elevator-style loop: mellow seventh chords with soft sine pads, a gentle
+// triangle melody, and a quiet bass note on each chord change.
+const MUSIC_INTERVAL_MS = 350
+const MUSIC_BEATS_PER_CHORD = 6
+const MUSIC_CHORDS = [
+  {
+    pad: [130.81, 164.81, 246.94],
+    bass: 65.41,
+    melody: [261.63, 329.63, 392.0, 493.88, 392.0, 329.63],
+  },
+  {
+    pad: [110.0, 164.81, 196.0],
+    bass: 55.0,
+    melody: [220.0, 261.63, 329.63, 392.0, 329.63, 261.63],
+  },
+  {
+    pad: [146.83, 174.61, 261.63],
+    bass: 73.42,
+    melody: [293.66, 349.23, 440.0, 523.25, 440.0, 349.23],
+  },
+  {
+    pad: [123.47, 146.83, 174.61],
+    bass: 49.0,
+    melody: [246.94, 293.66, 392.0, 349.23, 293.66, 246.94],
+  },
+]
 
 const shuffleWithSeed = (items, seed) => {
   const result = [...items]
@@ -538,27 +562,29 @@ function App() {
       const now = audioContext.currentTime + 0.02
       const masterGain = audioContext.createGain()
       masterGain.gain.setValueAtTime(0.0001, now)
-      masterGain.gain.exponentialRampToValueAtTime(0.026, now + 0.5)
+      masterGain.gain.exponentialRampToValueAtTime(0.05, now + 1.2)
       masterGain.connect(audioContext.destination)
 
-      const bass = audioContext.createOscillator()
-      bass.type = 'square'
-      bass.frequency.setValueAtTime(55, now)
-      bass.connect(masterGain)
-      bass.start(now)
+      const padGain = audioContext.createGain()
+      padGain.gain.setValueAtTime(0.3, now)
+      padGain.connect(masterGain)
 
-      const drone = audioContext.createOscillator()
-      drone.type = 'sawtooth'
-      drone.frequency.setValueAtTime(82.41, now)
-      drone.connect(masterGain)
-      drone.start(now)
+      const pads = MUSIC_CHORDS[0].pad.map((frequency) => {
+        const padOscillator = audioContext.createOscillator()
+        padOscillator.type = 'sine'
+        padOscillator.frequency.setValueAtTime(frequency, now)
+        padOscillator.connect(padGain)
+        padOscillator.start(now)
+        return padOscillator
+      })
 
       const nodes = {
         audioContext,
         intervalId: 0,
         masterGain,
-        noteIndex: 0,
-        oscillators: [bass, drone],
+        beatIndex: 0,
+        chordIndex: -1,
+        oscillators: pads,
       }
 
       const playMusicNote = () => {
@@ -566,21 +592,44 @@ function App() {
           return
         }
         const noteNow = audioContext.currentTime + 0.01
-        const noteOscillator = audioContext.createOscillator()
-        const noteGain = audioContext.createGain()
-        noteOscillator.type = 'triangle'
-        noteOscillator.frequency.setValueAtTime(
-          MUSIC_SEQUENCE[nodes.noteIndex % MUSIC_SEQUENCE.length],
+        const beat = nodes.beatIndex
+        nodes.beatIndex += 1
+        const chordIndex =
+          Math.floor(beat / MUSIC_BEATS_PER_CHORD) % MUSIC_CHORDS.length
+        const chord = MUSIC_CHORDS[chordIndex]
+
+        if (chordIndex !== nodes.chordIndex) {
+          nodes.chordIndex = chordIndex
+          pads.forEach((padOscillator, padIndex) => {
+            padOscillator.frequency.setValueAtTime(chord.pad[padIndex], noteNow)
+          })
+          const bassOscillator = audioContext.createOscillator()
+          const bassGain = audioContext.createGain()
+          bassOscillator.type = 'sine'
+          bassOscillator.frequency.setValueAtTime(chord.bass, noteNow)
+          bassGain.gain.setValueAtTime(0.0001, noteNow)
+          bassGain.gain.exponentialRampToValueAtTime(0.5, noteNow + 0.06)
+          bassGain.gain.exponentialRampToValueAtTime(0.0001, noteNow + 1.4)
+          bassOscillator.connect(bassGain)
+          bassGain.connect(masterGain)
+          bassOscillator.start(noteNow)
+          bassOscillator.stop(noteNow + 1.5)
+        }
+
+        const melodyOscillator = audioContext.createOscillator()
+        const melodyGain = audioContext.createGain()
+        melodyOscillator.type = 'triangle'
+        melodyOscillator.frequency.setValueAtTime(
+          chord.melody[beat % chord.melody.length],
           noteNow,
         )
-        noteGain.gain.setValueAtTime(0.0001, noteNow)
-        noteGain.gain.exponentialRampToValueAtTime(0.018, noteNow + 0.02)
-        noteGain.gain.exponentialRampToValueAtTime(0.0001, noteNow + 0.2)
-        noteOscillator.connect(noteGain)
-        noteGain.connect(masterGain)
-        noteOscillator.start(noteNow)
-        noteOscillator.stop(noteNow + 0.22)
-        nodes.noteIndex += 1
+        melodyGain.gain.setValueAtTime(0.0001, noteNow)
+        melodyGain.gain.exponentialRampToValueAtTime(0.32, noteNow + 0.05)
+        melodyGain.gain.exponentialRampToValueAtTime(0.0001, noteNow + 0.5)
+        melodyOscillator.connect(melodyGain)
+        melodyGain.connect(masterGain)
+        melodyOscillator.start(noteNow)
+        melodyOscillator.stop(noteNow + 0.55)
       }
 
       musicNodesRef.current = nodes

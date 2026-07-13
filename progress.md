@@ -668,3 +668,13 @@ Last updated: 2026-07-13
 - New simulated distribution: 73% run, 14% walk, 13% stop, averaging 79% of a running player's speed with front-runner NPCs finishing in 23-24s, so committed humans still win narrowly while hesitant humans can lose to NPCs.
 - Updated the spec NPC behavior section to describe player-like pacing and competitive finishes.
 - Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 63 : Replace Gameplay Music With Elevator-Style Loop
+
+- Reviewed the gameplay music after the report that it sounded like static: a square-wave bass and sawtooth drone sustained non-stop under a fast minor-key note loop.
+- Removed the square/sawtooth drones and replaced them with three soft sine pads that hold a mellow seventh-chord progression (Cmaj7, Am7, Dm7, G7), retuned on each chord change.
+- Added a gentle triangle melody that arpeggiates the current chord at a relaxed 350ms beat with soft attack/release envelopes.
+- Added a quiet sine bass note on each chord change and slowed the master fade-in.
+- Kept the existing mute toggle, audio unlock/resume handling, and music start/stop lifecycle intact.
+- Updated the spec visual direction section to describe the elevator-style gameplay music.
+- Verified with `npm test`; `npm run lint`; `npm run build`.

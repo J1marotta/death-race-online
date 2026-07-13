@@ -1,6 +1,6 @@
 # Death Race Progress
 
-Last updated: 2026-07-11
+Last updated: 2026-07-13
 
 ## Current State
 
@@ -18,6 +18,8 @@ Last updated: 2026-07-11
 - Remote origin is `https://github.com/J1marotta/death-race-online.git`.
 - Cloudflare Pages is deployed for the front end.
 - A separate Cloudflare Worker is deployed for room coordination.
+- Realtime input/heartbeat/shot traffic runs over hibernatable WebSockets with HTTP fallback; the room state lives in Durable Object memory with batched 50ms input-delta broadcasts, and the server adjudicates human finish-line wins.
+- Rendering runs at 60fps via a requestAnimationFrame movement loop with dead reckoning for remote racers.
 - The front end currently syncs lobby create/join/settings/ready/countdown actions to the backend API and shows room sync status in the HUD.
 - The lobby now preserves shareable room codes, rejects joins to missing rooms, tracks the current client identity, shows ready/not-ready state from the server roster, and limits starting the game to the host after every connected player is ready.
 - The side panel stays visible during the round so the room code, roster, and room sync state remain inspectable while testing multiplayer.
@@ -639,4 +641,20 @@ Last updated: 2026-07-11
 - Added per-NPC movement cadence and phase so NPC progress changes no longer all land on the same visible interval.
 - Made every live NPC bob, including idle and stopped NPCs, with staggered animation delay and duration.
 - Added regression coverage for the sound toggle, gameplay music, all-NPC bobbing, and staggered NPC movement cadence.
+- Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 61 : Rebuild Netcode For 60fps Play
+
+- Reviewed the network path end to end and found remote racers updated once per second over HTTP POST, local simulation ticked at 12.5Hz, every message rewrote Durable Object storage and rebroadcast the full room, and the host adjudicated winners from stale data.
+- Replaced the 80ms local movement interval with a requestAnimationFrame delta-time loop so local movement renders at display refresh rate, with a 16ms timeout fallback for test environments.
+- Added dead reckoning for remote human racers: each frame extrapolates from the last synced progress and movement mode using the shared speed constants, easing toward the target instead of snapping once per sync, with snap-through for large corrections and per-round reset.
+- Added a short linear CSS transition so stepped NPC movement glides between 80ms ticks while the frame-driven controlled racer stays exempt.
+- Moved the Durable Object to the WebSocket hibernation API with handler-based messages, automatic ping/pong response, and player identity attached to each socket.
+- Sent input, heartbeat, and shot messages over the live socket with automatic fallback to the existing HTTP actions when the socket is down.
+- Kept the room in Durable Object memory; storage writes now happen only for durable changes, and GET reads no longer rewrite storage or rebroadcast to sockets.
+- Batched input broadcasts on a 50ms server ticker that sends compact input deltas and stops itself when traffic goes quiet so the object can still hibernate.
+- Raised client input sends to 20Hz over the socket, deduped when nothing changed, with the HTTP fallback rate-limited to the old one-second cadence.
+- Added server-side adjudication of human finish-line wins from the freshest inputs, carried the controlled lane in input snapshots, and made finishRoomRound first-writer-wins so a late host round-over cannot overwrite the recorded winner. NPC wins still arrive from the host, which simulates NPCs deterministically.
+- Added regression coverage for live-socket message handling, batched input deltas, ticker shutdown, eviction-safe stale-room cleanup, server adjudication, and late round-over protection; the suite grew from 85 to 89 tests.
+- Deployed the worker (`npm run deploy:rooms`) and the Pages front end (`npm run deploy:cloudflare`).
 - Verified with `npm test`; `npm run lint`; `npm run build`.

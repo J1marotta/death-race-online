@@ -49,7 +49,7 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 7. Eliminated players spectate.
 8. If every human racer is eliminated while more rounds remain, the rest of the race fast-forwards.
 9. The round continues until a racer wins.
-10. The host records the round winner in shared room state.
+10. The room backend adjudicates human finish-line wins from live input; the host records NPC winners in shared room state. The first recorded winner for a round stands.
 11. Reveal/highlight all human-controlled racers after the winner is declared.
 12. If an NPC wins, show a shame/reveal moment.
 13. Show the shared scoreboard and next-round action.
@@ -131,7 +131,11 @@ Control reminders are visible below the playfield during the race.
 - MVP platform target: desktop/laptop first; mobile and tablet controls are deferred until the laptop loop works.
 - Keep lobby, player, and round state behind small modules so real-time networking can own the authoritative session later.
 - Use the Cloudflare Durable Object room backend, Worker API, and live WebSocket transport with HTTP polling as fallback.
-- Keep Cloudflare usage modest: prefer WebSocket pushes over polling, throttle heartbeat/input requests, slow fallback polling, and destroy rooms when the host leaves or everyone disconnects.
+- Realtime traffic (input, heartbeat, shots) travels over hibernatable WebSockets accepted through the Durable Object hibernation API; HTTP actions remain for lobby operations and as the fallback path.
+- The room lives in Durable Object memory during play; storage writes happen only for durable changes (lobby actions, phase changes, shots, heartbeats), never per input or per read.
+- Input broadcasts are batched: clients send input at 20Hz over the live socket (deduped when unchanged), and the Durable Object rebroadcasts compact input deltas on a 50ms ticker that stops itself when traffic goes quiet so the object can hibernate.
+- Rendering targets 60fps: local movement advances on a requestAnimationFrame delta-time loop, and remote racers are dead-reckoned from their last synced progress and movement mode, easing toward the extrapolated target instead of snapping per sync.
+- Keep Cloudflare usage modest: prefer WebSocket pushes over polling, throttle heartbeat/fallback requests, slow fallback polling, and destroy rooms when the host leaves or everyone disconnects.
 - Use a renderer that can support 20 visible pixel-art lanes, mouse crosshairs, dead bodies, and reveal highlights at the `1200px` target.
 - Keep all gameplay constants easy to tune.
 - Defender integration must wait until the user provides or identifies Defender source files. No Defender source was found in the active repo or old workspace.

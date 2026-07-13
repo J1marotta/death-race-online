@@ -799,6 +799,9 @@
           <span class="tag">Host-only start</span>
           <span class="tag">WebSocket updates</span>
           <span class="tag">Polling fallback</span>
+          <span class="tag">60fps rendering</span>
+          <span class="tag">20Hz input deltas</span>
+          <span class="tag">Server adjudication</span>
           <span class="tag">Cloudflare deploy</span>
         </div>
       </section>
@@ -920,6 +923,7 @@
           <div class="lab-tabs" role="tablist" aria-label="Concepts">
             <button type="button" role="tab" aria-selected="true" data-concept="durable">Durable Objects</button>
             <button type="button" role="tab" aria-selected="false" data-concept="websocket">WebSockets</button>
+            <button type="button" role="tab" aria-selected="false" data-concept="netcode">Netcode smoothing</button>
             <button type="button" role="tab" aria-selected="false" data-concept="cors">CORS</button>
             <button type="button" role="tab" aria-selected="false" data-concept="authority">Server authority</button>
           </div>
@@ -1009,7 +1013,7 @@
         durable: {
           kicker: "Official clipboard",
           title: "RoomLobbyObject",
-          body: "One Durable Object owns one room code. It stores the room snapshot, broadcasts updates, schedules cleanup, and destroys abandoned rooms.",
+          body: "One Durable Object owns one room code. It keeps the live room in memory, persists durable changes to storage, batches input broadcasts on a 50ms ticker, adjudicates human finishes, schedules cleanup, and destroys abandoned rooms.",
           code: "env.ROOM_LOBBY.idFromName(roomCode)"
         },
         clients: {
@@ -1088,14 +1092,25 @@
         },
         websocket: {
           title: "WebSockets",
-          body: "WebSockets are the radio. Instead of every browser constantly asking what changed, the room can broadcast the new snapshot when it changes.",
+          body: "WebSockets are the radio. Input, heartbeats, and shots travel up the socket, and the room broadcasts full snapshots for big changes plus compact 50ms input deltas during play. The sockets use Cloudflare's hibernation API so idle rooms cost nothing.",
           bullets: [
             "Great for roster, readiness, shots, and phase changes.",
-            "Faster and calmer than constant polling.",
-            "Still needs fallback behavior for tests and fragile networks.",
-            "Does not magically solve state ownership."
+            "Inputs go up at 20Hz, deduped when nothing changed.",
+            "Batched deltas beat rebroadcasting the whole room per message.",
+            "Still needs fallback behavior for tests and fragile networks."
           ],
           takeaway: "A socket is a delivery path, not a game design. Decide who owns the truth first."
+        },
+        netcode: {
+          title: "Netcode smoothing",
+          body: "The wire never runs at 60fps; the screen does. Local movement advances every animation frame, while remote racers are dead-reckoned: the client extrapolates from the last synced progress and movement mode, then eases toward the target instead of snapping.",
+          bullets: [
+            "Render at 60fps locally; sync over the network at 20Hz.",
+            "Dead reckoning hides latency between input syncs.",
+            "Ease small corrections, snap through large ones.",
+            "Physical round-trip time to the room still exists; smoothing is what hides it."
+          ],
+          takeaway: "Smoothness is a rendering trick layered on honest, lower-rate network state."
         },
         cors: {
           title: "CORS",
@@ -1110,12 +1125,12 @@
         },
         authority: {
           title: "Server authority",
-          body: "The current prototype lets clients render and send input while the host controls round progression. The Worker enforces room rules like host-only start and everyone-ready.",
+          body: "Clients render and send input, the Worker enforces room rules like host-only start and everyone-ready, and the Durable Object now adjudicates human finish-line wins from the freshest inputs. The first recorded winner stands; a late host report cannot overwrite it.",
           bullets: [
-            "Good enough for friendly playtesting.",
-            "Not hardened for competitive cheating.",
+            "Human finishes are decided server-side from 20Hz input data.",
+            "NPC wins still arrive from the host, which simulates NPCs deterministically.",
             "Backend checks protect shared state.",
-            "A future competitive mode should move more secrets and simulation server-side."
+            "Identity is still just a player name, so it is not hardened for competitive cheating."
           ],
           takeaway: "Authority is a product decision. Friendly party game and ranked competitive game need different levels of trust."
         }
@@ -1196,6 +1211,12 @@
           choices: ["Only in disabled frontend buttons", "In the backend shared state path", "In the README"],
           answer: 1,
           why: "Frontend checks guide users; backend checks protect the shared room state."
+        },
+        {
+          q: "How do remote racers look smooth at 60fps when input only syncs at 20Hz?",
+          choices: ["The network actually runs at 60Hz", "Dead reckoning extrapolates between syncs", "The browser caches future positions"],
+          answer: 1,
+          why: "Each frame the client extrapolates remote progress from the last synced movement mode and eases toward the target, so rendering stays smooth between network updates."
         }
       ];
 

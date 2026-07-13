@@ -515,6 +515,10 @@ Observability follows the same cost discipline: Workers Logs is enabled, but aut
 
 Lesson: measure before optimizing, and know which meter you are reading. The scary number was a raw analytics count; the billable number was 20x smaller and the real cost lever (duration) was already handled.
 
+The remaining leak was abandonment: an open tab heartbeats forever, keeping its room, alarms, and storage writes alive indefinitely. Two layers close it. The client disconnects itself after 20 minutes without any pointer or keyboard interaction, which stops the traffic at the source. The server is the guarantee: heartbeats keep a player connected but deliberately do not count as room activity, and a room with no meaningful action for 30 minutes is destroyed on its next heartbeat, read, socket message, or alarm.
+
+Lesson: liveness and activity are different signals. A heartbeat proves the tab exists, not that anyone is playing. Timeouts should key off intent, and the server, not the client, must own the final cutoff.
+
 The production app currently talks to:
 
 - Pages frontend: the latest `death-race-online.pages.dev` deployment.

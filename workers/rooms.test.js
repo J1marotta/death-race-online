@@ -347,6 +347,43 @@ describe('rooms worker', () => {
     }
   })
 
+  it('destroys lobbies left idle past the inactivity limit', async () => {
+    const state = createDurableObjectState()
+    const roomObject = new RoomLobbyObject(state, {})
+
+    await roomObject.fetch(postRoom('create', { hostName: 'James' }))
+    const staleActivity = new Date(Date.now() - 31 * 60 * 1000).toISOString()
+    roomObject.room = { ...roomObject.room, lastActivityAt: staleActivity }
+
+    const response = await roomObject.fetch(
+      postRoom('heartbeat', { playerName: 'James' }),
+    )
+    const body = await response.json()
+
+    expect(response.status).toBe(410)
+    expect(body.destroyed).toBe(true)
+    expect(body.error).toBe('Room closed after inactivity')
+    expect(state.store.has('room')).toBe(false)
+  })
+
+  it('does not extend the idle window from heartbeats alone', async () => {
+    const state = createDurableObjectState()
+    const roomObject = new RoomLobbyObject(state, {})
+
+    await roomObject.fetch(postRoom('create', { hostName: 'James' }))
+    const pinnedActivity = new Date(Date.now() - 60 * 1000).toISOString()
+    roomObject.room = { ...roomObject.room, lastActivityAt: pinnedActivity }
+
+    await roomObject.fetch(postRoom('heartbeat', { playerName: 'James' }))
+    await roomObject.fetch(new Request('https://rooms.example/api/rooms/DR-TEST'))
+
+    expect(roomObject.room.lastActivityAt).toBe(pinnedActivity)
+
+    await roomObject.fetch(postRoom('ready', { playerName: 'James', ready: true }))
+
+    expect(roomObject.room.lastActivityAt).not.toBe(pinnedActivity)
+  })
+
   it('adjudicates a human finish from live input on the server', async () => {
     const state = createDurableObjectState()
     const roomObject = new RoomLobbyObject(state, {})

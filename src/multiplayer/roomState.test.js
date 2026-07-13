@@ -3,6 +3,7 @@ import {
   canStartRoom,
   createRoomState,
   finishRoomRound,
+  isRoomIdleExpired,
   joinRoomState,
   leaveRoomState,
   renamePlayerState,
@@ -31,6 +32,25 @@ describe('roomState', () => {
     expect(room.players[0].role).toBe('host')
     expect(room.hostId).toBe('james')
     expect(room.players[0].ready).toBe(false)
+  })
+
+  it('flags rooms idle-expired only after the inactivity window', () => {
+    const room = createRoomState({
+      roomCode: 'DR-2048',
+      hostName: 'James',
+    })
+    const idleTtlMs = 30 * 60 * 1000
+    const createdAt = Date.parse(room.lastActivityAt)
+
+    expect(isRoomIdleExpired(room, idleTtlMs, createdAt + idleTtlMs - 1000)).toBe(false)
+    expect(isRoomIdleExpired(room, idleTtlMs, createdAt + idleTtlMs + 1000)).toBe(true)
+    expect(
+      isRoomIdleExpired(
+        { ...room, lastActivityAt: undefined },
+        idleTtlMs,
+        Date.parse(room.updatedAt) + 1000,
+      ),
+    ).toBe(false)
   })
 
   it('joins and leaves players cleanly', () => {

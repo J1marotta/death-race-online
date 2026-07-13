@@ -53,7 +53,17 @@ export function createRoomState({ roomCode, hostName, privacy = 'public', roundC
     roundState: createRoundState({ players: [host], round: 1 }),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    lastActivityAt: new Date().toISOString(),
   }
+}
+
+// Idle expiry uses lastActivityAt, which only meaningful actions refresh —
+// heartbeats deliberately do not count, so an abandoned-but-open tab cannot
+// keep a room alive forever.
+export function isRoomIdleExpired(room, idleTtlMs, now = Date.now()) {
+  const lastActivity =
+    Date.parse(room.lastActivityAt ?? room.updatedAt ?? room.createdAt ?? '') || 0
+  return now - lastActivity > idleTtlMs
 }
 
 export function joinRoomState(room, playerName) {

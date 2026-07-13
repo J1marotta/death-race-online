@@ -137,6 +137,8 @@ const NPC_MAX_PROGRESS = 99
 const FAST_FORWARD_MULTIPLIER = 4
 const HEARTBEAT_INTERVAL_MS = 20000
 const FALLBACK_POLL_INTERVAL_MS = 10000
+const CLIENT_IDLE_DISCONNECT_MS = 20 * 60 * 1000
+const CLIENT_IDLE_CHECK_INTERVAL_MS = 60000
 const INPUT_SYNC_INTERVAL_MS = 1000
 const LIVE_INPUT_SYNC_INTERVAL_MS = 50
 const FRAME_FALLBACK_MS = 16
@@ -323,6 +325,7 @@ function App() {
   const latestInputSnapshotRef = useRef(null)
   const remoteSnapshotsRef = useRef({})
   const liveSocketRef = useRef(null)
+  const lastInteractionRef = useRef(Date.now())
   const activeState = STATE_COPY[state]
   const lobbyInProgress = !['menu', 'lobby'].includes(state)
   const movementLocked = state === 'countdown'
@@ -725,6 +728,20 @@ function App() {
       window.removeEventListener('keydown', unlockAudio, true)
     }
   }, [resumeAudio])
+
+  useEffect(() => {
+    const bumpInteraction = () => {
+      lastInteractionRef.current = Date.now()
+    }
+    window.addEventListener('pointerdown', bumpInteraction, true)
+    window.addEventListener('pointermove', bumpInteraction, true)
+    window.addEventListener('keydown', bumpInteraction, true)
+    return () => {
+      window.removeEventListener('pointerdown', bumpInteraction, true)
+      window.removeEventListener('pointermove', bumpInteraction, true)
+      window.removeEventListener('keydown', bumpInteraction, true)
+    }
+  }, [])
 
   // Sends realtime traffic over the live socket when it is open. Returns
   // false so callers can fall back to the HTTP actions.
@@ -1221,6 +1238,23 @@ function App() {
     const intervalId = window.setInterval(heartbeat, HEARTBEAT_INTERVAL_MS)
     return () => window.clearInterval(intervalId)
   }, [activePlayerName, roomClosed, sendLiveMessage, state, syncRoom])
+
+  // Idle kill switch: a tab left open with no interaction leaves the room so
+  // it stops heartbeating and the backend can destroy the lobby.
+  const hasRoomSnapshot = Boolean(roomSnapshot)
+  useEffect(() => {
+    if (state === 'menu' || roomClosed || !hasRoomSnapshot) {
+      return undefined
+    }
+    const intervalId = window.setInterval(() => {
+      if (Date.now() - lastInteractionRef.current < CLIENT_IDLE_DISCONNECT_MS) {
+        return
+      }
+      leaveRoomOnUnload(activeRoomCode, { playerName: activePlayerName })
+      handleRoomClosed('Disconnected after inactivity')
+    }, CLIENT_IDLE_CHECK_INTERVAL_MS)
+    return () => window.clearInterval(intervalId)
+  }, [activePlayerName, activeRoomCode, handleRoomClosed, hasRoomSnapshot, roomClosed, state])
 
   useEffect(() => {
     const controlledLane = LANES.find((lane) => lane.id === controlledRacerId)

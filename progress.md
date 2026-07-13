@@ -696,3 +696,13 @@ Last updated: 2026-07-13
 - Added low-volume structured lifecycle logEvent calls: room_created, room_destroyed, socket_opened, socket_closed, socket_error, input_ticker_started, input_ticker_stopped, and round_adjudicated.
 - Noted a future cost lever: event-driven input sends (mode changes plus ~2Hz progress corrections, full rate near the finish) would cut message volume ~90% if player counts grow.
 - Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 66 : Stop Idle Lobbies From Billing Forever
+
+- Identified the leak: hibernation keeps idle duration near zero, but an abandoned open tab heartbeats forever, so the room, its alarms, and its storage writes never stop.
+- Added `lastActivityAt` to room state, refreshed by meaningful actions (joins, ready, settings, phases, shots, inputs) but deliberately not by heartbeats, reads, or alarms.
+- Server enforcement: rooms idle past 30 minutes are destroyed with `Room closed after inactivity` on the next heartbeat, read, WebSocket message, or cleanup alarm, and clients see the existing closed-room state.
+- Client kill switch: after 20 minutes without any pointer or keyboard interaction, the client sends a leave beacon and shows `Disconnected after inactivity`, stopping heartbeat/input traffic at the source.
+- Confirmed via the observability MCP that Workers Logs has no historical data for the earlier 60k-hit test (observability was only just enabled); the 60k figure came from dashboard request analytics, which show raw WebSocket message counts that bill at 20:1.
+- Added regression coverage for idle expiry timing, idle-room destruction on heartbeat, and heartbeats not extending the idle window.
+- Verified with `npm test`; `npm run lint`; `npm run build`.

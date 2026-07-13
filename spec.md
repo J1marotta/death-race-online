@@ -29,6 +29,7 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 - The room side panel is visible for menu, lobby, and result/scoreboard states, then hides during countdown and live play so the playfield is the focus.
 - Transport sync state is internal recovery information and should not flicker as a visible UI status.
 - Rooms are destroyed when the host leaves or when every client stops heartbeating.
+- Rooms left idle are destroyed: heartbeats keep a player connected but do not count as activity, and a room with no meaningful action for 30 minutes is closed. Clients disconnect themselves after 20 minutes without any pointer or keyboard interaction so abandoned tabs stop generating traffic.
 - Remaining clients see a closed-room state with a return-to-menu action when the host leaves or the room expires.
 - Late joiners spectate until the next round.
 - Player names are visible in the lobby and scoreboard.

@@ -1,6 +1,7 @@
 import {
   adjudicateRoundWinner,
   createRoomState,
+  isRoomIdleExpired,
   joinRoomState,
   leaveRoomState,
   pruneDisconnectedPlayers,
@@ -25,6 +26,8 @@ const PLAYER_STALE_MS = 45000
 const CLEANUP_ALARM_MS = PLAYER_STALE_MS + 1000
 const INPUT_BROADCAST_MS = 50
 const INPUT_TICKER_IDLE_TICKS = 20
+const IDLE_ROOM_TTL_MS = 30 * 60 * 1000
+const IDLE_ROOM_REASON = 'Room closed after inactivity'
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-methods': 'GET, POST, OPTIONS',
@@ -101,16 +104,21 @@ class RoomLobbyObject {
   // Durable state (phases, rosters, shots, scores) persists to storage and
   // broadcasts the full room. High-rate ephemeral updates (inputs) keep the
   // room in memory only and go out as compact deltas on the input ticker.
-  async saveRoom(room, { persist = true, broadcastRoom = true } = {}) {
-    this.room = room
+  // Heartbeats and reads pass activity: false so they never extend the idle
+  // TTL.
+  async saveRoom(room, { persist = true, broadcastRoom = true, activity = true } = {}) {
+    const nextRoom = activity
+      ? { ...room, lastActivityAt: new Date().toISOString() }
+      : room
+    this.room = nextRoom
     if (persist) {
-      await this.state.storage.put('room', room)
+      await this.state.storage.put('room', nextRoom)
       await this.scheduleCleanupAlarm()
     }
     if (broadcastRoom) {
-      this.broadcast({ type: 'room', room: serializeRoom(room) })
+      this.broadcast({ type: 'room', room: serializeRoom(nextRoom) })
     }
-    return room
+    return nextRoom
   }
 
   async destroyRoom(reason = 'Room closed') {
@@ -177,10 +185,10 @@ class RoomLobbyObject {
       })
       return this.saveRoom(adjudicated)
     }
-    this.room = room
+    this.room = { ...room, lastActivityAt: new Date().toISOString() }
     this.inputsDirty = true
     this.ensureInputTicker()
-    return room
+    return this.room
   }
 
   async scheduleCleanupAlarm() {
@@ -190,11 +198,16 @@ class RoomLobbyObject {
   }
 
   async closeIfNeeded(room) {
-    if (!shouldDestroyRoom(room)) {
+    const reason = shouldDestroyRoom(room)
+      ? 'Room closed'
+      : isRoomIdleExpired(room, IDLE_ROOM_TTL_MS)
+        ? IDLE_ROOM_REASON
+        : null
+    if (!reason) {
       return null
     }
-    await this.destroyRoom('Room closed')
-    return json({ error: 'Room closed', room: null, destroyed: true }, 410)
+    await this.destroyRoom(reason)
+    return json({ error: reason, room: null, destroyed: true }, 410)
   }
 
   async alarm() {
@@ -206,7 +219,11 @@ class RoomLobbyObject {
       await this.destroyRoom('Room closed')
       return
     }
-    await this.saveRoom(room)
+    if (isRoomIdleExpired(room, IDLE_ROOM_TTL_MS)) {
+      await this.destroyRoom(IDLE_ROOM_REASON)
+      return
+    }
+    await this.saveRoom(room, { activity: false })
   }
 
   liveSockets() {
@@ -308,6 +325,10 @@ class RoomLobbyObject {
       socket.send(JSON.stringify({ type: 'closed', error: 'Room closed' }))
       return
     }
+    if (isRoomIdleExpired(room, IDLE_ROOM_TTL_MS)) {
+      await this.destroyRoom(IDLE_ROOM_REASON)
+      return
+    }
 
     if (message.type === 'input') {
       await this.applyInputUpdate(
@@ -340,7 +361,7 @@ class RoomLobbyObject {
       await this.destroyRoom('Room closed')
       return
     }
-    await this.saveRoom(prunedRoom)
+    await this.saveRoom(prunedRoom, { activity: message.type !== 'heartbeat' })
   }
 
   async fetch(request) {
@@ -364,9 +385,9 @@ class RoomLobbyObject {
       if (closedResponse) {
         return closedResponse
       }
-      // Reads only refresh the in-memory copy; they never rewrite storage or
-      // rebroadcast to the live sockets.
-      await this.saveRoom(room, { persist: false, broadcastRoom: false })
+      // Reads only refresh the in-memory copy; they never rewrite storage,
+      // rebroadcast to the live sockets, or extend the idle TTL.
+      await this.saveRoom(room, { persist: false, broadcastRoom: false, activity: false })
       return json({ room: serializeRoom(room) })
     }
 
@@ -532,7 +553,7 @@ class RoomLobbyObject {
         await this.destroyRoom('Room closed')
         return json({ error: 'Room closed', room: null, destroyed: true })
       }
-      await this.saveRoom(nextRoom)
+      await this.saveRoom(nextRoom, { activity: false })
       return json({ room: serializeRoom(nextRoom) })
     }
 

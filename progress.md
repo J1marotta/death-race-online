@@ -79,6 +79,7 @@ Last updated: 2026-07-13
 - If Defender code exists elsewhere, locate it and document its source files before changing gameplay code.
 - Keep generated folders and logs out of commits unless there is a specific reason to include them.
 - Keep commits small and stable after the baseline.
+- Update `spec.md`, `todo.md`, `progress.md`, and `WHY.md` alongside every commit so the docs never drift from the code.
 
 ## Task Log
 
@@ -677,4 +678,12 @@ Last updated: 2026-07-13
 - Added a quiet sine bass note on each chord change and slowed the master fade-in.
 - Kept the existing mute toggle, audio unlock/resume handling, and music start/stop lifecycle intact.
 - Updated the spec visual direction section to describe the elevator-style gameplay music.
+- Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 64 : Keep All Docs Updated With Every Commit
+
+- Adopted the guardrail that `spec.md`, `todo.md`, `progress.md`, and `WHY.md` are updated alongside every commit.
+- Refreshed `WHY.md`, which had gone stale since task 19: the architecture picture now shows memory-first room state, batched input deltas, and server adjudication; live play describes 20Hz socket input and server-decided human finishes; a new netcode section explains 60fps rendering over 20Hz sync with dead reckoning and hibernation.
+- Added bug-museum entries for the NPCs that idled forever and the gameplay music that sounded like static.
+- Updated the prototype-shaped caveats to reflect server adjudication and the name-only identity limitation.
 - Verified with `npm test`; `npm run lint`; `npm run build`.

@@ -62,9 +62,11 @@ Cloudflare Worker: workers/rooms.js
         |
         v
 Durable Object: RoomLobbyObject
-  stores one room snapshot
+  keeps the live room in memory
+  persists durable changes to storage
   validates host-only actions
-  broadcasts live updates
+  batches input broadcasts on a 50ms ticker
+  adjudicates human finish-line wins
   cleans up abandoned rooms
         |
         v
@@ -184,19 +186,31 @@ That last part is the difference between a fake lobby and a real lobby. A fake l
 
 During live play, every browser still renders its own scene. That keeps the UI fast and simple. But important events are shared through the room:
 
-- Local movement sends input snapshots.
-- The latest input snapshot is stored in the room.
+- Local movement sends input snapshots at 20Hz over the live socket.
+- The latest input snapshots live in the room's memory and go out as compact 50ms deltas.
 - Shots are recorded in room state.
 - Shot racers are eliminated for every client.
-- The host records the winner.
+- The room adjudicates human finish-line wins from the freshest inputs; the host reports NPC wins.
 - The shared scoreboard and round history come from the room.
 - The host starts the next round.
 
-The host currently acts as the authority for round progression: countdown to playing, winner recording, scoreboard, and next round. That is a good prototype tradeoff. It is simpler than building a full authoritative game server, but far more real than a local-only demo.
+The host still drives phase transitions (countdown to playing, scoreboard, next round), but the contested moment — who crossed the line first — is decided server-side from 20Hz input data, and the first recorded winner for a round stands. NPC wins still come from the host because NPCs are simulated deterministically on every client, and the server does not run that simulation.
 
-If this ever becomes competitive, that tradeoff should be revisited. A serious version would move more simulation authority server-side, because client-owned movement and hidden assignments are easy for a determined player to inspect or tamper with.
+If this ever becomes competitive, more should move server-side, because client-owned movement and hidden assignments are easy for a determined player to inspect or tamper with, and identity is still just a player name.
 
 For friends testing a hidden-identity party game, the current architecture is the right kind of honest: real multiplayer rooms, clear state ownership, enough synchronization to play, and not too much infrastructure too early.
+
+## How The Netcode Stays Smooth
+
+The screen runs at 60fps. The network does not, and never needs to.
+
+- Local movement advances on a requestAnimationFrame delta-time loop, so your own racer moves at your display's refresh rate.
+- Remote racers are dead-reckoned: each frame the client extrapolates from their last synced progress and movement mode (the speed constants are shared), easing toward the target instead of snapping once per sync. Small corrections ease; large ones snap through.
+- Clients send input at 20Hz over the WebSocket, deduped when nothing changed. The HTTP fallback stays rate-limited to once per second.
+- The Durable Object keeps the room in memory during play and rebroadcasts inputs as compact deltas on a 50ms ticker that stops itself when traffic goes quiet, so the object can hibernate and storage is only written for durable changes.
+- The sockets use Cloudflare's WebSocket hibernation API, so idle rooms cost nothing and connections survive object eviction.
+
+The mental model: smoothness is a rendering trick layered on honest, lower-rate network state. Physical round-trip time to the room still exists; dead reckoning is what hides it.
 
 ## The Durable Object Idea
 
@@ -215,12 +229,13 @@ The Worker uses `idFromName(roomCode)` so the same room code always routes to th
 
 ## WebSockets And Polling
 
-The app uses WebSockets for live room updates and HTTP polling as a fallback.
+The app uses WebSockets for live traffic in both directions and HTTP polling as a fallback.
 
 WebSocket:
 
 - Fast.
 - Pushes updates immediately.
+- Carries input, heartbeats, and shots up from clients.
 - Good for lobby roster, readiness, shots, and phase changes.
 
 Polling fallback:
@@ -398,6 +413,22 @@ The fix was to make NPCs stick to lanes, calm their winning behavior, and later 
 
 Lesson: simulation bugs are design bugs. If NPCs behave strangely, players stop reading social tells and start reading implementation flaws.
 
+### NPCs That Idled Forever
+
+The calming went too far. Simulation showed NPCs spent about 40% of their ticks stopped or idle-crawling, with a per-lane drag handicap on top, averaging 39% of a running player's speed. The fastest NPC finished in ~47 seconds against a ~21 second running player, so NPCs read as set dressing — and anyone moving with intent was instantly identifiable as human.
+
+The fix flipped the behavior model from "wandering extras" to "players": run-heavy pacing personalities with walk breaks and brief human-scale stops, no extended pause blocks, no idle crawl, no drag handicap. Front-runner NPCs now finish in 23-24 seconds, so committed humans win narrowly and hesitant humans can lose.
+
+Lesson: in a hidden-identity game, NPCs are not scenery. They are the crowd you hide in, so they must be statistically similar to the players.
+
+### Music That Sounded Like Static
+
+The first gameplay music sustained a square-wave bass and a sawtooth drone continuously under a fast minor-key note loop. Harsh waveforms held forever read as noise, not music.
+
+The fix replaced the drones with an elevator-style loop: soft sine pads holding a Cmaj7/Am7/Dm7/G7 progression, a gentle triangle melody at a relaxed beat, and a quiet bass note on each chord change.
+
+Lesson: generated audio is cheap to ship and easy to get wrong. Waveform choice and envelope shape matter more than the notes.
+
 ### Mouse Aim And Click-To-Kill
 
 There were control bugs where the mouse felt offset, movement felt stuck, and clicking too broadly could kill. These are dangerous because a hidden-identity game needs players to trust the controls.
@@ -482,9 +513,9 @@ The game is real enough for friends to join and play, but it is not hardened lik
 
 Important caveats:
 
-- The client still renders and participates heavily in gameplay simulation.
+- The client still renders and participates heavily in gameplay simulation, including all NPC simulation.
 - Hidden assignments are deterministic and client-derived, which is fine for friendly testing but not secure against inspection.
-- Host-owned progression is practical, but a more competitive version would use stronger server authority.
+- Human finishes are adjudicated server-side, but identity is still just a player name, so it is not hardened against impersonation or competitive cheating.
 - No accounts or persistent player identity exist yet.
 - Mobile and tablet controls are deferred.
 - Defender integration is still waiting on actual Defender source files or a clear integration plan.

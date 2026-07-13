@@ -1,4 +1,5 @@
 const MAX_PLAYERS = 20
+const FINISH_PROGRESS = 93
 
 function createScoreState(players, currentScores = {}) {
   return Object.fromEntries(
@@ -342,6 +343,11 @@ export function finishRoomRound(room, winner) {
   if (!winner?.laneId) {
     return room
   }
+  // First adjudication wins; a late report cannot overwrite the recorded
+  // winner for the round.
+  if (room.phase === 'roundOver' && room.roundState?.winner) {
+    return room
+  }
   const existingHistory = room.roundState?.history ?? []
   const alreadyRecorded = existingHistory.some((entry) => entry.round === room.round)
   const winnerEntry = {
@@ -374,6 +380,42 @@ export function finishRoomRound(room, winner) {
     }),
     updatedAt: new Date().toISOString(),
   }
+}
+
+// Adjudicates human finishes on the server from the freshest inputs. NPC
+// racers are simulated deterministically on the clients, so NPC wins still
+// arrive from the host via the round-over action.
+export function adjudicateRoundWinner(room, { finishProgress = FINISH_PROGRESS } = {}) {
+  if (room.phase !== 'playing') {
+    return room
+  }
+  const shotRacerIds = room.roundState?.shotRacerIds ?? []
+  let winner = null
+  for (const [playerName, input] of Object.entries(room.inputs ?? {})) {
+    if (
+      !Number.isFinite(input?.progress) ||
+      input.progress < finishProgress ||
+      !Number.isFinite(input?.laneId) ||
+      shotRacerIds.includes(Number(input.laneId))
+    ) {
+      continue
+    }
+    const player = room.players.find(
+      (roomPlayer) => roomPlayer.name === playerName && roomPlayer.connected,
+    )
+    if (!player) {
+      continue
+    }
+    if (!winner || input.progress > winner.finalProgress) {
+      winner = {
+        laneId: Number(input.laneId),
+        winnerName: playerName,
+        winnerType: 'human',
+        finalProgress: input.progress,
+      }
+    }
+  }
+  return winner ? finishRoomRound(room, winner) : room
 }
 
 export function showRoomScoreboard(room) {

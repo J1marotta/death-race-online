@@ -1179,6 +1179,7 @@ function App() {
       playerName: activePlayerName,
       movementMode,
       aim,
+      laneId: controlledRacerId,
       progress: Math.min((controlledLane?.progress ?? 0) + controlledProgress, NPC_MAX_PROGRESS),
       firing: !localHasBullet,
     }

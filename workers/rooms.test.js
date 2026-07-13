@@ -347,6 +347,73 @@ describe('rooms worker', () => {
     }
   })
 
+  it('adjudicates a human finish from live input on the server', async () => {
+    const state = createDurableObjectState()
+    const roomObject = new RoomLobbyObject(state, {})
+
+    await roomObject.fetch(postRoom('create', { hostName: 'James' }))
+    await roomObject.fetch(postRoom('ready', { playerName: 'James', ready: true }))
+    await roomObject.fetch(postRoom('join', { playerName: 'Mia' }))
+    await roomObject.fetch(postRoom('ready', { playerName: 'Mia', ready: true }))
+    await roomObject.fetch(postRoom('countdown', { playerName: 'James' }))
+    await roomObject.fetch(postRoom('playing', { playerName: 'James' }))
+
+    const socket = {
+      send: () => {},
+      deserializeAttachment: () => ({ playerName: 'Mia' }),
+    }
+    await roomObject.webSocketMessage(
+      socket,
+      JSON.stringify({ type: 'input', movementMode: 'running', laneId: 5, progress: 88 }),
+    )
+    expect(state.store.get('room').phase).toBe('playing')
+
+    await roomObject.webSocketMessage(
+      socket,
+      JSON.stringify({ type: 'input', movementMode: 'running', laneId: 5, progress: 94 }),
+    )
+
+    const room = state.store.get('room')
+    expect(room.phase).toBe('roundOver')
+    expect(room.roundState.winner).toMatchObject({
+      laneId: 5,
+      winnerName: 'Mia',
+      winnerType: 'human',
+      finalProgress: 94,
+    })
+    expect(room.roundState.scores.Mia).toBe(1)
+  })
+
+  it('keeps the first adjudicated winner when a late round-over arrives', async () => {
+    const state = createDurableObjectState()
+    const roomObject = new RoomLobbyObject(state, {})
+
+    await roomObject.fetch(postRoom('create', { hostName: 'James' }))
+    await roomObject.fetch(postRoom('ready', { playerName: 'James', ready: true }))
+    await roomObject.fetch(postRoom('join', { playerName: 'Mia' }))
+    await roomObject.fetch(postRoom('ready', { playerName: 'Mia', ready: true }))
+    await roomObject.fetch(postRoom('countdown', { playerName: 'James' }))
+    await roomObject.fetch(postRoom('playing', { playerName: 'James' }))
+    await roomObject.fetch(
+      postRoom('input', { playerName: 'Mia', movementMode: 'running', laneId: 5, progress: 95 }),
+    )
+
+    const lateFinish = await roomObject.fetch(
+      postRoom('round-over', {
+        playerName: 'James',
+        laneId: 9,
+        winnerName: 'NPC 9',
+        winnerType: 'npc',
+        finalProgress: 93,
+      }),
+    )
+    const { room } = await lateFinish.json()
+
+    expect(room.phase).toBe('roundOver')
+    expect(room.roundState.winner.winnerName).toBe('Mia')
+    expect(room.roundState.winner.laneId).toBe(5)
+  })
+
   it('syncs host-controlled round events through the room', async () => {
     const state = createDurableObjectState()
     const roomObject = new RoomLobbyObject(state, {})

@@ -1,4 +1,5 @@
 import {
+  adjudicateRoundWinner,
   createRoomState,
   joinRoomState,
   leaveRoomState,
@@ -151,7 +152,14 @@ class RoomLobbyObject {
     })
   }
 
-  applyInputUpdate(room) {
+  // Applies an input update, letting the server adjudicate a human finish
+  // from the freshest data. A finish is a durable phase change; plain input
+  // updates stay in memory for the ticker.
+  async applyInputUpdate(room) {
+    const adjudicated = adjudicateRoundWinner(room)
+    if (adjudicated !== room) {
+      return this.saveRoom(adjudicated)
+    }
     this.room = room
     this.inputsDirty = true
     this.ensureInputTicker()
@@ -264,10 +272,11 @@ class RoomLobbyObject {
     }
 
     if (message.type === 'input') {
-      this.applyInputUpdate(
+      await this.applyInputUpdate(
         setPlayerInputState(room, playerName, {
           movementMode: message.movementMode ?? 'stopped',
           aim: message.aim ?? null,
+          laneId: message.laneId ?? null,
           progress: message.progress ?? 0,
           firing: message.firing ?? false,
         }),
@@ -489,10 +498,11 @@ class RoomLobbyObject {
     }
 
     if (action === 'input') {
-      const nextRoom = this.applyInputUpdate(
+      const nextRoom = await this.applyInputUpdate(
         setPlayerInputState(room, body.playerName ?? 'Player', {
           movementMode: body.movementMode ?? 'stopped',
           aim: body.aim ?? null,
+          laneId: body.laneId ?? null,
           progress: body.progress ?? 0,
           firing: body.firing ?? false,
         }),

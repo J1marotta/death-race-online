@@ -574,6 +574,16 @@ code {
   box-shadow:
     3px 3px 0 rgba(0, 0, 0, 0.42),
     inset 0 -5px 0 rgba(0, 0, 0, 0.22);
+  transition: left 90ms linear;
+}
+
+/* The controlled racer updates every animation frame and death repositions
+   should not glide, so they skip the step-smoothing transition. */
+.racer.stopped,
+.racer.walking,
+.racer.running,
+.racer.dead {
+  transition: none;
 }
 
 .racer-head {

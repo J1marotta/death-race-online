@@ -138,6 +138,10 @@ const FAST_FORWARD_MULTIPLIER = 4
 const HEARTBEAT_INTERVAL_MS = 20000
 const FALLBACK_POLL_INTERVAL_MS = 10000
 const INPUT_SYNC_INTERVAL_MS = 1000
+const FRAME_FALLBACK_MS = 16
+const MAX_FRAME_DT_MS = 250
+const REMOTE_BLEND_MS = 150
+const REMOTE_SNAP_DISTANCE = 8
 const NPC_PATTERNS = [
   ['walk', 'walk', 'stop', 'walk', 'walk', 'stop', 'idle'],
   ['stop', 'walk', 'walk', 'idle', 'walk', 'stop', 'walk'],
@@ -149,6 +153,11 @@ const NPC_SPEEDS = {
   stop: 0,
   walk: WALK_SPEED,
   run: RUN_SPEED
+}
+const MOVEMENT_SPEEDS_BY_MODE = {
+  stopped: 0,
+  walking: WALK_SPEED,
+  running: RUN_SPEED
 }
 
 const SOUND_PROFILES = {
@@ -205,6 +214,39 @@ const createNpcProgressByLane = humanLaneIds =>
 const generateRoomCode = () =>
   `DR-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
 
+// Runs onFrame(dtMs, nowMs) every animation frame; falls back to a 16ms
+// timeout where requestAnimationFrame is unavailable (jsdom). Returns a stop
+// function.
+const createFrameLoop = (onFrame) => {
+  const usingRaf = typeof window.requestAnimationFrame === 'function'
+  let handle = null
+  let stopped = false
+  let last = null
+  const frame = (now) => {
+    if (stopped) {
+      return
+    }
+    const dt = last === null ? 0 : Math.min(Math.max(now - last, 0), MAX_FRAME_DT_MS)
+    last = now
+    onFrame(dt, now)
+    schedule()
+  }
+  const schedule = () => {
+    handle = usingRaf
+      ? window.requestAnimationFrame(frame)
+      : window.setTimeout(() => frame(performance.now()), FRAME_FALLBACK_MS)
+  }
+  schedule()
+  return () => {
+    stopped = true
+    if (usingRaf) {
+      window.cancelAnimationFrame(handle)
+    } else {
+      window.clearTimeout(handle)
+    }
+  }
+}
+
 function App() {
   const initialRoomCode = (() => {
     const match = window.location.pathname.match(/\/join\/([^/]+)/)
@@ -236,6 +278,7 @@ function App() {
   const [currentRound, setCurrentRound] = useState(1)
   const [scores, setScores] = useState(() => createScoreState(PLAYERS))
   const [roundHistory, setRoundHistory] = useState([])
+  const [remoteProgressByPlayer, setRemoteProgressByPlayer] = useState({})
   const [roomSnapshot, setRoomSnapshot] = useState(null)
   const [roomSyncState, setRoomSyncState] = useState('local')
   const [roomError, setRoomError] = useState('')
@@ -251,6 +294,7 @@ function App() {
   const musicNodesRef = useRef(null)
   const soundMutedRef = useRef(false)
   const latestInputSnapshotRef = useRef(null)
+  const remoteSnapshotsRef = useRef({})
   const activeState = STATE_COPY[state]
   const lobbyInProgress = !['menu', 'lobby'].includes(state)
   const movementLocked = state === 'countdown'
@@ -348,6 +392,10 @@ function App() {
         return Math.min(racer.progress + controlledProgress, 99)
       }
       if (racer.controller.type === 'human') {
+        const reckonedProgress = remoteProgressByPlayer[racer.controller.name]
+        if (Number.isFinite(reckonedProgress)) {
+          return reckonedProgress
+        }
         const syncedProgress = roomInputs[racer.controller.name]?.progress
         if (Number.isFinite(syncedProgress)) {
           return syncedProgress
@@ -362,6 +410,7 @@ function App() {
       controlledProgress,
       controlledRacerId,
       npcProgressByLane,
+      remoteProgressByPlayer,
       roomInputs,
       shotRacerIds,
     ]
@@ -757,11 +806,15 @@ function App() {
     ) {
       return undefined
     }
-    const speed = movementMode === 'running' ? RUN_SPEED : WALK_SPEED
-    const intervalId = window.setInterval(() => {
-      setControlledProgress(current => Math.min(current + speed, NPC_MAX_PROGRESS))
-    }, TICK_MS)
-    return () => window.clearInterval(intervalId)
+    const speedPerMs = (MOVEMENT_SPEEDS_BY_MODE[movementMode] ?? 0) / TICK_MS
+    return createFrameLoop((dt) => {
+      if (dt <= 0) {
+        return
+      }
+      setControlledProgress(current =>
+        Math.min(current + speedPerMs * dt, NPC_MAX_PROGRESS)
+      )
+    })
   }, [controlledRacerEliminated, movementMode, state])
 
   useEffect(() => {
@@ -803,6 +856,76 @@ function App() {
     }, TICK_MS)
     return () => window.clearInterval(intervalId)
   }, [npcSeedParts, raceSpeedMultiplier, roundRacers, shotRacerIds, state])
+
+  // Track when each remote input snapshot arrived so dead reckoning can
+  // extrapolate from it between syncs.
+  useEffect(() => {
+    const now = performance.now()
+    const snapshots = remoteSnapshotsRef.current
+    const next = {}
+    for (const [playerName, input] of Object.entries(roomInputs)) {
+      if (!input || !Number.isFinite(input.progress)) {
+        continue
+      }
+      const previous = snapshots[playerName]
+      const unchanged =
+        previous &&
+        previous.progress === input.progress &&
+        previous.movementMode === input.movementMode &&
+        previous.updatedAt === input.updatedAt
+      next[playerName] = unchanged
+        ? previous
+        : {
+            progress: input.progress,
+            movementMode: input.movementMode ?? 'stopped',
+            updatedAt: input.updatedAt,
+            receivedAt: now,
+          }
+    }
+    remoteSnapshotsRef.current = next
+  }, [roomInputs])
+
+  // Dead reckoning: advance remote racers every frame from their last synced
+  // progress and movement mode, easing toward the extrapolated target instead
+  // of snapping once per sync.
+  useEffect(() => {
+    if (state !== 'playing') {
+      return undefined
+    }
+    return createFrameLoop((dt, now) => {
+      setRemoteProgressByPlayer(current => {
+        const snapshots = remoteSnapshotsRef.current
+        const names = Object.keys(snapshots)
+        if (!names.length) {
+          return Object.keys(current).length ? {} : current
+        }
+        let changed = Object.keys(current).length !== names.length
+        const next = {}
+        for (const name of names) {
+          const snapshot = snapshots[name]
+          const speedPerMs =
+            (MOVEMENT_SPEEDS_BY_MODE[snapshot.movementMode] ?? 0) / TICK_MS
+          const target = Math.min(
+            snapshot.progress + speedPerMs * Math.max(now - snapshot.receivedAt, 0),
+            NPC_MAX_PROGRESS,
+          )
+          const displayed = current[name]
+          let value = target
+          if (
+            Number.isFinite(displayed) &&
+            Math.abs(target - displayed) <= REMOTE_SNAP_DISTANCE
+          ) {
+            value = displayed + (target - displayed) * Math.min(1, dt / REMOTE_BLEND_MS)
+          }
+          if (value !== displayed) {
+            changed = true
+          }
+          next[name] = value
+        }
+        return changed ? next : current
+      })
+    })
+  }, [state])
 
   const statusItems = useMemo(
     () => {
@@ -1086,6 +1209,8 @@ function App() {
     setCountdownIndex(0)
     setControlledProgress(0)
     setNpcTick(0)
+    remoteSnapshotsRef.current = {}
+    setRemoteProgressByPlayer({})
     setNpcProgressByLane(createNpcProgressByLane(nextHumanLaneIds))
     setBullets(createBulletState(humanPlayers))
     setShotRacerIds([])

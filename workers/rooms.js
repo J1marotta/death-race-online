@@ -66,7 +66,14 @@ class RoomLobbyObject {
   constructor(state, env) {
     this.state = state
     this.env = env
-    this.sessions = new Map()
+    if (
+      typeof state.setWebSocketAutoResponse === 'function' &&
+      typeof WebSocketRequestResponsePair === 'function'
+    ) {
+      state.setWebSocketAutoResponse(
+        new WebSocketRequestResponsePair('ping', JSON.stringify({ type: 'pong' })),
+      )
+    }
   }
 
   async loadRoom() {
@@ -115,23 +122,28 @@ class RoomLobbyObject {
     await this.saveRoom(room)
   }
 
+  liveSockets() {
+    return typeof this.state.getWebSockets === 'function'
+      ? this.state.getWebSockets()
+      : []
+  }
+
   broadcast(message) {
     const payload = JSON.stringify(message)
-    for (const [sessionId, socket] of this.sessions.entries()) {
+    for (const socket of this.liveSockets()) {
       try {
-        if (socket.readyState > 1) {
-          this.sessions.delete(sessionId)
-          continue
-        }
         socket.send(payload)
       } catch {
-        this.sessions.delete(sessionId)
+        // The runtime removes closed hibernatable sockets on its own.
       }
     }
   }
 
-  async handleWebSocket() {
-    if (typeof WebSocketPair !== 'function') {
+  async handleWebSocket(request) {
+    if (
+      typeof WebSocketPair !== 'function' ||
+      typeof this.state.acceptWebSocket !== 'function'
+    ) {
       return json({ error: 'Live transport unavailable' }, 501)
     }
     const room = await this.loadRoom()
@@ -139,28 +151,82 @@ class RoomLobbyObject {
       return json({ error: 'Room not found' }, 404)
     }
 
+    const playerName = new URL(request.url).searchParams.get('playerName') ?? ''
     const pair = new WebSocketPair()
     const [client, server] = Object.values(pair)
-    const sessionId = crypto.randomUUID()
-    server.accept()
-    this.sessions.set(sessionId, server)
-
-    const closeSession = () => {
-      this.sessions.delete(sessionId)
+    this.state.acceptWebSocket(server)
+    if (typeof server.serializeAttachment === 'function') {
+      server.serializeAttachment({ playerName })
     }
-    server.addEventListener('close', closeSession)
-    server.addEventListener('error', closeSession)
-    server.addEventListener('message', (event) => {
-      if (event.data === 'ping') {
-        server.send(JSON.stringify({ type: 'pong' }))
-      }
-    })
     server.send(JSON.stringify({ type: 'room', room: serializeRoom(room) }))
 
     return new Response(null, {
       status: 101,
       webSocket: client,
     })
+  }
+
+  socketPlayerName(socket) {
+    if (typeof socket.deserializeAttachment !== 'function') {
+      return ''
+    }
+    try {
+      return socket.deserializeAttachment()?.playerName ?? ''
+    } catch {
+      return ''
+    }
+  }
+
+  async webSocketMessage(socket, rawMessage) {
+    if (typeof rawMessage !== 'string') {
+      return
+    }
+    if (rawMessage === 'ping') {
+      socket.send(JSON.stringify({ type: 'pong' }))
+      return
+    }
+    let message
+    try {
+      message = JSON.parse(rawMessage)
+    } catch {
+      return
+    }
+    const playerName = message.playerName ?? this.socketPlayerName(socket)
+    if (!playerName) {
+      return
+    }
+    const room = await this.loadRoom()
+    if (!room) {
+      socket.send(JSON.stringify({ type: 'closed', error: 'Room closed' }))
+      return
+    }
+
+    let nextRoom = null
+    if (message.type === 'input') {
+      nextRoom = setPlayerInputState(room, playerName, {
+        movementMode: message.movementMode ?? 'stopped',
+        aim: message.aim ?? null,
+        progress: message.progress ?? 0,
+        firing: message.firing ?? false,
+      })
+    } else if (message.type === 'heartbeat') {
+      nextRoom = setPlayerHeartbeatState(room, playerName)
+    } else if (message.type === 'shot') {
+      nextRoom = recordRoomShot(room, {
+        shooterName: playerName,
+        laneId: message.laneId,
+      })
+    }
+    if (!nextRoom) {
+      return
+    }
+
+    const prunedRoom = pruneDisconnectedPlayers(nextRoom, PLAYER_STALE_MS)
+    if (shouldDestroyRoom(prunedRoom)) {
+      await this.destroyRoom('Room closed')
+      return
+    }
+    await this.saveRoom(prunedRoom)
   }
 
   async fetch(request) {
@@ -172,7 +238,7 @@ class RoomLobbyObject {
     }
 
     if (request.headers.get('upgrade')?.toLowerCase() === 'websocket') {
-      return this.handleWebSocket()
+      return this.handleWebSocket(request)
     }
 
     if (request.method === 'GET') {

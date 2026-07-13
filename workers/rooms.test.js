@@ -282,6 +282,33 @@ describe('rooms worker', () => {
     expect(body.error).toBe('Player name is not available')
   })
 
+  it('applies input, heartbeat, and shot messages from live sockets', async () => {
+    const state = createDurableObjectState()
+    const roomObject = new RoomLobbyObject(state, {})
+
+    await roomObject.fetch(postRoom('create', { hostName: 'James' }))
+    await roomObject.fetch(postRoom('join', { playerName: 'Mia' }))
+
+    const sent = []
+    const socket = {
+      send: (payload) => sent.push(payload),
+      deserializeAttachment: () => ({ playerName: 'Mia' }),
+    }
+
+    await roomObject.webSocketMessage(
+      socket,
+      JSON.stringify({ type: 'input', movementMode: 'running', progress: 42 }),
+    )
+    await roomObject.webSocketMessage(socket, JSON.stringify({ type: 'heartbeat' }))
+    await roomObject.webSocketMessage(socket, JSON.stringify({ type: 'shot', laneId: 7 }))
+
+    const room = state.store.get('room')
+    expect(room.inputs.Mia.movementMode).toBe('running')
+    expect(room.inputs.Mia.progress).toBe(42)
+    expect(room.roundState.shotRacerIds).toContain(7)
+    expect(room.roundState.shots[0].shooterName).toBe('Mia')
+  })
+
   it('syncs host-controlled round events through the room', async () => {
     const state = createDurableObjectState()
     const roomObject = new RoomLobbyObject(state, {})

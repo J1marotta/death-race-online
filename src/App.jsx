@@ -295,6 +295,7 @@ function App() {
   const soundMutedRef = useRef(false)
   const latestInputSnapshotRef = useRef(null)
   const remoteSnapshotsRef = useRef({})
+  const liveSocketRef = useRef(null)
   const activeState = STATE_COPY[state]
   const lobbyInProgress = !['menu', 'lobby'].includes(state)
   const movementLocked = state === 'countdown'
@@ -673,6 +674,21 @@ function App() {
     }
   }, [resumeAudio])
 
+  // Sends realtime traffic over the live socket when it is open. Returns
+  // false so callers can fall back to the HTTP actions.
+  const sendLiveMessage = useCallback((message) => {
+    const socket = liveSocketRef.current
+    if (!socket || socket.readyState !== 1) {
+      return false
+    }
+    try {
+      socket.send(JSON.stringify(message))
+      return true
+    } catch {
+      return false
+    }
+  }, [])
+
   const handleRoomClosed = useCallback((message = 'Room closed') => {
     setRoomSnapshot(null)
     setRoomSyncState('closed')
@@ -1020,6 +1036,7 @@ function App() {
 
     let closed = false
     const socket = createRoomSocket(activeRoomCode, activePlayerName)
+    liveSocketRef.current = socket
 
     socket.addEventListener('open', () => {
       if (!closed) {
@@ -1047,11 +1064,17 @@ function App() {
       }
     })
     socket.addEventListener('error', () => {
+      if (liveSocketRef.current === socket) {
+        liveSocketRef.current = null
+      }
       if (!closed) {
         setRoomSyncState('polling')
       }
     })
     socket.addEventListener('close', () => {
+      if (liveSocketRef.current === socket) {
+        liveSocketRef.current = null
+      }
       if (!closed) {
         setRoomSyncState('polling')
       }
@@ -1059,6 +1082,9 @@ function App() {
 
     return () => {
       closed = true
+      if (liveSocketRef.current === socket) {
+        liveSocketRef.current = null
+      }
       socket.close()
     }
   }, [activePlayerName, activeRoomCode, handleRoomClosed, roomClosed, state])
@@ -1124,13 +1150,16 @@ function App() {
     }
 
     const heartbeat = () => {
+      if (sendLiveMessage({ type: 'heartbeat', playerName: activePlayerName })) {
+        return
+      }
       void syncRoom('heartbeat', { playerName: activePlayerName })
     }
 
     heartbeat()
     const intervalId = window.setInterval(heartbeat, HEARTBEAT_INTERVAL_MS)
     return () => window.clearInterval(intervalId)
-  }, [activePlayerName, roomClosed, state, syncRoom])
+  }, [activePlayerName, roomClosed, sendLiveMessage, state, syncRoom])
 
   useEffect(() => {
     const controlledLane = LANES.find((lane) => lane.id === controlledRacerId)
@@ -1156,15 +1185,19 @@ function App() {
     }
 
     const sendLatestInput = () => {
-      if (latestInputSnapshotRef.current) {
-        void syncRoom('input', latestInputSnapshotRef.current)
+      if (!latestInputSnapshotRef.current) {
+        return
       }
+      if (sendLiveMessage({ type: 'input', ...latestInputSnapshotRef.current })) {
+        return
+      }
+      void syncRoom('input', latestInputSnapshotRef.current)
     }
 
     sendLatestInput()
     const intervalId = window.setInterval(sendLatestInput, INPUT_SYNC_INTERVAL_MS)
     return () => window.clearInterval(intervalId)
-  }, [roomClosed, state, syncRoom])
+  }, [roomClosed, sendLiveMessage, state, syncRoom])
 
   useEffect(() => {
     if (state !== 'lobby') {
@@ -1503,17 +1536,23 @@ function App() {
       ...current,
       [localPlayerName]: false
     }))
-    void syncRoom('input', {
+    const firingInput = {
       playerName: activePlayerName,
       movementMode,
       aim: nextAim,
       firing: true,
-    })
+    }
+    if (!sendLiveMessage({ type: 'input', ...firingInput })) {
+      void syncRoom('input', firingInput)
+    }
     if (shotHits) {
-      void syncRoom('shot', {
+      const shotPayload = {
         playerName: activePlayerName,
         laneId: nextAim.laneId,
-      })
+      }
+      if (!sendLiveMessage({ type: 'shot', ...shotPayload })) {
+        void syncRoom('shot', shotPayload)
+      }
       setShotRacerIds(current =>
         current.includes(nextAim.laneId)
           ? current

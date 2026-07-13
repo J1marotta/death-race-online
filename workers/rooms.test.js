@@ -193,7 +193,10 @@ describe('rooms worker', () => {
         updatedAt: '2024-01-01T00:00:00.000Z',
       })),
     })
-    const response = await roomObject.fetch(
+    // A fresh object simulates the durable object waking after eviction, so
+    // it reads the doctored storage instead of its in-memory copy.
+    const rebootedObject = new RoomLobbyObject(state, {})
+    const response = await rebootedObject.fetch(
       new Request('https://rooms.example/api/rooms/DR-TEST'),
     )
     const body = await response.json()
@@ -216,7 +219,8 @@ describe('rooms worker', () => {
         updatedAt: '2024-01-01T00:00:00.000Z',
       })),
     })
-    await roomObject.alarm()
+    const rebootedObject = new RoomLobbyObject(state, {})
+    await rebootedObject.alarm()
 
     expect(state.store.has('room')).toBe(false)
   })
@@ -307,6 +311,40 @@ describe('rooms worker', () => {
     expect(room.inputs.Mia.progress).toBe(42)
     expect(room.roundState.shotRacerIds).toContain(7)
     expect(room.roundState.shots[0].shooterName).toBe('Mia')
+  })
+
+  it('broadcasts batched input deltas on the ticker instead of full rooms', async () => {
+    vi.useFakeTimers()
+    try {
+      const state = createDurableObjectState()
+      const sent = []
+      state.getWebSockets = () => [
+        { send: (payload) => sent.push(JSON.parse(payload)) },
+      ]
+      const roomObject = new RoomLobbyObject(state, {})
+
+      await roomObject.fetch(postRoom('create', { hostName: 'James' }))
+      await roomObject.fetch(postRoom('join', { playerName: 'Mia' }))
+      sent.length = 0
+
+      await roomObject.webSocketMessage(
+        { send: () => {}, deserializeAttachment: () => ({ playerName: 'Mia' }) },
+        JSON.stringify({ type: 'input', movementMode: 'running', progress: 12 }),
+      )
+
+      expect(sent).toHaveLength(0)
+      vi.advanceTimersByTime(60)
+      const deltas = sent.filter((message) => message.type === 'inputs')
+      expect(deltas).toHaveLength(1)
+      expect(deltas[0].inputs.Mia.progress).toBe(12)
+      expect(sent.some((message) => message.type === 'room')).toBe(false)
+
+      vi.advanceTimersByTime(2000)
+      expect(sent.filter((message) => message.type === 'inputs')).toHaveLength(1)
+      expect(roomObject.inputTickerId).toBe(null)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('syncs host-controlled round events through the room', async () => {

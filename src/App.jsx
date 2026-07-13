@@ -138,6 +138,7 @@ const FAST_FORWARD_MULTIPLIER = 4
 const HEARTBEAT_INTERVAL_MS = 20000
 const FALLBACK_POLL_INTERVAL_MS = 10000
 const INPUT_SYNC_INTERVAL_MS = 1000
+const LIVE_INPUT_SYNC_INTERVAL_MS = 50
 const FRAME_FALLBACK_MS = 16
 const MAX_FRAME_DT_MS = 250
 const REMOTE_BLEND_MS = 150
@@ -1059,6 +1060,17 @@ function App() {
         setRoomSyncState('live')
         setRoomError('')
       }
+      if (message.type === 'inputs') {
+        setRoomSnapshot(current =>
+          current
+            ? {
+                ...current,
+                inputs: message.inputs ?? {},
+                updatedAt: message.updatedAt ?? current.updatedAt,
+              }
+            : current,
+        )
+      }
       if (message.type === 'closed') {
         handleRoomClosed(message.error ?? 'Room closed')
       }
@@ -1184,18 +1196,32 @@ function App() {
       return undefined
     }
 
+    let lastSentPayload = ''
+    let lastHttpSentAt = 0
     const sendLatestInput = () => {
-      if (!latestInputSnapshotRef.current) {
+      const snapshot = latestInputSnapshotRef.current
+      if (!snapshot) {
         return
       }
-      if (sendLiveMessage({ type: 'input', ...latestInputSnapshotRef.current })) {
+      const payload = JSON.stringify(snapshot)
+      if (payload === lastSentPayload) {
         return
       }
-      void syncRoom('input', latestInputSnapshotRef.current)
+      if (sendLiveMessage({ type: 'input', ...snapshot })) {
+        lastSentPayload = payload
+        return
+      }
+      const now = Date.now()
+      if (now - lastHttpSentAt < INPUT_SYNC_INTERVAL_MS) {
+        return
+      }
+      lastHttpSentAt = now
+      lastSentPayload = payload
+      void syncRoom('input', snapshot)
     }
 
     sendLatestInput()
-    const intervalId = window.setInterval(sendLatestInput, INPUT_SYNC_INTERVAL_MS)
+    const intervalId = window.setInterval(sendLatestInput, LIVE_INPUT_SYNC_INTERVAL_MS)
     return () => window.clearInterval(intervalId)
   }, [roomClosed, sendLiveMessage, state, syncRoom])
 

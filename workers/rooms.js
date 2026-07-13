@@ -22,6 +22,8 @@ import {
 
 const PLAYER_STALE_MS = 45000
 const CLEANUP_ALARM_MS = PLAYER_STALE_MS + 1000
+const INPUT_BROADCAST_MS = 50
+const INPUT_TICKER_IDLE_TICKS = 20
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-methods': 'GET, POST, OPTIONS',
@@ -66,6 +68,11 @@ class RoomLobbyObject {
   constructor(state, env) {
     this.state = state
     this.env = env
+    // In-memory authoritative room; undefined = not yet loaded from storage.
+    this.room = undefined
+    this.inputsDirty = false
+    this.inputTickerId = null
+    this.idleInputTicks = 0
     if (
       typeof state.setWebSocketAutoResponse === 'function' &&
       typeof WebSocketRequestResponsePair === 'function'
@@ -77,23 +84,78 @@ class RoomLobbyObject {
   }
 
   async loadRoom() {
-    const existing = await this.state.storage.get('room')
-    return existing ? pruneDisconnectedPlayers(existing, PLAYER_STALE_MS) : null
+    if (this.room === undefined) {
+      const existing = await this.state.storage.get('room')
+      this.room = existing ?? null
+    }
+    return this.room ? pruneDisconnectedPlayers(this.room, PLAYER_STALE_MS) : null
   }
 
-  async saveRoom(room) {
-    await this.state.storage.put('room', room)
-    await this.scheduleCleanupAlarm()
-    this.broadcast({ type: 'room', room: serializeRoom(room) })
+  // Durable state (phases, rosters, shots, scores) persists to storage and
+  // broadcasts the full room. High-rate ephemeral updates (inputs) keep the
+  // room in memory only and go out as compact deltas on the input ticker.
+  async saveRoom(room, { persist = true, broadcastRoom = true } = {}) {
+    this.room = room
+    if (persist) {
+      await this.state.storage.put('room', room)
+      await this.scheduleCleanupAlarm()
+    }
+    if (broadcastRoom) {
+      this.broadcast({ type: 'room', room: serializeRoom(room) })
+    }
     return room
   }
 
   async destroyRoom(reason = 'Room closed') {
+    this.room = null
+    this.stopInputTicker()
     await this.state.storage.delete('room')
     if (typeof this.state.storage.deleteAlarm === 'function') {
       await this.state.storage.deleteAlarm()
     }
     this.broadcast({ type: 'closed', error: reason })
+  }
+
+  ensureInputTicker() {
+    if (this.inputTickerId !== null || !this.liveSockets().length) {
+      return
+    }
+    this.idleInputTicks = 0
+    this.inputTickerId = setInterval(() => this.broadcastInputs(), INPUT_BROADCAST_MS)
+  }
+
+  stopInputTicker() {
+    if (this.inputTickerId !== null) {
+      clearInterval(this.inputTickerId)
+      this.inputTickerId = null
+    }
+    this.idleInputTicks = 0
+  }
+
+  // The ticker stops itself once inputs go quiet so the object can hibernate.
+  broadcastInputs() {
+    if (!this.inputsDirty || !this.room || !this.liveSockets().length) {
+      this.idleInputTicks += 1
+      if (this.idleInputTicks >= INPUT_TICKER_IDLE_TICKS) {
+        this.stopInputTicker()
+      }
+      return
+    }
+    this.idleInputTicks = 0
+    this.inputsDirty = false
+    this.broadcast({
+      type: 'inputs',
+      inputs: this.room.inputs ?? {},
+      round: this.room.round,
+      updatedAt: this.room.updatedAt,
+    })
+  }
+
+  applyInputUpdate(room) {
+    this.room = room
+    this.inputsDirty = true
+    this.ensureInputTicker()
+    return room
   }
 
   async scheduleCleanupAlarm() {
@@ -201,15 +263,20 @@ class RoomLobbyObject {
       return
     }
 
-    let nextRoom = null
     if (message.type === 'input') {
-      nextRoom = setPlayerInputState(room, playerName, {
-        movementMode: message.movementMode ?? 'stopped',
-        aim: message.aim ?? null,
-        progress: message.progress ?? 0,
-        firing: message.firing ?? false,
-      })
-    } else if (message.type === 'heartbeat') {
+      this.applyInputUpdate(
+        setPlayerInputState(room, playerName, {
+          movementMode: message.movementMode ?? 'stopped',
+          aim: message.aim ?? null,
+          progress: message.progress ?? 0,
+          firing: message.firing ?? false,
+        }),
+      )
+      return
+    }
+
+    let nextRoom = null
+    if (message.type === 'heartbeat') {
       nextRoom = setPlayerHeartbeatState(room, playerName)
     } else if (message.type === 'shot') {
       nextRoom = recordRoomShot(room, {
@@ -246,13 +313,14 @@ class RoomLobbyObject {
       if (!room) {
         return json({ error: 'Room not found' }, 404)
       }
-      const nextRoom = pruneDisconnectedPlayers(room, PLAYER_STALE_MS)
-      const closedResponse = await this.closeIfNeeded(nextRoom)
+      const closedResponse = await this.closeIfNeeded(room)
       if (closedResponse) {
         return closedResponse
       }
-      await this.saveRoom(nextRoom)
-      return json({ room: serializeRoom(nextRoom) })
+      // Reads only refresh the in-memory copy; they never rewrite storage or
+      // rebroadcast to the live sockets.
+      await this.saveRoom(room, { persist: false, broadcastRoom: false })
+      return json({ room: serializeRoom(room) })
     }
 
     if (request.method !== 'POST') {
@@ -421,20 +489,14 @@ class RoomLobbyObject {
     }
 
     if (action === 'input') {
-      const nextRoom = pruneDisconnectedPlayers(
+      const nextRoom = this.applyInputUpdate(
         setPlayerInputState(room, body.playerName ?? 'Player', {
           movementMode: body.movementMode ?? 'stopped',
           aim: body.aim ?? null,
           progress: body.progress ?? 0,
           firing: body.firing ?? false,
         }),
-        PLAYER_STALE_MS,
       )
-      if (shouldDestroyRoom(nextRoom)) {
-        await this.destroyRoom('Room closed')
-        return json({ error: 'Room closed', room: null, destroyed: true })
-      }
-      await this.saveRoom(nextRoom)
       return json({ room: serializeRoom(nextRoom) })
     }
 

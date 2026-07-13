@@ -99,8 +99,8 @@ const STATE_COPY = {
   },
   scoreboard: {
     eyebrow: 'Scoreboard',
-    title: 'Round winner earns 1 point.',
-    body: 'NPC wins award no human points. Host can instantly start the next round.',
+    title: 'Round winner earns 3 points.',
+    body: 'Killing a real player earns 1 point, NPC kills earn nothing, and NPC wins award no human points. Host can instantly start the next round.',
     action: 'Next round',
     next: 'countdown'
   },
@@ -164,6 +164,13 @@ const MOVEMENT_SPEEDS_BY_MODE = {
   walking: WALK_SPEED,
   running: RUN_SPEED
 }
+// Scoring mirrors the server (roomState.js): the win must outweigh a kill so
+// racing stays the primary objective, and only human kills pay out.
+const WIN_POINTS = 3
+const KO_MARKER_MS = 1100
+const KILL_FEED_TTL_MS = 4200
+const SHAKE_VICTIM_MS = 500
+const SHAKE_SHOOTER_MS = 260
 
 const SOUND_PROFILES = {
   create: [330, 494],
@@ -303,9 +310,15 @@ function App() {
   const [aim, setAim] = useState({ x: 68, laneId: initialControlledRacerId })
   const [bullets, setBullets] = useState(() => createBulletState(PLAYERS))
   const [shotRacerIds, setShotRacerIds] = useState([])
+  const [roundShots, setRoundShots] = useState([])
+  const [koMarkers, setKoMarkers] = useState({})
+  const [deathProgressByLane, setDeathProgressByLane] = useState({})
+  const [killFeed, setKillFeed] = useState([])
+  const [screenEffect, setScreenEffect] = useState(null)
   const [roundWinner, setRoundWinner] = useState(null)
   const [currentRound, setCurrentRound] = useState(1)
   const [scores, setScores] = useState(() => createScoreState(PLAYERS))
+  const [kills, setKills] = useState(() => createScoreState(PLAYERS))
   const [roundHistory, setRoundHistory] = useState([])
   const [remoteProgressByPlayer, setRemoteProgressByPlayer] = useState({})
   const [roomSnapshot, setRoomSnapshot] = useState(null)
@@ -326,6 +339,8 @@ function App() {
   const remoteSnapshotsRef = useRef({})
   const liveSocketRef = useRef(null)
   const lastInteractionRef = useRef(Date.now())
+  const seenShotLanesRef = useRef(new Set())
+  const screenEffectTimeoutRef = useRef(null)
   const activeState = STATE_COPY[state]
   const lobbyInProgress = !['menu', 'lobby'].includes(state)
   const movementLocked = state === 'countdown'
@@ -414,11 +429,10 @@ function App() {
     humansAssigned.every((racer) => shotRacerIds.includes(racer.id))
   const raceSpeedMultiplier =
     allHumanRacersEliminated && !matchComplete ? FAST_FORWARD_MULTIPLIER : 1
-  const getLiveProgress = useCallback(
+  // Live track position ignoring elimination — the raw feed each racer's
+  // rendering is driven by (frame loop, dead reckoning, or NPC sim).
+  const getTrackProgress = useCallback(
     racer => {
-      if (shotRacerIds.includes(racer.id)) {
-        return racer.progress
-      }
       if (racer.id === controlledRacerId) {
         return Math.min(racer.progress + controlledProgress, 99)
       }
@@ -443,9 +457,33 @@ function App() {
       npcProgressByLane,
       remoteProgressByPlayer,
       roomInputs,
-      shotRacerIds,
     ]
   )
+  // Dead racers freeze at the progress captured when the hit landed instead
+  // of snapping back to the lane start position.
+  const getLiveProgress = useCallback(
+    racer => {
+      if (shotRacerIds.includes(racer.id)) {
+        const frozenProgress = deathProgressByLane[racer.id]
+        return Number.isFinite(frozenProgress)
+          ? frozenProgress
+          : getTrackProgress(racer)
+      }
+      return getTrackProgress(racer)
+    },
+    [deathProgressByLane, getTrackProgress, shotRacerIds]
+  )
+  const killerByLane = useMemo(() => {
+    const killers = {}
+    for (const shot of roundShots) {
+      const laneId = Number(shot.laneId)
+      if (!Number.isFinite(laneId) || killers[laneId]) {
+        continue
+      }
+      killers[laneId] = shot.shooterName
+    }
+    return killers
+  }, [roundShots])
   const rankedPlayers = [...humanPlayers].sort(
     (a, b) => scores[b] - scores[a] || humanPlayers.indexOf(a) - humanPlayers.indexOf(b)
   )
@@ -486,8 +524,8 @@ function App() {
             title: `Scoreboard after round ${currentRound}.`,
             body:
               roundWinner.controller.type === 'human'
-                ? `${roundWinner.controller.name} gained 1 point. Host can start the next round.`
-                : `${roundWinner.controller.name} was an NPC, so no human points were awarded.`,
+                ? `${roundWinner.controller.name} gained ${WIN_POINTS} points. Host can start the next round.`
+                : `${roundWinner.controller.name} was an NPC, so no winner points were awarded.`,
             action: matchComplete ? 'Show final scores' : 'Next round',
             next: matchComplete ? 'gameOver' : 'countdown'
           }
@@ -654,20 +692,90 @@ function App() {
       return
     }
     audioContextRef.current = audioContext
+    // Gunshot crack: a burst of decaying noise through a lowpass filter. Falls
+    // back to a short sawtooth blast where buffers are unavailable (jsdom).
+    const scheduleGunshotCrack = (readyContext, startAt) => {
+      if (
+        typeof readyContext.createBuffer === 'function' &&
+        typeof readyContext.createBufferSource === 'function'
+      ) {
+        const sampleRate = readyContext.sampleRate ?? 44100
+        const buffer = readyContext.createBuffer(
+          1,
+          Math.max(1, Math.floor(sampleRate * 0.2)),
+          sampleRate,
+        )
+        const channel = buffer.getChannelData(0)
+        for (let index = 0; index < channel.length; index += 1) {
+          channel[index] =
+            (Math.random() * 2 - 1) * (1 - index / channel.length) ** 2
+        }
+        const source = readyContext.createBufferSource()
+        source.buffer = buffer
+        const crackGain = readyContext.createGain()
+        crackGain.gain.setValueAtTime(0.4, startAt)
+        crackGain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.2)
+        let output = source
+        if (typeof readyContext.createBiquadFilter === 'function') {
+          const filter = readyContext.createBiquadFilter()
+          filter.type = 'lowpass'
+          filter.frequency.setValueAtTime(2800, startAt)
+          output.connect(filter)
+          output = filter
+        }
+        output.connect(crackGain)
+        crackGain.connect(readyContext.destination)
+        source.start(startAt)
+        source.stop(startAt + 0.21)
+        return
+      }
+      const crackOscillator = readyContext.createOscillator()
+      const crackGain = readyContext.createGain()
+      crackOscillator.type = 'sawtooth'
+      crackOscillator.frequency.setValueAtTime(880, startAt)
+      crackOscillator.frequency.setValueAtTime(320, startAt + 0.03)
+      crackGain.gain.setValueAtTime(0.2, startAt)
+      crackGain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.12)
+      crackOscillator.connect(crackGain).connect(readyContext.destination)
+      crackOscillator.start(startAt)
+      crackOscillator.stop(startAt + 0.13)
+    }
+
+    const scheduleGunshot = (readyContext, startAt) => {
+      scheduleGunshotCrack(readyContext, startAt)
+      // Low thump gives the crack body; frequency steps down instead of
+      // ramping so the schedule stays valid on minimal AudioParam mocks.
+      const thumpOscillator = readyContext.createOscillator()
+      const thumpGain = readyContext.createGain()
+      thumpOscillator.type = 'sine'
+      thumpOscillator.frequency.setValueAtTime(130, startAt)
+      thumpOscillator.frequency.setValueAtTime(70, startAt + 0.05)
+      thumpOscillator.frequency.setValueAtTime(45, startAt + 0.12)
+      thumpGain.gain.setValueAtTime(0.32, startAt)
+      thumpGain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.26)
+      thumpOscillator.connect(thumpGain).connect(readyContext.destination)
+      thumpOscillator.start(startAt)
+      thumpOscillator.stop(startAt + 0.27)
+    }
+
     const scheduleSound = (readyContext) => {
       if (!readyContext || readyContext.state === 'closed') {
         return
       }
       try {
         const now = readyContext.currentTime + 0.01
+        if (soundName === 'shot') {
+          scheduleGunshot(readyContext, now)
+          return
+        }
         notes.forEach((frequency, index) => {
           const oscillator = readyContext.createOscillator()
           const gain = readyContext.createGain()
           const startAt = now + index * 0.055
-          oscillator.type = soundName === 'shot' ? 'sawtooth' : 'square'
+          oscillator.type = 'square'
           oscillator.frequency.setValueAtTime(frequency, startAt)
           gain.gain.setValueAtTime(0.0001, startAt)
-          gain.gain.exponentialRampToValueAtTime(soundName === 'shot' ? 0.06 : 0.035, startAt + 0.01)
+          gain.gain.exponentialRampToValueAtTime(0.035, startAt + 0.01)
           gain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.13)
           oscillator.connect(gain).connect(readyContext.destination)
           oscillator.start(startAt)
@@ -801,16 +909,19 @@ function App() {
   }, [currentPlayerName])
 
   useEffect(() => {
-    setScores(current => {
-      const nextScores = Object.fromEntries(
-        humanPlayers.map(player => [player, current[player] ?? 0])
-      )
-      const currentPlayers = Object.keys(current)
-      const unchanged =
-        currentPlayers.length === humanPlayers.length &&
-        humanPlayers.every(player => current[player] === nextScores[player])
-      return unchanged ? current : nextScores
-    })
+    const syncRoster = (setter) =>
+      setter(current => {
+        const nextValues = Object.fromEntries(
+          humanPlayers.map(player => [player, current[player] ?? 0])
+        )
+        const currentPlayers = Object.keys(current)
+        const unchanged =
+          currentPlayers.length === humanPlayers.length &&
+          humanPlayers.every(player => current[player] === nextValues[player])
+        return unchanged ? current : nextValues
+      })
+    syncRoster(setScores)
+    syncRoster(setKills)
   }, [humanPlayers])
 
   useEffect(() => {
@@ -1010,6 +1121,112 @@ function App() {
     })
   }, [state])
 
+  // Screen juice: the victim's screen takes a big shake with a red flash,
+  // the shooter's screen a short shake with a white flash.
+  const triggerScreenEffect = useCallback((kind) => {
+    window.clearTimeout(screenEffectTimeoutRef.current)
+    setScreenEffect({ kind, id: `${kind}-${Date.now()}` })
+    screenEffectTimeoutRef.current = window.setTimeout(
+      () => setScreenEffect(null),
+      kind === 'victim' ? SHAKE_VICTIM_MS : SHAKE_SHOOTER_MS,
+    )
+  }, [])
+
+  useEffect(() => () => window.clearTimeout(screenEffectTimeoutRef.current), [])
+
+  // Death detection: every newly eliminated lane freezes its corpse at the
+  // hit position, pops a KO marker, feeds the kill feed, and shakes the
+  // victim's own screen.
+  useEffect(() => {
+    const seenLanes = seenShotLanesRef.current
+    const newLaneIds = shotRacerIds.filter((laneId) => !seenLanes.has(laneId))
+    if (!newLaneIds.length) {
+      return
+    }
+    newLaneIds.forEach((laneId) => seenLanes.add(laneId))
+    const now = Date.now()
+    setDeathProgressByLane(current => {
+      const next = { ...current }
+      for (const laneId of newLaneIds) {
+        if (!Number.isFinite(next[laneId])) {
+          const racer = roundRacers.find(candidate => candidate.id === laneId)
+          if (racer) {
+            next[laneId] = getTrackProgress(racer)
+          }
+        }
+      }
+      return next
+    })
+    setKoMarkers(current => ({
+      ...current,
+      ...Object.fromEntries(
+        newLaneIds.map((laneId) => [
+          laneId,
+          { killerName: killerByLane[laneId] ?? null, at: now },
+        ]),
+      ),
+    }))
+    setKillFeed(current => [
+      ...current,
+      ...newLaneIds.map((laneId) => {
+        const racer = roundRacers.find(candidate => candidate.id === laneId)
+        return {
+          id: `${currentRound}-${laneId}`,
+          killerName: killerByLane[laneId] ?? 'Unknown',
+          victimLabel:
+            racer?.controller.type === 'human'
+              ? racer.controller.name
+              : `NPC ${laneId}`,
+          at: now,
+        }
+      }),
+    ])
+    if (newLaneIds.includes(controlledRacerId)) {
+      triggerScreenEffect('victim')
+    }
+  }, [
+    controlledRacerId,
+    currentRound,
+    getTrackProgress,
+    killerByLane,
+    roundRacers,
+    shotRacerIds,
+    triggerScreenEffect,
+  ])
+
+  // KO markers only bounce for a moment; expired ones are pruned so the DOM
+  // stays clean for the rest of the round.
+  useEffect(() => {
+    const markers = Object.entries(koMarkers)
+    if (!markers.length) {
+      return undefined
+    }
+    const nextExpiry = Math.min(...markers.map(([, marker]) => marker.at + KO_MARKER_MS))
+    const timeoutId = window.setTimeout(() => {
+      setKoMarkers(current =>
+        Object.fromEntries(
+          Object.entries(current).filter(
+            ([, marker]) => Date.now() - marker.at < KO_MARKER_MS,
+          ),
+        ),
+      )
+    }, Math.max(nextExpiry - Date.now(), 0) + 20)
+    return () => window.clearTimeout(timeoutId)
+  }, [koMarkers])
+
+  useEffect(() => {
+    if (!killFeed.length) {
+      return undefined
+    }
+    const nextExpiry = Math.min(...killFeed.map((entry) => entry.at + KILL_FEED_TTL_MS))
+    const timeoutId = window.setTimeout(() => {
+      setKillFeed(current =>
+        current.filter((entry) => Date.now() - entry.at < KILL_FEED_TTL_MS),
+      )
+    }, Math.max(nextExpiry - Date.now(), 0) + 20)
+    return () => window.clearTimeout(timeoutId)
+  }, [killFeed])
+
   const statusItems = useMemo(
     () => {
       const items = [
@@ -1195,7 +1412,7 @@ function App() {
         setScores(current => ({
           ...current,
           [resolvedWinner.controller.name]:
-            current[resolvedWinner.controller.name] + 1
+            current[resolvedWinner.controller.name] + WIN_POINTS
         }))
       }
       void syncRoom('round-over', {
@@ -1357,6 +1574,12 @@ function App() {
     setNpcProgressByLane(createNpcProgressByLane(nextHumanLaneIds))
     setBullets(createBulletState(humanPlayers))
     setShotRacerIds([])
+    setRoundShots([])
+    setKoMarkers({})
+    setDeathProgressByLane({})
+    setKillFeed([])
+    setScreenEffect(null)
+    seenShotLanesRef.current = new Set()
     setRoundWinner(null)
     playingRequested.current = false
     setAim({ x: 68, laneId: nextControlledRacerId })
@@ -1387,6 +1610,24 @@ function App() {
         JSON.stringify(current) === JSON.stringify(roomRoundState.history)
           ? current
           : roomRoundState.history
+      )
+    }
+    if (roomRoundState.kills) {
+      setKills(current => {
+        const nextKills = roomRoundState.kills
+        const currentKeys = Object.keys(current)
+        const nextKeys = Object.keys(nextKills)
+        const unchanged =
+          currentKeys.length === nextKeys.length &&
+          nextKeys.every(key => current[key] === nextKills[key])
+        return unchanged ? current : nextKills
+      })
+    }
+    if (roomRoundState.shots) {
+      setRoundShots(current =>
+        JSON.stringify(current) === JSON.stringify(roomRoundState.shots)
+          ? current
+          : roomRoundState.shots
       )
     }
     if (roomRoundState.shotRacerIds) {
@@ -1662,6 +1903,42 @@ function App() {
       }
       if (!sendLiveMessage({ type: 'shot', ...shotPayload })) {
         void syncRoom('shot', shotPayload)
+      }
+      const laneAlreadyShot = shotRacerIds.includes(nextAim.laneId)
+      const victimIsHuman = targetRacer.controller.type === 'human'
+      // The corpse freezes exactly where the shooter saw the hit land.
+      setDeathProgressByLane(current =>
+        Number.isFinite(current[nextAim.laneId])
+          ? current
+          : { ...current, [nextAim.laneId]: targetProgress }
+      )
+      setRoundShots(current => [
+        ...current,
+        {
+          shooterName: activePlayerName,
+          laneId: nextAim.laneId,
+          victimName: victimIsHuman ? targetRacer.controller.name : null,
+          victimType: victimIsHuman ? 'human' : 'npc',
+        },
+      ])
+      // Optimistic kill scoring for instant feedback; the server-adjudicated
+      // scores overwrite this on the next room sync.
+      if (
+        !laneAlreadyShot &&
+        victimIsHuman &&
+        targetRacer.controller.name !== activePlayerName
+      ) {
+        setScores(current => ({
+          ...current,
+          [activePlayerName]: (current[activePlayerName] ?? 0) + 1,
+        }))
+        setKills(current => ({
+          ...current,
+          [activePlayerName]: (current[activePlayerName] ?? 0) + 1,
+        }))
+      }
+      if (nextAim.laneId !== controlledRacerId) {
+        triggerScreenEffect('shooter')
       }
       setShotRacerIds(current =>
         current.includes(nextAim.laneId)
@@ -2002,6 +2279,9 @@ function App() {
                   {rankedPlayers.map(player => (
                     <div className='score-row' key={player}>
                       <strong>{player}</strong>
+                      <small className='score-kills'>
+                        {kills[player] ?? 0} kills
+                      </small>
                       <span>{scores[player]}</span>
                     </div>
                   ))}
@@ -2011,7 +2291,7 @@ function App() {
                     <p key={round.round}>
                       Round {round.round}: lane {round.laneId},{' '}
                       {round.winnerName}{' '}
-                      {round.winnerType === 'human' ? '+1' : '+0'}
+                      {round.winnerType === 'human' ? `+${WIN_POINTS}` : '+0'}
                     </p>
                   ))}
                 </div>
@@ -2027,13 +2307,35 @@ function App() {
 
         <div className='playfield-stack'>
           <div
-            className='playfield'
+            className={[
+              'playfield',
+              screenEffect ? `shake-${screenEffect.kind}` : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
             aria-label='20 lane race playfield'
             onMouseMove={updateAimFromPointer}
             onMouseDown={fireLocalShot}
             ref={playfieldRef}
           >
             <span className='finish-line' data-testid='finish-line' aria-hidden='true' />
+            {screenEffect ? (
+              <span
+                key={screenEffect.id}
+                className={`playfield-flash flash-${screenEffect.kind}`}
+                data-testid='playfield-flash'
+                aria-hidden='true'
+              />
+            ) : null}
+            {killFeed.length ? (
+              <div className='kill-feed' aria-label='Kill feed'>
+                {killFeed.map(entry => (
+                  <span key={entry.id}>
+                    {entry.killerName} ▸ {entry.victimLabel}
+                  </span>
+                ))}
+              </div>
+            ) : null}
             {state === 'countdown' ? (
               <div className='playfield-countdown' aria-label='Countdown'>
                 <strong>{COUNTDOWN_STEPS[countdownIndex]}</strong>
@@ -2087,6 +2389,7 @@ function App() {
                     `archetype-${archetypeClass}`,
                     shapeClass,
                     isEliminated ? 'dead' : '',
+                    isEliminated && koMarkers[lane.id] ? 'just-shot' : '',
                     isControlled && !isEliminated ? movementMode : '',
                     !isHuman && state === 'playing' && !isEliminated
                         ? `npc-bobbing ${npcMotionClass}`
@@ -2111,7 +2414,22 @@ function App() {
                     <span className='racer-shadow' />
                   </span>
                   {isEliminated ? (
-                    <span className='body-marker'>down</span>
+                    <span className='body-marker'>
+                      {killerByLane[lane.id]
+                        ? `down · ${killerByLane[lane.id]}`
+                        : 'down'}
+                    </span>
+                  ) : null}
+                  {koMarkers[lane.id] ? (
+                    <span
+                      className='ko-marker'
+                      data-testid={`ko-${lane.id}`}
+                    >
+                      KO!
+                      {koMarkers[lane.id].killerName
+                        ? ` ← ${koMarkers[lane.id].killerName}`
+                        : ''}
+                    </span>
                   ) : null}
                   {isWinner ? (
                     <span className='winner-marker'>winner</span>

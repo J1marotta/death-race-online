@@ -325,6 +325,14 @@ We kept the internal state and removed the visible flicker.
 
 This is a small lesson with a big reach: not every useful engineering detail deserves a place on screen. Users need confidence, not a networking diary.
 
+### 6. Kills Are Scored Where The Truth Lives
+
+When kill points arrived (a round win is 3 points, a human kill is 1, NPC kills are worth nothing), the tempting shortcut was to let the shooting client declare "I killed Mia" — it already knows the lane assignments. We did not do that. The server resolves the victim from the freshest inputs: whichever connected player last claimed that lane is the human victim, anything else is an NPC. The shooter's client still scores optimistically for instant feedback, but the authoritative number always comes back from the room.
+
+The same change forced a cleanup: room inputs now reset when a new round starts, because a stale lane claim from the previous round could have credited a kill against a player who was no longer in that lane. Stale inputs could also have mis-adjudicated a finish, so clearing them fixed a latent bug we had not hit yet.
+
+The design rule for the juice itself: attribution must not leak hidden identity. A killer's *name* on the KO marker and kill feed reveals nothing about which lane the killer controls, and a victim's name is only revealed once they are already dead. The tension mechanic survives intact.
+
 ## Bugs We Hit And What They Taught Us
 
 ### The Hardcoded Room Problem
@@ -428,6 +436,14 @@ The first gameplay music sustained a square-wave bass and a sawtooth drone conti
 The fix replaced the drones with an elevator-style loop: soft sine pads holding a Cmaj7/Am7/Dm7/G7 progression, a gentle triangle melody at a relaxed beat, and a quiet bass note on each chord change.
 
 Lesson: generated audio is cheap to ship and easy to get wrong. Waveform choice and envelope shape matter more than the notes.
+
+### Corpses That Teleported Back To The Start
+
+Eliminated racers were supposed to stay where they fell. Instead, `getLiveProgress` returned `racer.progress` — the lane's *starting* position — for any shot racer, so a corpse dropped at 60% of the track instantly teleported back to its spawn point. Nobody had noticed because most eliminations happened early, near the start positions.
+
+The fix separates "where is this racer on the track" from "this racer is dead": the shooter's client captures the target's live progress at the moment the hit lands, every other client captures it the moment the elimination syncs in, and dead racers render from that frozen value for the rest of the round.
+
+Lesson: a wrong value that is *usually close* to the right value can hide for a long time. The bug only became visible once we went looking at kills that landed mid-track.
 
 ### Mouse Aim And Click-To-Kill
 

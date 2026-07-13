@@ -65,11 +65,16 @@ Run `npm run dev`, open the local Vite URL, and check:
 - Countdown blocks movement and shooting until `go`.
 - `Space` walks and `Left Shift` runs the local hidden racer during play.
 - Mouse movement aims the local crosshair; Mouse 1 fires once, removes the bullet marker, greys the crosshair, and dims it.
+- Firing plays a gunshot (noise crack plus low thump), not a soft chirp.
+- Landing a shot briefly shakes the playfield with a white flash; getting shot shakes it harder with a red flash.
+- A `KO!` marker with the killer's name bounces in the victim's lane for about a second, and the corpse tag reads `down · <killer>`.
+- Corpses stay frozen exactly where the shot landed instead of snapping back to the lane start.
+- A kill feed in the playfield corner shows `killer ▸ victim` and fades after a few seconds.
 - Control reminders are visible below the playfield.
 - Shot racers stay visible as bodies and eliminated humans become spectators.
 - A round ends only when a non-eliminated racer reaches the finish.
-- Human winners get 1 point; NPC winners get 0 human points.
-- Scoreboard can start the next round and the match ends after the selected round count.
+- Human winners get 3 points; killing a real player earns the shooter 1 point; NPC kills and NPC winners earn nothing.
+- Scoreboard shows a kills count per player, can start the next round, and the match ends after the selected round count.
 
 ## Guardrail
 

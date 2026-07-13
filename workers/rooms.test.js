@@ -418,7 +418,7 @@ describe('rooms worker', () => {
       winnerType: 'human',
       finalProgress: 94,
     })
-    expect(room.roundState.scores.Mia).toBe(1)
+    expect(room.roundState.scores.Mia).toBe(3)
   })
 
   it('keeps the first adjudicated winner when a late round-over arrives', async () => {
@@ -509,7 +509,7 @@ describe('rooms worker', () => {
     expect(hostNextRound.status).toBe(200)
     expect(room.phase).toBe('countdown')
     expect(room.round).toBe(2)
-    expect(room.roundState.scores.Mia).toBe(1)
+    expect(room.roundState.scores.Mia).toBe(3)
     expect(room.roundState.history[0]).toMatchObject({
       round: 1,
       winnerName: 'Mia',

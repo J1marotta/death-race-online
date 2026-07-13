@@ -140,6 +140,7 @@ describe('game controls', () => {
     let currentPhase = 'lobby'
     let currentRound = 1
     let currentShotRacerIds = []
+    let currentShots = []
     let currentWinner = null
     global.fetch = vi.fn(async (input, options = {}) => {
       const requestUrl = typeof input === 'string' ? input : input.url
@@ -148,6 +149,7 @@ describe('game controls', () => {
       if (body.action === 'countdown') {
         currentPhase = 'countdown'
         currentShotRacerIds = []
+        currentShots = []
         currentWinner = null
       }
       if (body.action === 'playing') {
@@ -157,6 +159,10 @@ describe('game controls', () => {
         currentShotRacerIds = currentShotRacerIds.includes(body.laneId)
           ? currentShotRacerIds
           : [...currentShotRacerIds, body.laneId]
+        currentShots = [
+          ...currentShots,
+          { shooterName: body.playerName, laneId: body.laneId },
+        ]
       }
       if (body.action === 'round-over') {
         currentPhase = 'roundOver'
@@ -174,6 +180,7 @@ describe('game controls', () => {
         currentPhase = 'countdown'
         currentRound += 1
         currentShotRacerIds = []
+        currentShots = []
         currentWinner = null
       }
       return new Response(
@@ -197,12 +204,10 @@ describe('game controls', () => {
             roundState: {
               round: currentRound,
               shotRacerIds: currentShotRacerIds,
-              shots:
-                body.action === 'shot'
-                  ? [{ shooterName: body.playerName, laneId: body.laneId }]
-                  : [],
+              shots: currentShots,
               winner: currentWinner,
               scores: { James: 0, Mia: 0 },
+              kills: { James: 0, Mia: 0 },
               history: [],
               countdownStartedAt: new Date(Date.now()).toISOString(),
             },
@@ -316,7 +321,177 @@ describe('game controls', () => {
       clientY: 925,
     })
 
-    await waitFor(() => expect(within(lane19).getByText('down')).toBeTruthy())
+    await waitFor(() => expect(within(lane19).getByText(/down/)).toBeTruthy())
+  })
+
+  it('credits the corpse marker with the killer name', async () => {
+    const playfield = await startPlaying()
+
+    const lane19 = screen.getByTestId('lane-19')
+    const racer19 = screen.getByTestId('racer-19')
+    const progress = Number.parseFloat(racer19.style.getPropertyValue('--racer-progress'))
+
+    fireEvent.mouseDown(playfield, {
+      clientX: (progress / 100) * 1000,
+      clientY: 925,
+    })
+
+    await waitFor(() =>
+      expect(within(lane19).getByText('down · James')).toBeTruthy(),
+    )
+  })
+
+  it('keeps eliminated racers frozen where the shot landed', async () => {
+    const playfield = await startPlayingWithFakeTimers()
+    const racer19 = screen.getByTestId('racer-19')
+    const startProgress = Number.parseFloat(
+      racer19.style.getPropertyValue('--racer-progress'),
+    )
+
+    act(() => {
+      vi.advanceTimersByTime(4000)
+    })
+    const hitProgress = Number.parseFloat(
+      racer19.style.getPropertyValue('--racer-progress'),
+    )
+    expect(hitProgress).toBeGreaterThan(startProgress)
+
+    fireEvent.mouseDown(playfield, {
+      clientX: (hitProgress / 100) * 1000,
+      clientY: 925,
+    })
+    // Flush the deferred render after a long fake-timer advance before
+    // letting the round keep running.
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    act(() => {
+      vi.advanceTimersByTime(2000)
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    const frozenProgress = Number.parseFloat(
+      racer19.style.getPropertyValue('--racer-progress'),
+    )
+    expect(racer19.className).toContain('dead')
+    expect(frozenProgress).toBeCloseTo(hitProgress, 1)
+  })
+
+  it('pops a bouncing KO marker with the killer name for a moment', async () => {
+    const playfield = await startPlayingWithFakeTimers()
+    const racer19 = screen.getByTestId('racer-19')
+    const progress = Number.parseFloat(
+      racer19.style.getPropertyValue('--racer-progress'),
+    )
+
+    fireEvent.mouseDown(playfield, {
+      clientX: (progress / 100) * 1000,
+      clientY: 925,
+    })
+
+    const koMarker = screen.getByTestId('ko-19')
+    expect(koMarker.textContent).toContain('KO!')
+    expect(koMarker.textContent).toContain('James')
+
+    act(() => {
+      vi.advanceTimersByTime(1500)
+    })
+    expect(screen.queryByTestId('ko-19')).toBeNull()
+  })
+
+  it('shakes and flashes the playfield when the local shot lands', async () => {
+    const playfield = await startPlayingWithFakeTimers()
+    const racer19 = screen.getByTestId('racer-19')
+    const progress = Number.parseFloat(
+      racer19.style.getPropertyValue('--racer-progress'),
+    )
+
+    fireEvent.mouseDown(playfield, {
+      clientX: (progress / 100) * 1000,
+      clientY: 925,
+    })
+
+    expect(playfield.className).toContain('shake-shooter')
+    expect(screen.getByTestId('playfield-flash').className).toContain('flash-shooter')
+
+    act(() => {
+      vi.advanceTimersByTime(600)
+    })
+    expect(playfield.className).not.toContain('shake-shooter')
+    expect(screen.queryByTestId('playfield-flash')).toBeNull()
+  })
+
+  it('gives the victim a big shake and red flash when their racer dies', async () => {
+    const playfield = await startPlayingWithFakeTimers()
+    const controlledLane = screen
+      .getByTestId('local-crosshair')
+      .closest('[data-testid^="lane-"]')
+    const racer = controlledLane.querySelector('[data-testid^="racer-"]')
+    const laneId = Number(controlledLane.dataset.testid.replace('lane-', ''))
+    const progress = Number.parseFloat(
+      racer.style.getPropertyValue('--racer-progress'),
+    )
+
+    fireEvent.mouseDown(playfield, {
+      clientX: (progress / 100) * 1000,
+      clientY: (laneId - 0.5) * 50,
+    })
+
+    expect(playfield.className).toContain('shake-victim')
+    expect(screen.getByTestId('playfield-flash').className).toContain('flash-victim')
+  })
+
+  it('shows kills in the kill feed and fades them out', async () => {
+    const playfield = await startPlayingWithFakeTimers()
+    const racer19 = screen.getByTestId('racer-19')
+    const progress = Number.parseFloat(
+      racer19.style.getPropertyValue('--racer-progress'),
+    )
+
+    fireEvent.mouseDown(playfield, {
+      clientX: (progress / 100) * 1000,
+      clientY: 925,
+    })
+
+    const killFeed = screen.getByLabelText('Kill feed')
+    expect(within(killFeed).getByText(/James/)).toBeTruthy()
+    expect(within(killFeed).getByText(/NPC 19/)).toBeTruthy()
+
+    act(() => {
+      vi.advanceTimersByTime(5000)
+    })
+    expect(screen.queryByLabelText('Kill feed')).toBeNull()
+  })
+
+  it('shows a kills count for every player on the scoreboard', async () => {
+    await startPlayingWithFakeTimers()
+
+    act(() => {
+      vi.advanceTimersByTime(70000)
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    vi.useRealTimers()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Scoreboard' }))
+    const scoreboard = await screen.findByLabelText('Scoreboard')
+
+    expect(within(scoreboard).getAllByText(/\d+ kills/)).toHaveLength(2)
+  })
+
+  it('keeps the juice effects gated behind reduced-motion support', () => {
+    expect(appStyles).toMatch(/@keyframes ko-bounce/)
+    expect(appStyles).toMatch(/@keyframes shake-victim/)
+    expect(appStyles).toMatch(/@keyframes shake-shooter/)
+    expect(appStyles).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)\s*{[\s\S]*\.playfield\.shake-victim/,
+    )
   })
 
   it('advances the controlled racer while the walk key is held', async () => {

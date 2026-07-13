@@ -276,9 +276,14 @@ describe('roomState', () => {
     expect(countdown.roundState.shotRacerIds).toEqual([])
     expect(playing.phase).toBe('playing')
     expect(shot.roundState.shotRacerIds).toEqual([7])
+    expect(shot.roundState.shots[0]).toMatchObject({
+      shooterName: 'James',
+      laneId: 7,
+      victimType: 'npc',
+    })
     expect(duplicateShot.roundState.shotRacerIds).toEqual([7])
     expect(roundOver.phase).toBe('roundOver')
-    expect(roundOver.roundState.scores.James).toBe(1)
+    expect(roundOver.roundState.scores.James).toBe(3)
     expect(roundOver.roundState.history[0]).toMatchObject({
       round: 1,
       winnerName: 'James',
@@ -347,9 +352,119 @@ describe('roomState', () => {
     })
     const left = leaveRoomState(scored, 'Mia')
 
-    expect(scored.roundState.scores.Mia).toBe(1)
+    expect(scored.roundState.scores.Mia).toBe(3)
     expect(left.roundState.scores.Mia).toBe(0)
     expect(left.roundState.scores.James).toBe(0)
+  })
+
+  it('awards a point and a kill for shooting a real player lane', () => {
+    const room = joinRoomState(
+      createRoomState({
+        roomCode: 'DR-2048',
+        hostName: 'James',
+      }),
+      'Mia',
+    )
+    const playing = startRoomPlaying(startRoomCountdown(setPlayerReadyState(
+      setPlayerReadyState(room, 'James', true),
+      'Mia',
+      true,
+    )))
+    const withInputs = setPlayerInputState(playing, 'Mia', {
+      laneId: 7,
+      progress: 40,
+      movementMode: 'running',
+    })
+    const shot = recordRoomShot(withInputs, { shooterName: 'James', laneId: 7 })
+    const roundOver = finishRoomRound(shot, {
+      laneId: 12,
+      winnerName: 'James',
+      winnerType: 'human',
+      finalProgress: 94,
+    })
+
+    expect(shot.roundState.shots[0]).toMatchObject({
+      shooterName: 'James',
+      laneId: 7,
+      victimName: 'Mia',
+      victimType: 'human',
+    })
+    expect(shot.roundState.scores.James).toBe(1)
+    expect(shot.roundState.kills.James).toBe(1)
+    expect(roundOver.roundState.scores.James).toBe(4)
+    expect(roundOver.roundState.kills.James).toBe(1)
+  })
+
+  it('gives no kill credit for NPC lanes, corpse shots, or self-shots', () => {
+    const room = joinRoomState(
+      joinRoomState(
+        createRoomState({
+          roomCode: 'DR-2048',
+          hostName: 'James',
+        }),
+        'Mia',
+      ),
+      'Ava',
+    )
+    const withInputs = setPlayerInputState(
+      setPlayerInputState(startRoomPlaying(room), 'Mia', { laneId: 7, progress: 30 }),
+      'James',
+      { laneId: 4, progress: 25 },
+    )
+    const npcShot = recordRoomShot(withInputs, { shooterName: 'James', laneId: 15 })
+    const humanKill = recordRoomShot(withInputs, { shooterName: 'James', laneId: 7 })
+    const corpseShot = recordRoomShot(humanKill, { shooterName: 'Ava', laneId: 7 })
+    const selfShot = recordRoomShot(withInputs, { shooterName: 'James', laneId: 4 })
+
+    expect(npcShot.roundState.scores.James).toBe(0)
+    expect(npcShot.roundState.kills.James).toBe(0)
+    expect(humanKill.roundState.kills.James).toBe(1)
+    expect(corpseShot.roundState.scores.Ava).toBe(0)
+    expect(corpseShot.roundState.kills.Ava).toBe(0)
+    expect(selfShot.roundState.scores.James).toBe(0)
+    expect(selfShot.roundState.kills.James).toBe(0)
+  })
+
+  it('carries kills across rounds, renames, and zeroes them on leave', () => {
+    const room = joinRoomState(
+      createRoomState({
+        roomCode: 'DR-2048',
+        hostName: 'James',
+      }),
+      'Mia',
+    )
+    const withInputs = setPlayerInputState(startRoomPlaying(room), 'Mia', {
+      laneId: 7,
+      progress: 30,
+    })
+    const shot = recordRoomShot(withInputs, { shooterName: 'James', laneId: 7 })
+    const nextRound = startNextRound(shot)
+    const renamed = renamePlayerState({ ...nextRound, phase: 'lobby' }, 'James', 'Jules')
+    const left = leaveRoomState(shot, 'James')
+
+    expect(nextRound.roundState.kills.James).toBe(1)
+    expect(nextRound.roundState.shots).toEqual([])
+    expect(renamed.roundState.kills.Jules).toBe(1)
+    expect(renamed.roundState.kills.James).toBeUndefined()
+    expect(left.roundState.kills.James).toBe(0)
+  })
+
+  it('clears stale inputs when a new round begins', () => {
+    const room = setPlayerInputState(
+      startRoomPlaying(
+        createRoomState({
+          roomCode: 'DR-2048',
+          hostName: 'James',
+        }),
+      ),
+      'James',
+      { laneId: 4, progress: 55 },
+    )
+    const countdown = startRoomCountdown(setPlayerReadyState(room, 'James', true))
+    const nextRound = startNextRound(room)
+
+    expect(countdown.inputs).toEqual({})
+    expect(nextRound.inputs).toEqual({})
   })
 
   it('destroys a room when nobody is connected or the host is gone', () => {

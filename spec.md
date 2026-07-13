@@ -35,8 +35,10 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 - Player names are visible in the lobby and scoreboard.
 - Player names are not attached to racers during live gameplay.
 - A multi-round scoreboard is shown after each round.
-- Human round winners get 1 point.
-- NPC wins award no human points and trigger the shame/reveal moment.
+- Human round winners get 3 points.
+- Killing another human player's racer earns the shooter 1 point; NPC kills, corpse shots, and self-shots earn nothing.
+- The scoreboard shows each player's kill count beside their score.
+- NPC wins award no winner points and trigger the shame/reveal moment.
 - From the scoreboard, the host can instantly start the next round.
 
 ## Round Flow
@@ -76,12 +78,23 @@ Control reminders are visible below the playfield during the race.
 - Crosshairs are visible to everyone and color-coded by player.
 - Before firing, show a small pixel bullet attached to the crosshair.
 - Dim a player's crosshair to 50% opacity and turn it grey after they fire.
+- Every shot is attributed: the room records who shot which lane and whether the victim was a human or an NPC, resolved server-side from live inputs.
+- Kill attribution is visible without exposing the shooter's lane: killer names appear on the KO marker, the corpse tag, and the kill feed, preserving the hidden-identity mechanic.
+
+## Juice And Feedback
+
+- Firing plays a punchy gunshot: a filtered noise crack layered over a low bass thump.
+- When a kill lands, a `KO! ← killer` marker bounces in the victim's lane for about a second, visible to every client.
+- The victim's own screen takes a big shake with a red flash; the shooter's screen takes a short, subtle shake with a white flash. Other players see only the lane KO.
+- The victim's sprite flashes briefly when the hit lands.
+- A kill feed in the playfield corner shows `killer ▸ victim` entries that fade after a few seconds; human victims are named, NPC victims show as `NPC <lane>`.
+- All shake and bounce animations are disabled under `prefers-reduced-motion`.
 
 ## Elimination And Winning
 
 - If a player's assigned racer is shot, that player is out for the round.
 - Eliminated players keep watching as spectators.
-- Dead bodies remain visible on the track.
+- Dead bodies remain visible on the track, frozen at the position where the shot landed, with a `down · killer` tag once the killer is known.
 - The round ends only when a racer wins.
 - NPCs can win.
 - If an NPC wins, everyone gets shamed and all human-controlled racers are revealed.
@@ -108,7 +121,7 @@ Control reminders are visible below the playfield during the race.
 - All 20 lanes fit on one screen without vertical scrolling.
 - The playfield and HUD must read well at `1200px` wide on a laptop.
 - Crosshairs, bullet indicators, dead bodies, winner state, and reveal highlights should be readable at a glance.
-- Light sound cues support key actions such as creating/joining lobbies, readying, starting, shooting, and saving a display name.
+- Light sound cues support key actions such as creating/joining lobbies, readying, starting, and saving a display name; firing gets the heavier gunshot treatment described in Juice And Feedback.
 - Live gameplay plays mellow elevator-style generated background music: soft sine-pad seventh chords, a gentle triangle melody, and a quiet bass note per chord change, with a mute toggle.
 
 ## Suggested State Model
@@ -137,6 +150,7 @@ Control reminders are visible below the playfield during the race.
 - Realtime traffic (input, heartbeat, shots) travels over hibernatable WebSockets accepted through the Durable Object hibernation API; HTTP actions remain for lobby operations and as the fallback path.
 - The room lives in Durable Object memory during play; storage writes happen only for durable changes (lobby actions, phase changes, shots, heartbeats), never per input or per read.
 - Input broadcasts are batched: clients send input at 20Hz over the live socket (deduped when unchanged), and the Durable Object rebroadcasts compact input deltas on a 50ms ticker that stops itself when traffic goes quiet so the object can hibernate.
+- Room inputs are cleared when a countdown or next round starts so stale lane claims from the previous round cannot mis-attribute kills or finishes; clients repopulate them within one input tick.
 - Rendering targets 60fps: local movement advances on a requestAnimationFrame delta-time loop, and remote racers are dead-reckoned from their last synced progress and movement mode, easing toward the extrapolated target instead of snapping per sync.
 - Keep Cloudflare usage modest: prefer WebSocket pushes over polling, throttle heartbeat/fallback requests, slow fallback polling, and destroy rooms when the host leaves or everyone disconnects.
 - Cost model: incoming WebSocket messages bill as Durable Object requests at a 20:1 ratio (outgoing broadcasts, protocol pings, and auto-responses are free); duration is the dominant cost at scale, controlled via hibernation and the self-stopping input ticker.

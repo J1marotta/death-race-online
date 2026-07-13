@@ -1,5 +1,9 @@
 const MAX_PLAYERS = 20
 const FINISH_PROGRESS = 93
+// A round win outweighs a kill so racing stays the primary objective; only
+// hits on real players score — NPC kills are worth nothing.
+const WIN_POINTS = 3
+const KILL_POINTS = 1
 
 function createScoreState(players, currentScores = {}) {
   return Object.fromEntries(
@@ -15,6 +19,7 @@ function createRoundState(room, overrides = {}) {
     shots: [],
     winner: null,
     scores: createScoreState(room.players, existing.scores),
+    kills: createScoreState(room.players, existing.kills),
     history: existing.history ?? [],
     phaseStartedAt: new Date().toISOString(),
     ...overrides,
@@ -152,6 +157,12 @@ export function renamePlayerState(room, playerName, nextPlayerName) {
     nextScores[trimmedName] = nextScores[playerName]
     delete nextScores[playerName]
   }
+  const existingKills = room.roundState?.kills ?? {}
+  const nextKills = { ...existingKills }
+  if (Object.hasOwn(nextKills, playerName)) {
+    nextKills[trimmedName] = nextKills[playerName]
+    delete nextKills[playerName]
+  }
 
   return {
     ...room,
@@ -171,6 +182,7 @@ export function renamePlayerState(room, playerName, nextPlayerName) {
       ? {
           ...room.roundState,
           scores: nextScores,
+          kills: nextKills,
           updatedAt,
         }
       : room.roundState,
@@ -261,6 +273,13 @@ export function leaveRoomState(room, playerName) {
           [playerName]: 0,
         }
       : null
+  const nextKills =
+    room.roundState?.kills && Object.hasOwn(room.roundState.kills, playerName)
+      ? {
+          ...room.roundState.kills,
+          [playerName]: 0,
+        }
+      : null
 
   return {
     ...room,
@@ -270,13 +289,15 @@ export function leaveRoomState(room, playerName) {
         ? { ...player, role: 'host', ready: false, updatedAt }
         : { ...player, updatedAt },
     ),
-    roundState: nextScores
-      ? {
-          ...room.roundState,
-          scores: nextScores,
-          updatedAt,
-        }
-      : room.roundState,
+    roundState:
+      nextScores || nextKills
+        ? {
+            ...room.roundState,
+            scores: nextScores ?? room.roundState.scores,
+            kills: nextKills ?? room.roundState.kills,
+            updatedAt,
+          }
+        : room.roundState,
     spectators: room.spectators.includes(playerName)
       ? room.spectators
       : [...room.spectators, playerName],
@@ -297,8 +318,12 @@ export function startRoomCountdown(room) {
   return {
     ...room,
     phase: 'countdown',
+    // Inputs are cleared so last round's lane claims cannot mis-attribute
+    // kills or finishes; clients resend fresh snapshots within 50ms.
+    inputs: {},
     roundState: createRoundState(room, {
       scores: createScoreState(room.players, room.roundState?.scores),
+      kills: createScoreState(room.players, room.roundState?.kills),
       history: room.roundState?.history ?? [],
       countdownStartedAt: new Date().toISOString(),
     }),
@@ -328,19 +353,51 @@ export function recordRoomShot(room, { shooterName, laneId }) {
     return room
   }
   const numericLaneId = Number(laneId)
-  const nextShotRacerIds = room.roundState?.shotRacerIds?.includes(numericLaneId)
+  const laneAlreadyShot = Boolean(
+    room.roundState?.shotRacerIds?.includes(numericLaneId),
+  )
+  const nextShotRacerIds = laneAlreadyShot
     ? room.roundState.shotRacerIds
     : [...(room.roundState?.shotRacerIds ?? []), numericLaneId]
+  // The victim is resolved from the freshest inputs: a connected player whose
+  // controlled lane matches the shot lane is a human kill, anything else is
+  // an NPC. Lane assignments themselves only exist client-side.
+  const victimName =
+    Object.entries(room.inputs ?? {}).find(
+      ([playerName, input]) =>
+        Number(input?.laneId) === numericLaneId &&
+        room.players.some(
+          (player) => player.name === playerName && player.connected,
+        ),
+    )?.[0] ?? null
+  const victimType = victimName ? 'human' : 'npc'
+  const nextScores = createScoreState(room.players, room.roundState?.scores)
+  const nextKills = createScoreState(room.players, room.roundState?.kills)
+  // Kill credit requires a fresh human takedown: no NPC farming, no points
+  // for shooting a corpse, no points for shooting yourself.
+  if (
+    !laneAlreadyShot &&
+    victimType === 'human' &&
+    victimName !== shooterName &&
+    Object.hasOwn(nextScores, shooterName)
+  ) {
+    nextScores[shooterName] += KILL_POINTS
+    nextKills[shooterName] += 1
+  }
   return {
     ...room,
     roundState: createRoundState(room, {
       ...(room.roundState ?? {}),
       shotRacerIds: nextShotRacerIds,
+      scores: nextScores,
+      kills: nextKills,
       shots: [
         ...existingShots,
         {
           shooterName,
           laneId: numericLaneId,
+          victimName,
+          victimType,
           createdAt: new Date().toISOString(),
         },
       ],
@@ -370,7 +427,7 @@ export function finishRoomRound(room, winner) {
     ...createScoreState(room.players, room.roundState?.scores),
   }
   if (winner.winnerType === 'human' && winner.winnerName) {
-    nextScores[winner.winnerName] = (nextScores[winner.winnerName] ?? 0) + 1
+    nextScores[winner.winnerName] = (nextScores[winner.winnerName] ?? 0) + WIN_POINTS
   }
   return {
     ...room,
@@ -447,10 +504,12 @@ export function startNextRound(room) {
     ...room,
     phase: 'countdown',
     round: nextRound,
+    inputs: {},
     roundState: createRoundState(
       { ...room, round: nextRound },
       {
         scores: createScoreState(room.players, room.roundState?.scores),
+        kills: createScoreState(room.players, room.roundState?.kills),
         history: room.roundState?.history ?? [],
         countdownStartedAt: new Date().toISOString(),
       },

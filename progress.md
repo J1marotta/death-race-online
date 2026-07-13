@@ -1,6 +1,6 @@
 # Death Race Progress
 
-Last updated: 2026-07-13
+Last updated: 2026-07-14
 
 ## Current State
 
@@ -706,3 +706,15 @@ Last updated: 2026-07-13
 - Confirmed via the observability MCP that Workers Logs has no historical data for the earlier 60k-hit test (observability was only just enabled); the 60k figure came from dashboard request analytics, which show raw WebSocket message counts that bill at 20:1.
 - Added regression coverage for idle expiry timing, idle-room destruction on heartbeat, and heartbeats not extending the idle window.
 - Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 67 : Add Kill Juice, Kill Scoring, And Fix Corpse Positions
+
+- Rebuilt scoring: a human round win is now 3 points and killing another human player earns the shooter 1 point, adjudicated server-side. NPC kills, corpse shots, and self-shots earn nothing, so racing stays the primary objective and the 19 NPC lanes cannot be farmed.
+- Added kill attribution: `recordRoomShot` resolves the victim from the freshest room inputs (a connected player whose claimed lane matches the shot lane is a human kill), stores `victimName`/`victimType` on each shot, and tracks a per-player `kills` count that survives rounds and renames and zeroes on leave.
+- Fixed a corpse-position bug: `getLiveProgress` returned the lane's *starting* position for shot racers, so corpses teleported back to spawn. Dead racers now freeze at the progress captured when the hit landed (shooter captures at hit time, other clients at sync time).
+- Fixed a latent staleness bug: room inputs are now cleared when a countdown or next round starts, so a stale lane claim from the previous round cannot mis-attribute a kill or mis-adjudicate a finish.
+- Added juice: a bouncing `KO! <- killer` marker in the victim's lane for ~1.1s, a `down · killer` corpse tag, a corner kill feed (`killer > victim`, fades after ~4s), a big screen shake with red flash on the victim's screen, a subtle shake with white flash on the shooter's screen, a brief white flash on the victim's sprite, and a punchier gunshot (filtered noise crack plus low sine thump, with an oscillator fallback for test environments).
+- All shake/bounce animations are disabled under `prefers-reduced-motion`.
+- Scoreboard now shows a kills count beside each player's score; round history shows `+3` for human wins.
+- Added regression coverage: kill scoring rules, kill persistence across rounds/renames/leaves, input clearing on new rounds, frozen corpse positions, KO marker lifecycle, shooter/victim shake and flash, kill feed lifecycle, and scoreboard kill counts.
+- Verified with `npm test` (104 passing); `npm run lint`; `npm run build`.

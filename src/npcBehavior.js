@@ -45,13 +45,10 @@ export const getNpcStep = (racer, tick, seedParts) => {
   )
   const longRoll = hashString(`${seedParts}:${racer.id}:long:${longBlock}`) % 100
   const shortRoll = hashString(`${seedParts}:${racer.id}:short:${shortBlock}`) % 100
-  if (tick > (racer.npc.initialDelayTicks ?? 18) && longRoll < 14) {
-    return 'stop'
-  }
-  if (longRoll > 80 || shortRoll > 86) {
+  if (longRoll > 72 || shortRoll > 88) {
     return 'run'
   }
-  if (shortRoll < 5) {
+  if (shortRoll < 6) {
     return 'stop'
   }
   return baseStep

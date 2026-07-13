@@ -88,8 +88,9 @@ Control reminders are visible below the playfield during the race.
 ## NPC Behavior
 
 - NPCs fill all unused racer slots.
-- NPCs walk, stop, occasionally run, and sometimes pause for extended periods.
-- NPC running and stopping should feel erratic enough that NPCs do not look like they are all perfectly racing to win.
+- NPCs behave like players: they mostly run, drop to a walk, and take brief human-scale pauses instead of extended idles.
+- NPC pace is competitive with a running player, so NPCs plausibly contest the finish and can win rounds when humans hesitate.
+- Each NPC has a seeded pacing personality (run-heavy, blended, or cautious mixes) so the pack does not race identically.
 - NPCs should imitate human hesitation and intent.
 - NPCs never shoot.
 - NPCs must be capable of crossing the visible finish line and winning.

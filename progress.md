@@ -658,3 +658,13 @@ Last updated: 2026-07-13
 - Added regression coverage for live-socket message handling, batched input deltas, ticker shutdown, eviction-safe stale-room cleanup, server adjudication, and late round-over protection; the suite grew from 85 to 89 tests.
 - Deployed the worker (`npm run deploy:rooms`) and the Pages front end (`npm run deploy:cloudflare`).
 - Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 62 : Make NPCs Race Like Players
+
+- Reviewed NPC behavior after the report that NPCs idle forever: simulation showed NPCs spent ~40% of ticks stopped or idle-crawling and averaged 39% of a running player's speed, so the fastest NPC finished in ~47s against a ~21s running player and never looked like a participant.
+- Replaced the walk/stop/idle behavior patterns with run-heavy player-like pacing personalities that mix running, walk breaks, and brief stops.
+- Removed the extended long-block stop override and the idle crawl from step selection, keeping short human-scale hesitations and run bursts.
+- Removed the per-depth laneDrag speed handicap so NPCs move at player speeds with only seeded jitter variance.
+- New simulated distribution: 73% run, 14% walk, 13% stop, averaging 79% of a running player's speed with front-runner NPCs finishing in 23-24s, so committed humans still win narrowly while hesitant humans can lose to NPCs.
+- Updated the spec NPC behavior section to describe player-like pacing and competitive finishes.
+- Verified with `npm test`; `npm run lint`; `npm run build`.

@@ -143,11 +143,13 @@ const FRAME_FALLBACK_MS = 16
 const MAX_FRAME_DT_MS = 250
 const REMOTE_BLEND_MS = 150
 const REMOTE_SNAP_DISTANCE = 8
+// Player-like pacing personalities: mostly running with walk breaks and
+// brief stops, mirroring how humans hold the run key.
 const NPC_PATTERNS = [
-  ['walk', 'walk', 'stop', 'walk', 'walk', 'stop', 'idle'],
-  ['stop', 'walk', 'walk', 'idle', 'walk', 'stop', 'walk'],
-  ['walk', 'idle', 'walk', 'walk', 'stop', 'walk', 'idle'],
-  ['walk', 'walk', 'idle', 'stop', 'walk', 'walk', 'stop']
+  ['run', 'run', 'run', 'walk', 'run', 'run', 'stop'],
+  ['run', 'walk', 'run', 'run', 'stop', 'run', 'walk'],
+  ['walk', 'run', 'run', 'walk', 'run', 'stop', 'run'],
+  ['run', 'run', 'walk', 'run', 'run', 'walk', 'stop']
 ]
 const NPC_SPEEDS = {
   idle: WALK_SPEED / 3,
@@ -856,11 +858,9 @@ function App() {
                 if (!shouldAdvance) {
                   return [racer.id, progressByLane[racer.id] ?? racer.progress]
                 }
-                const laneDrag = 0.78 + racer.depth * 0.05
                 const nextProgress =
                   (progressByLane[racer.id] ?? racer.progress) +
                   NPC_SPEEDS[step] *
-                    laneDrag *
                     raceSpeedMultiplier *
                     cadence *
                     (racer.npc.speedJitter ?? 1)

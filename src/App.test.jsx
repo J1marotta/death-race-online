@@ -549,7 +549,6 @@ describe('game controls', () => {
     })
     vi.useRealTimers()
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Scoreboard' }))
     const scoreboard = await screen.findByLabelText('Scoreboard')
 
     expect(within(scoreboard).getAllByText(/\d+ kills/)).toHaveLength(2)
@@ -576,6 +575,180 @@ describe('game controls', () => {
       expect(periodicInputs.length).toBeGreaterThan(0)
       expect(periodicInputs.every((body) => body.aim === undefined)).toBe(true)
     })
+  })
+
+  it('ignores stale old-round snapshots after the host starts the next round', async () => {
+    let currentPhase = 'lobby'
+    let currentRoundNum = 1
+    let shotLanes = []
+    let staleResponsesLeft = 0
+    global.fetch = vi.fn(async (input, options = {}) => {
+      const requestUrl = typeof input === 'string' ? input : input.url
+      const roomCode = requestUrl.split('/').pop()
+      const body = options.body ? JSON.parse(options.body) : {}
+      if (body.action === 'countdown') {
+        currentPhase = 'countdown'
+        shotLanes = []
+      }
+      if (body.action === 'playing') {
+        currentPhase = 'playing'
+      }
+      if (body.action === 'shot') {
+        shotLanes = [...shotLanes, body.laneId]
+      }
+      if (body.action === 'round-over') {
+        currentPhase = 'roundOver'
+      }
+      if (body.action === 'next-round') {
+        // Simulate an in-flight message from the round that just ended: the
+        // next-round response itself is the stale old-round snapshot.
+        staleResponsesLeft = 1
+        currentRoundNum += 1
+        currentPhase = 'countdown'
+        shotLanes = []
+      }
+      const stale = staleResponsesLeft > 0
+      if (stale) {
+        staleResponsesLeft -= 1
+      }
+      return new Response(
+        JSON.stringify({
+          room: {
+            roomCode,
+            phase: stale ? 'playing' : currentPhase,
+            hostId: 'james',
+            round: stale ? currentRoundNum - 1 : currentRoundNum,
+            roundCount: 5,
+            players: [
+              { name: 'James', id: 'james', role: 'host', connected: true, ready: true },
+            ],
+            spectators: [],
+            inputs: {},
+            roundState: {
+              round: stale ? currentRoundNum - 1 : currentRoundNum,
+              shotRacerIds: stale ? [7] : shotLanes,
+              shots: stale ? [{ shooterName: 'James', laneId: 7 }] : [],
+              winner: null,
+              scores: { James: 0 },
+              kills: { James: 0 },
+              history: [],
+              countdownStartedAt: new Date(Date.now()).toISOString(),
+            },
+          },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      )
+    })
+
+    await startPlayingWithFakeTimers()
+    act(() => {
+      vi.advanceTimersByTime(70000)
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    vi.useRealTimers()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Next round' }))
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    // The stale round-1 snapshot (shotRacerIds [7], phase playing) must be
+    // rejected: lane 7 stays alive and the countdown keeps running.
+    expect(within(screen.getByTestId('lane-7')).queryByText(/down/)).toBeNull()
+    expect(screen.getByTestId('racer-7').className).not.toContain('dead')
+    expect(screen.getAllByLabelText('Countdown').length).toBeGreaterThan(0)
+  })
+
+  it('stays on the final scores screen after the match completes', async () => {
+    // The mock advertises a 1-round match, so the client must adopt the
+    // host round count and treat the first round as the last.
+    let currentPhase = 'lobby'
+    let currentWinner = null
+    global.fetch = vi.fn(async (input, options = {}) => {
+      const requestUrl = typeof input === 'string' ? input : input.url
+      const roomCode = requestUrl.split('/').pop()
+      const body = options.body ? JSON.parse(options.body) : {}
+      if (body.action === 'countdown') {
+        currentPhase = 'countdown'
+      }
+      if (body.action === 'playing') {
+        currentPhase = 'playing'
+      }
+      if (body.action === 'round-over') {
+        currentPhase = 'roundOver'
+        currentWinner = {
+          laneId: body.laneId,
+          winnerName: body.winnerName,
+          winnerType: body.winnerType,
+          finalProgress: body.finalProgress,
+        }
+      }
+      return new Response(
+        JSON.stringify({
+          room: {
+            roomCode,
+            phase: currentPhase,
+            hostId: 'james',
+            round: 1,
+            roundCount: 1,
+            players: [
+              { name: 'James', id: 'james', role: 'host', connected: true, ready: true },
+            ],
+            spectators: [],
+            inputs: {},
+            roundState: {
+              round: 1,
+              shotRacerIds: [],
+              shots: [],
+              winner: currentWinner,
+              scores: { James: 0 },
+              kills: { James: 0 },
+              history: [],
+              countdownStartedAt: new Date(Date.now()).toISOString(),
+            },
+          },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      )
+    })
+
+    await startPlayingWithFakeTimers()
+    act(() => {
+      vi.advanceTimersByTime(70000)
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    vi.useRealTimers()
+
+    // Round 1 of 1: the round-over action is Show final scores, not Next round.
+    fireEvent.click(await screen.findByRole('button', { name: 'Show final scores' }))
+    await screen.findByText('Final scores')
+
+    // Later roundOver-phase snapshots (heartbeats) must not yank the player
+    // back out of the final-scores screen.
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(screen.getByText('Final scores')).toBeTruthy()
+    expect(screen.getByText('Game over')).toBeTruthy()
+  })
+
+  it('shows a prominent join card on the title screen', () => {
+    render(<App />)
+
+    const joinCard = screen.getByLabelText('Join a game')
+    expect(joinCard.className).toContain('join-card')
+    expect(within(joinCard).getByText('Join a game')).toBeTruthy()
+    expect(within(joinCard).getByLabelText('Room code')).toBeTruthy()
+    expect(within(joinCard).getByRole('button', { name: 'Join lobby' })).toBeTruthy()
+    expect(screen.getByLabelText('Host a game')).toBeTruthy()
   })
 
   it('keeps the juice effects gated behind reduced-motion support', () => {
@@ -761,7 +934,6 @@ describe('game controls', () => {
     })
     vi.useRealTimers()
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Scoreboard' }))
     const nextRoundButton = await screen.findByRole('button', { name: 'Next round' })
     const startedBeforeNextRound = audio.started.length
     audio.context.state = 'suspended'
@@ -836,10 +1008,11 @@ describe('game controls', () => {
     expect(screen.queryByLabelText('Room status')).toBeNull()
     expect(screen.queryByLabelText('Round setup')).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Scoreboard' }))
+    // The scoreboard now shows alongside the winner reveal with no extra
+    // host click; the only action is Next round.
     await screen.findByLabelText('Scoreboard')
-    expect(screen.queryByLabelText('Room status')).toBeNull()
-    expect(screen.queryByLabelText('Round setup')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Next round' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Scoreboard' })).toBeNull()
   })
 
   it('uses the room code from a shareable join link', async () => {
@@ -849,7 +1022,7 @@ describe('game controls', () => {
 
     await waitFor(() => expect(fetch).toHaveBeenCalled())
     expect(fetch.mock.calls[0][0]).not.toContain('/api/rooms/ABCD')
-    expect(fetch.mock.calls[0][0]).toContain('/api/rooms/DR-')
+    expect(fetch.mock.calls[0][0]).toMatch(/\/api\/rooms\/DR[A-Z0-9]{4}$/)
   })
 
   it('lets the join button use the room code field', async () => {

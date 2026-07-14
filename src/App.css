@@ -206,12 +206,12 @@ code {
   background: rgba(255, 255, 255, 0.025);
 }
 
+/* Lobby control labels read as sentence case, not shouting. */
 .room-card span,
 .control-group > span,
 .list-heading span {
   color: var(--text);
-  font: 700 11px/1 var(--mono);
-  text-transform: uppercase;
+  font: 700 12px/1 var(--sans);
 }
 
 .room-card strong {
@@ -249,6 +249,52 @@ code {
   min-height: 46px;
   padding-inline: 16px;
   font-size: 14px;
+}
+
+.menu-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.menu-card p {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.menu-card-title {
+  color: var(--text-h);
+  font: 800 15px/1 var(--sans);
+}
+
+.menu-card button {
+  min-height: 46px;
+  font-size: 14px;
+}
+
+/* The join path is the one guests need to find — give it the accent. */
+.menu-card.join-card {
+  border-color: rgba(250, 204, 21, 0.5);
+  background: rgba(250, 204, 21, 0.05);
+}
+
+.menu-card.join-card .menu-card-title {
+  color: var(--gold, #facc15);
+}
+
+.join-button {
+  background: #facc15;
+  border-color: #facc15;
+  color: #1a1405;
+}
+
+.join-button:hover {
+  border-color: #fde047;
+  background: #fde047;
 }
 
 .player-name-edit {
@@ -353,7 +399,11 @@ code {
   font-size: 13px;
 }
 
-.assignment-summary span,
+.assignment-summary span {
+  color: var(--text);
+  font: 700 12px/1 var(--sans);
+}
+
 .npc-summary span,
 .bullet-panel span,
 .winner-panel span,

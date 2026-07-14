@@ -67,7 +67,7 @@ const STATE_COPY = {
     next: 'lobby'
   },
   lobby: {
-    eyebrow: 'Lobby DR-2048',
+    eyebrow: 'Lobby DR2048',
     title: 'Public room, 4 humans, 16 NPCs.',
     body: 'Host chooses 5 rounds. Names stay here and on the scoreboard, never attached to racers during play.',
     action: 'Start countdown',
@@ -97,9 +97,9 @@ const STATE_COPY = {
   roundOver: {
     eyebrow: 'NPC wins',
     title: 'Everyone gets shamed.',
-    body: 'Human-controlled racers are revealed and highlighted before the scoreboard appears.',
-    action: 'Scoreboard',
-    next: 'scoreboard'
+    body: 'Human-controlled racers are revealed and the scoreboard shows immediately.',
+    action: 'Next round',
+    next: 'countdown'
   },
   scoreboard: {
     eyebrow: 'Scoreboard',
@@ -128,7 +128,7 @@ const STATE_LABELS = {
   gameOver: 'Game over'
 }
 
-const ROOM_CODE = 'DR-2048'
+const ROOM_CODE = 'DR2048'
 const ROUND_OPTIONS = [3, 5, 7]
 const COUNTDOWN_STEPS = ['3', '2', '1', 'go']
 const COUNTDOWN_STEP_MS = 500
@@ -149,13 +149,15 @@ const FRAME_FALLBACK_MS = 16
 const MAX_FRAME_DT_MS = 250
 const REMOTE_BLEND_MS = 150
 const REMOTE_SNAP_DISTANCE = 8
-// Player-like pacing personalities: mostly running with walk breaks and
-// brief stops, mirroring how humans hold the run key.
+// Crowd pacing personalities: mostly walking with sprint bursts and brief
+// stops. Sprint share is ~36% of steps (down ~40% from the old run-heavy
+// mix), so NPCs read as the crowd you hide in rather than competition —
+// they still finish and can win when every human stalls.
 const NPC_PATTERNS = [
-  ['run', 'run', 'run', 'walk', 'run', 'run', 'stop'],
-  ['run', 'walk', 'run', 'run', 'stop', 'run', 'walk'],
-  ['walk', 'run', 'run', 'walk', 'run', 'stop', 'run'],
-  ['run', 'run', 'walk', 'run', 'run', 'walk', 'stop']
+  ['run', 'walk', 'run', 'walk', 'walk', 'run', 'stop'],
+  ['walk', 'run', 'walk', 'walk', 'stop', 'run', 'walk'],
+  ['walk', 'run', 'walk', 'walk', 'run', 'stop', 'walk'],
+  ['run', 'walk', 'walk', 'run', 'walk', 'run', 'stop']
 ]
 const NPC_SPEEDS = {
   idle: WALK_SPEED / 3,
@@ -248,8 +250,10 @@ const createNpcProgressByLane = humanLaneIds =>
     ])
   )
 
+// Room codes are dashless so they read as one word and survive being typed,
+// pasted, or shouted across a room: DR + 4 random characters.
 const generateRoomCode = () =>
-  `DR-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+  `DR${Math.random().toString(36).slice(2, 6).toUpperCase()}`
 
 // Runs onFrame(dtMs, nowMs) every animation frame; falls back to a 16ms
 // timeout where requestAnimationFrame is unavailable (jsdom). Returns a stop
@@ -520,7 +524,9 @@ function App() {
           body:
             roundWinner.controller.type === 'human'
               ? `Lane ${roundWinner.id} was secretly ${roundWinner.controller.name}. All human racers are now revealed.`
-              : `Lane ${roundWinner.id} was ${roundWinner.controller.name}. No human points, and every human racer is exposed.`
+              : `Lane ${roundWinner.id} was ${roundWinner.controller.name}. No human points, and every human racer is exposed.`,
+          action: matchComplete ? 'Show final scores' : 'Next round',
+          next: matchComplete ? 'gameOver' : 'countdown'
         }
       : state === 'scoreboard' && roundWinner
         ? {
@@ -1170,6 +1176,23 @@ function App() {
   // victim's own screen.
   useEffect(() => {
     const seenLanes = seenShotLanesRef.current
+    // Self-heal when a lane un-dies (a stale snapshot briefly reverting a
+    // kill): forget its bookkeeping so a later kill on the same lane
+    // re-captures a fresh position and pops its KO again.
+    const activeShotLanes = new Set(shotRacerIds)
+    const revivedLaneIds = [...seenLanes].filter(
+      (laneId) => !activeShotLanes.has(laneId),
+    )
+    if (revivedLaneIds.length) {
+      revivedLaneIds.forEach((laneId) => seenLanes.delete(laneId))
+      setDeathProgressByLane(current => {
+        const next = { ...current }
+        for (const laneId of revivedLaneIds) {
+          delete next[laneId]
+        }
+        return next
+      })
+    }
     const newLaneIds = shotRacerIds.filter((laneId) => !seenLanes.has(laneId))
     if (!newLaneIds.length) {
       return
@@ -1197,8 +1220,13 @@ function App() {
         ]),
       ),
     }))
+    // Re-deaths after a stale revert reuse the same feed id, so drop any
+    // previous entry for these lanes instead of duplicating it.
     setKillFeed(current => [
-      ...current,
+      ...current.filter(
+        (entry) =>
+          !newLaneIds.some((laneId) => entry.id === `${currentRound}-${laneId}`),
+      ),
       ...newLaneIds.map((laneId) => {
         const racer = roundRacers.find(candidate => candidate.id === laneId)
         return {
@@ -1623,8 +1651,21 @@ function App() {
       return
     }
 
+    // In-flight snapshots from a round that already ended locally must be
+    // dropped whole: applying their shotRacerIds after resetRoundState used
+    // to re-freeze old corpses at the rebuilt start positions and mark those
+    // lanes as already seen, so the next round's kill on the same lane
+    // rendered at the start line with no KO.
+    if (Number.isFinite(roomSnapshot.round) && roomSnapshot.round < currentRound) {
+      return
+    }
     if (roomSnapshot.round && roomSnapshot.round !== currentRound) {
       setCurrentRound(roomSnapshot.round)
+    }
+    // Joiners must adopt the host's round count or their match-complete
+    // check disagrees with the host's and the final scores never show.
+    if (roomSnapshot.roundCount && roomSnapshot.roundCount !== roundCount) {
+      setRoundCount(roomSnapshot.roundCount)
     }
     if (roomRoundState.scores) {
       setScores(current => {
@@ -1690,7 +1731,18 @@ function App() {
       return
     }
     if (['playing', 'roundOver', 'scoreboard'].includes(roomSnapshot.phase)) {
-      setState(current => (current === roomSnapshot.phase ? current : roomSnapshot.phase))
+      setState(current => {
+        // The server has no gameOver phase; once the match completes locally,
+        // late roundOver/scoreboard snapshots must not yank the player out of
+        // the final-scores screen back into the round loop.
+        if (
+          current === 'gameOver' &&
+          ['roundOver', 'scoreboard'].includes(roomSnapshot.phase)
+        ) {
+          return current
+        }
+        return current === roomSnapshot.phase ? current : roomSnapshot.phase
+      })
     }
   }, [
     currentRound,
@@ -1698,7 +1750,9 @@ function App() {
     resolveWinnerSnapshot,
     roomSnapshot?.phase,
     roomSnapshot?.round,
+    roomSnapshot?.roundCount,
     roomSnapshot?.roundState,
+    roundCount,
     state,
   ])
 
@@ -2147,18 +2201,9 @@ function App() {
           placeholder='Player name'
         />
       </div>
-      <div className='actions'>
-        <button
-          type='button'
-          aria-busy={createLobbyPending}
-          disabled={createLobbyPending}
-          onClick={() => void createLobby()}
-        >
-          {createLobbyPending ? 'Creating lobby' : 'Create lobby'}
-        </button>
-      </div>
-      <div className='control-group'>
-        <span>Join lobby</span>
+      <div className='menu-card join-card' aria-label='Join a game'>
+        <span className='menu-card-title'>Join a game</span>
+        <p>Got a room code from a friend? Enter it here.</p>
         <div className='join-row'>
           <input
             aria-label='Room code'
@@ -2168,6 +2213,7 @@ function App() {
           />
           <button
             type='button'
+            className='join-button'
             onClick={async () => {
               playSound('join')
               const targetRoomCode = roomCodeInput.trim().toUpperCase() || roomCode
@@ -2189,6 +2235,18 @@ function App() {
             Join lobby
           </button>
         </div>
+      </div>
+      <div className='menu-card' aria-label='Host a game'>
+        <span className='menu-card-title'>Host a game</span>
+        <p>Create a lobby and share the room code with friends.</p>
+        <button
+          type='button'
+          aria-busy={createLobbyPending}
+          disabled={createLobbyPending}
+          onClick={() => void createLobby()}
+        >
+          {createLobbyPending ? 'Creating lobby' : 'Create lobby'}
+        </button>
       </div>
     </div>
   )
@@ -2308,7 +2366,7 @@ function App() {
                 </p>
               </div>
             ) : null}
-            {state === 'scoreboard' || state === 'gameOver' ? (
+            {['roundOver', 'scoreboard', 'gameOver'].includes(state) ? (
               <div className='scoreboard-panel' aria-label='Scoreboard'>
                 <span>
                   {state === 'gameOver' ? 'Final scores' : 'Scoreboard'}

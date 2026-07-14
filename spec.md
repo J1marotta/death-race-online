@@ -14,6 +14,10 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 ## Lobby And Match
 
 - Players join through a shareable room code/link.
+- Room codes are dashless single words (for example `DR7Q2K`) so they read cleanly and are easy to type or say out loud.
+- The title screen leads with a highlighted "Join a game" card (room code field plus join action) above the "Host a game" card, because guests are the common case.
+- Lobby control labels use sentence case, not uppercase.
+- Every connected player adopts the host's round count from the room snapshot so match completion agrees on every client.
 - The host enters their display name, creates a lobby, and receives the room code to share.
 - Joining players enter the room code and their display name.
 - Connected players can edit their own display name from the real-players roster before the round starts.
@@ -55,7 +59,8 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 10. The room backend adjudicates human finish-line wins from live input; the host records NPC winners in shared room state. The first recorded winner for a round stands.
 11. Reveal/highlight all human-controlled racers after the winner is declared.
 12. If an NPC wins, show a shame/reveal moment.
-13. Show the shared scoreboard and next-round action.
+13. The scoreboard shows immediately alongside the winner reveal — no extra host click. The host's only action is starting the next round, or showing final scores after the last round.
+14. Late snapshots from a finished round are rejected client-side so they cannot resurrect old shot state or pull a finished match out of the final-scores screen.
 
 ## Player Controls
 
@@ -105,9 +110,9 @@ Movement keys never hijack typing: while an input field has focus they are ignor
 ## NPC Behavior
 
 - NPCs fill all unused racer slots.
-- NPCs behave like players: they mostly run, drop to a walk, and take brief human-scale pauses instead of extended idles.
-- NPC pace is competitive with a running player, so NPCs plausibly contest the finish and can win rounds when humans hesitate.
-- Each NPC has a seeded pacing personality (run-heavy, blended, or cautious mixes) so the pack does not race identically.
+- NPCs are the crowd, not the competition: they mostly walk with sprint bursts (~36% of steps) and brief human-scale stops, averaging roughly 60% of a sprinting player's pace.
+- A committed human comfortably outruns the pack, but NPCs still finish and can win a round when every human stalls.
+- Each NPC has a seeded pacing personality (burst-heavy or walk-heavy mixes) so the pack does not race identically.
 - NPCs should imitate human hesitation and intent.
 - NPCs never shoot.
 - NPCs must be capable of crossing the visible finish line and winning.

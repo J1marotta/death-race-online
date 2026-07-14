@@ -635,7 +635,7 @@
     <li><strong>The race office:</strong> the Cloudflare Worker API.</li>
     <li><strong>The official clipboard:</strong> one Durable Object per room code.</li>
   </ol>
-  <p>The browser draws the track, handles keyboard and mouse input, and shows the lobby. The Worker receives room actions like "create", "join", "ready", "start", "shot", and "next round". The Durable Object is the single source of truth for one lobby. If room <code class="inline">DR-ABCD</code> exists, that room has exactly one official room object coordinating it.</p>
+  <p>The browser draws the track, handles keyboard and mouse input, and shows the lobby. The Worker receives room actions like "create", "join", "ready", "start", "shot", and "next round". The Durable Object is the single source of truth for one lobby. If room <code class="inline">DRABCD</code> exists, that room has exactly one official room object coordinating it.</p>
   <p>That matters because multiplayer games get weird when every browser invents its own truth. If one player thinks Mia is ready, another thinks she is not, and the host thinks the room started already, the game stops feeling like a game and starts feeling like a broken group chat. The Durable Object is the referee holding the clipboard.</p>
 </section>
 
@@ -709,7 +709,7 @@
     </div>
     <ol>
       <li>Host clicks <code class="inline">Create lobby</code>.</li>
-      <li>The app generates a room code like <code class="inline">DR-1JLQ</code>.</li>
+      <li>The app generates a room code like <code class="inline">DR1JLQ</code>.</li>
       <li>The browser sends <code class="inline">action: create</code> to the Worker.</li>
       <li>The Worker routes that code to one Durable Object.</li>
       <li>The Durable Object creates a room with James as host.</li>
@@ -810,7 +810,7 @@ if (Number.isFinite(displayed) && Math.abs(target - displayed) <= REMOTE_SNAP_DI
 <section id="durable-object">
   <h2>The Durable Object Idea</h2>
   <p>A normal serverless function is like a front desk worker who forgets every conversation after answering it. That is fine for simple requests, but awkward for a live game room.</p>
-  <p>A Durable Object is different. It is more like assigning one room manager to one room code. Every request for <code class="inline">DR-1JLQ</code> goes to the same coordinator. That coordinator can keep room state, schedule cleanup, and broadcast changes to connected sockets.</p>
+  <p>A Durable Object is different. It is more like assigning one room manager to one room code. Every request for <code class="inline">DR1JLQ</code> goes to the same coordinator. That coordinator can keep room state, schedule cleanup, and broadcast changes to connected sockets.</p>
   <details class="code-panel" open>
     <summary>The entire routing trick <small>workers/rooms.js — default export</small></summary>
     <pre><code class="js">export default {
@@ -1115,6 +1115,21 @@ const getLiveProgress = useCallback(racer => {
 })</code></pre></div>
     </div>
     <div class="lesson">A wrong value that is <em>usually close</em> to the right value can hide for a long time. The bug only became visible once we went looking at kills that landed mid-track.</div>
+  </div>
+
+  <div class="bug-card">
+    <span class="bug-tag sev">correctness</span><span class="bug-tag area">netcode</span>
+    <h3>The Corpse That Came Back To The Start Line</h3>
+    <p>The corpse fix above had a sequel. A playtest showed one shot NPC frozen correctly mid-track and another standing dead at the start line — timing-dependent, so it smelled like a race. It was: when the host clicks "Next round", the client resets its round state immediately (corpse positions cleared, NPC positions rebuilt to the start line, the seen-lanes set emptied) — but a room snapshot from the round that just ended can still be in flight. Arriving after the reset, it re-applied the old <code class="inline">shotRacerIds</code>, froze those corpses at the rebuilt <em>start positions</em>, and poisoned the seen-lanes set so the new round's kill on the same lane rendered at the start line with no KO.</p>
+    <p>Two layered fixes: snapshots from a round older than the client's current round are rejected whole, and the death bookkeeping self-heals — a lane that un-dies is forgotten so the next kill re-captures fresh.</p>
+    <div class="lesson">In a distributed system, messages arrive from the past. Any state reset needs a version check on incoming data, or the past will overwrite the present.</div>
+  </div>
+
+  <div class="bug-card">
+    <span class="bug-tag sev">correctness</span><span class="bug-tag area">state sync</span>
+    <h3>The Match That Refused To End</h3>
+    <p>Winning the final round showed the final scores for a heartbeat, then dumped the player back to the scoreboard. Two causes stacked: the server has no <code class="inline">gameOver</code> phase (it parks on roundOver/scoreboard), so the next heartbeat snapshot yanked the locally-final client back into the round loop — and joiners never adopted the host's round count, so a guest in a 3-round match thought five rounds remained. Now the phase sync leaves a locally-completed match alone, and every client adopts <code class="inline">roundCount</code> from the room snapshot.</p>
+    <div class="lesson">Purely client-side states need an explicit truce with server sync. If the server does not know a state exists, the sync code must be told not to stomp it.</div>
   </div>
 
   <div class="bug-card">

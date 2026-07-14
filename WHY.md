@@ -23,7 +23,7 @@ Think of the game as three connected places:
 2. The race office: the Cloudflare Worker API.
 3. The official clipboard: one Durable Object per room code.
 
-The browser draws the track, handles keyboard and mouse input, and shows the lobby. The Worker receives room actions like "create", "join", "ready", "start", "shot", and "next round". The Durable Object is the single source of truth for one lobby. If room `DR-ABCD` exists, that room has exactly one official room object coordinating it.
+The browser draws the track, handles keyboard and mouse input, and shows the lobby. The Worker receives room actions like "create", "join", "ready", "start", "shot", and "next round". The Durable Object is the single source of truth for one lobby. If room `DRABCD` exists, that room has exactly one official room object coordinating it.
 
 That matters because multiplayer games get weird when every browser invents its own truth. If one player thinks Mia is ready, another thinks she is not, and the host thinks the room started already, the game stops feeling like a game and starts feeling like a broken group chat. The Durable Object is the referee holding the clipboard.
 
@@ -168,7 +168,7 @@ This file is especially important because it keeps the rules from splitting into
 Here is the exact flow we wanted:
 
 1. Host clicks `Create lobby`.
-2. The app generates a room code like `DR-1JLQ`.
+2. The app generates a room code like `DR1JLQ`.
 3. The browser sends `action: create` to the Worker.
 4. The Worker routes that code to one Durable Object.
 5. The Durable Object creates a room with James as host.
@@ -218,7 +218,7 @@ The mental model: smoothness is a rendering trick layered on honest, lower-rate 
 
 A normal serverless function is like a front desk worker who forgets every conversation after answering it. That is fine for simple requests, but awkward for a live game room.
 
-A Durable Object is different. It is more like assigning one room manager to one room code. Every request for `DR-1JLQ` goes to the same coordinator. That coordinator can keep room state, schedule cleanup, and broadcast changes to connected sockets.
+A Durable Object is different. It is more like assigning one room manager to one room code. Every request for `DR1JLQ` goes to the same coordinator. That coordinator can keep room state, schedule cleanup, and broadcast changes to connected sockets.
 
 That is why Durable Objects fit this project:
 
@@ -462,6 +462,24 @@ Eliminated racers were supposed to stay where they fell. Instead, `getLiveProgre
 The fix separates "where is this racer on the track" from "this racer is dead": the shooter's client captures the target's live progress at the moment the hit lands, every other client captures it the moment the elimination syncs in, and dead racers render from that frozen value for the rest of the round.
 
 Lesson: a wrong value that is *usually close* to the right value can hide for a long time. The bug only became visible once we went looking at kills that landed mid-track.
+
+### The Corpse That Came Back To The Start Line
+
+The corpse fix above had a sequel. A playtest showed one shot NPC frozen correctly mid-track and another standing dead at the start line — timing-dependent, so it smelled like a race.
+
+It was. When the host clicks "Next round", the client resets its round state immediately: corpse positions cleared, NPC positions rebuilt to the start line, the seen-lanes set emptied. But a room snapshot from the round that just ended can still be in flight. When it arrived after the reset, the client applied its old `shotRacerIds`, re-froze those corpses at the freshly rebuilt *start positions*, and marked the lanes as already seen — so the new round's kill on the same lane rendered at the start line with no KO.
+
+Two layered fixes. First, snapshots from a round older than the client's current round are rejected whole. Second, the death bookkeeping self-heals: when a lane the client thought was dead is no longer reported shot, its seen-flag and frozen position are forgotten, so the next kill re-captures fresh.
+
+Lesson: in a distributed system, messages arrive from the past. Any state reset needs a version check on incoming data, or the past will overwrite the present.
+
+### The Match That Refused To End
+
+Winning the final round showed the final scores for a heartbeat, then dumped the player back to the scoreboard. Two causes stacked. The server has no `gameOver` phase — it parks on `roundOver`/`scoreboard` — so the next heartbeat snapshot yanked the locally-final client right back into the round loop. And joiners never adopted the host's round count from the snapshot, so a guest in a 3-round match thought five rounds remained and never saw a final-scores action at all.
+
+The fixes: the phase sync leaves a locally-completed match alone (a `gameOver` client ignores `roundOver`/`scoreboard` phases), and every client adopts `roundCount` from the room snapshot.
+
+Lesson: purely client-side states need an explicit truce with server sync. If the server does not know a state exists, the sync code must be told not to stomp it.
 
 ### The Shot That Erased Your Lane Claim
 

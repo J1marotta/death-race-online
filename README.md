@@ -63,6 +63,8 @@ npm run build
 
 Run `npm run dev`, open the local Vite URL, and check:
 
+- The title screen leads with the highlighted "Join a game" card (room code field + join button) above "Host a game".
+- Room codes are dashless (e.g. `DR7Q2K`) and lobby control labels are sentence case.
 - Lobby shows room code, privacy controls, player names, round count, and start action.
 - Countdown blocks movement and shooting until `go`, and the control bar renders dimmed.
 - `Right Arrow` walks and `Space` sprints the local hidden racer during play.
@@ -77,8 +79,11 @@ Run `npm run dev`, open the local Vite URL, and check:
 - The control bar stays visible below the playfield in every state.
 - Shot racers stay visible as bodies and eliminated humans become spectators.
 - A round ends only when a non-eliminated racer reaches the finish.
+- NPCs read as a crowd: mostly walking with sprint bursts, comfortably slower than a committed human.
 - Human winners get 3 points; killing a real player earns the shooter 1 point; NPC kills and NPC winners earn nothing.
-- Scoreboard shows a kills count per player, can start the next round, and the match ends after the selected round count.
+- Round over shows the winner reveal and the scoreboard together; the host's only action is Next round (or Show final scores after the last round).
+- The final-scores screen stays put — later room syncs must not yank it back to the scoreboard.
+- The scoreboard shows a kills count per player and the match ends after the selected round count.
 
 ## Guardrail
 

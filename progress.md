@@ -763,3 +763,14 @@ Last updated: 2026-07-14
 - Verified the bar visually via a scratch state grid (idle, held, spent, locked) screenshotted in headless Edge; fixed a specificity bug that flattened the mouse element into a landscape rectangle.
 - Updated spec player controls, README QA checklist, and test coverage: rebound movement tests, kbd depress/release, countdown dimming, spent fire button, and spaces-in-inputs regression.
 - Verified with `npm test` (124 passing); `npm run lint`; `npm run build`.
+
+### task 72 : Crowd NPCs, Death And Win Logic Fixes, Title Screen, Dashless Codes
+
+- Found and fixed the corpse-at-start-line race from playtesting: after "Next round" resets local round state, an in-flight snapshot from the finished round could re-apply old shotRacerIds, freezing corpses at the rebuilt start positions and poisoning the seen-lanes set so the new round's kill on that lane rendered at the start line with no KO. Fixes: snapshots from a round older than the client's current round are rejected whole, and death bookkeeping self-heals when a lane un-dies (seen-flag and frozen position forgotten, kill feed deduped on re-death).
+- Fixed the match that refused to end: the server has no gameOver phase, so heartbeat snapshots yanked a locally-finished client back to the scoreboard; and joiners never adopted the host's roundCount, so their match-complete check disagreed with the host. The phase sync now leaves a completed match alone and every client adopts roundCount from snapshots.
+- Removed the Scoreboard button: the scoreboard renders immediately alongside the winner reveal at round over, and the host's only action is Next round (or Show final scores after the last round).
+- Calmed the NPCs into a crowd: sprint share in the pacing patterns drops from ~61% to ~36% of steps (a ~40% cut), averaging ~60% of a sprinting player's pace. NPCs still finish and can win when every human stalls, but committed humans outrun the pack comfortably.
+- Title screen rework: a highlighted gold "Join a game" card (room code field + join button) leads above "Host a game" — the first version placed join below the fold, caught by screenshot review. Lobby control labels switched from uppercase to sentence case.
+- Room codes are now dashless single words (DR7Q2K style). Codes flow client -> path -> idFromName unchanged, so old dashed links still resolve (to their own rooms).
+- Regression tests: stale old-round snapshot rejection, final-scores persistence with host roundCount adoption, the prominent join card, and updated scoreboard-flow and room-code tests.
+- Verified with `npm test` (127 passing, run five times); `npm run lint`; `npm run build`; title screen screenshot via headless Edge.

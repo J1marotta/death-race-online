@@ -10,8 +10,8 @@ export const hashString = value => {
 // Sprints come in short bursts: whenever any source says run, a seeded duty
 // cycle lets it through for at most SPRINT_BURST_TICKS in a row (about half
 // a second) and downgrades the rest of the window to a walk.
-export const SPRINT_WINDOW_TICKS = 16
-export const SPRINT_BURST_TICKS = 6
+export const SPRINT_WINDOW_TICKS = 12
+export const SPRINT_BURST_TICKS = 3
 
 export const createNpcProfile = (lane, npcPattern) => {
   const seed = hashString(`${lane.id}:${lane.progress}:${lane.depth}:${lane.shapeClass}`)

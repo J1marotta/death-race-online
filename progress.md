@@ -796,3 +796,11 @@ Last updated: 2026-07-14
 - Regression tests: NPCs idle for the full start hold and move afterwards, no NPC exceeds the sprint burst cap even with an all-run pattern, and a failed playing request retries into the playing phase. The bobbing-stagger test now samples movement after the start hold.
 - Documented "The Round That Froze On Go" in the WHY.md and WHY.html bug museums, and updated the spec NPC behavior and round flow plus the README QA checklist.
 - Verified with `npm test` (130 passing, run four times); `npm run lint`; `npm run build`.
+
+### task 76 : Fair Lane Shuffle And Overflowing Lane-1 Sprites
+
+- Fixed the lane-assignment shuffle: swap indices came from `state % (index + 1)` on an LCG, whose low bits cycle with tiny periods (the lowest bit just alternates), producing patterned assignments. Swap indices now scale from the high bits, where the randomness lives.
+- Added a fairness regression: 400 seeded rooms must produce every lane as the host lane with no lane dominating, players never share a lane, and the host lane must reshuffle between rounds within one room. The shuffle and assignment logic moved to `src/laneAssignments.js` so the test imports it without adding non-component exports to App.jsx.
+- The playfield no longer clips its children: lane 1 racers' ears and KO markers now poke above the board edge instead of being cut flat, with a CSS regression assertion.
+- Documented "The Shuffle That Favored Low Bits" in the WHY.md and WHY.html bug museums, updated spec round flow and visual direction, and extended the README QA checklist.
+- Verified with `npm test` (131 passing); `npm run lint`; `npm run build`.

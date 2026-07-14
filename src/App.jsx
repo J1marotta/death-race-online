@@ -20,7 +20,8 @@ import {
 } from './multiplayer/api'
 import { canStartRoom, WIN_POINTS } from './multiplayer/roomState'
 import { evaluateInputSend } from './multiplayer/inputCadence'
-import { createNpcProfile, getNpcStep, hashString } from './npcBehavior'
+import { createHumanAssignments } from './laneAssignments'
+import { createNpcProfile, getNpcStep } from './npcBehavior'
 
 const PLAYERS = ['James', 'Mia', 'Noah', 'Ava']
 // Racers are cute pixel animals: the shape picks the species, the archetype
@@ -215,31 +216,6 @@ const MUSIC_CHORDS = [
   },
 ]
 
-const shuffleWithSeed = (items, seed) => {
-  const result = [...items]
-  let state = seed || 1
-  for (let index = result.length - 1; index > 0; index -= 1) {
-    state = (Math.imul(state, 1664525) + 1013904223) >>> 0
-    const swapIndex = state % (index + 1)
-    const current = result[index]
-    result[index] = result[swapIndex]
-    result[swapIndex] = current
-  }
-  return result
-}
-
-const createHumanAssignments = (players, seedParts) => {
-  const laneIds = shuffleWithSeed(
-    LANES.map(lane => lane.id),
-    hashString(seedParts)
-  )
-  return Object.fromEntries(
-    players.slice(0, LANES.length).map((player, index) => [
-      player,
-      laneIds[index]
-    ])
-  )
-}
 
 const createScoreState = players =>
   Object.fromEntries(players.map(player => [player, 0]))

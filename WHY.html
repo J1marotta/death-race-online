@@ -1167,6 +1167,22 @@ if (revivedLaneIds.length) {
   </div>
 
   <div class="bug-card">
+    <span class="bug-tag sev">fairness</span><span class="bug-tag area">rng</span>
+    <h3>The Shuffle That Favored Low Bits</h3>
+    <p>Lane assignments come from a seeded Fisher-Yates shuffle so every client derives the same secret lanes. The swap index was computed as <code class="inline">state % (index + 1)</code> from a linear congruential generator — and an LCG's low bits are its worst bits: the lowest bit just alternates, the bottom k bits cycle with period 2<sup>k</sup>, and a modulo mostly reads those low bits. The result was a patterned shuffle — deterministic and shared, but not fair.</p>
+    <details class="code-panel">
+      <summary>The one-line fix <small>src/App.jsx — shuffleWithSeed</small></summary>
+      <pre><code class="js">state = (Math.imul(state, 1664525) + 1013904223) >>> 0
+// Scale from the high bits: an LCG's low bits cycle with tiny periods
+// (the lowest bit just alternates), so `state % n` produced patterned
+// lane assignments instead of a fair shuffle.
+const swapIndex = Math.floor((state / 4294967296) * (index + 1))</code></pre>
+    </details>
+    <p>A regression test pins fairness: 400 seeded rooms, every lane must appear as the host lane, none may dominate, and the lane must reshuffle between rounds.</p>
+    <div class="lesson">With an LCG, take bits from the top. <code class="inline">state % n</code> is the classic trap; the high bits are where the randomness lives.</div>
+  </div>
+
+  <div class="bug-card">
     <span class="bug-tag sev">correctness</span><span class="bug-tag area">lifecycle</span>
     <h3>The Round That Froze On Go</h3>
     <p>Round 3 of 5: the countdown hit "go" and nothing happened, for anyone, forever. The host's client sends the <code class="inline">playing</code> action when the countdown completes, guarded by a fire-once flag so it does not spam the server — but the flag was set <em>before</em> the request resolved. When that one request failed, the flag stayed set, nothing retried, and since only the host may advance the phase, every client in the room was stranded on "go".</p>

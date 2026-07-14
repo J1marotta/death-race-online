@@ -49,7 +49,7 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 ## Round Flow
 
 1. Fill the race with exactly 20 racers, using NPCs for empty human slots.
-2. Secretly assign each active room player to one racer.
+2. Secretly assign each active room player to one racer via a seeded Fisher-Yates shuffle over all 20 lanes (seeded by room code, round, and roster; drawn from the generator's high bits so assignments are fair), reshuffled every round.
 3. Start a `3, 2, 1, go` countdown.
 4. The host-owned room state advances from countdown to live play, and all clients follow that shared phase. If the host's playing request fails, the countdown ticker retries until the phase turns, so a round can never freeze on go.
 5. Players move, aim, infer identities, and may fire their one shot.
@@ -128,6 +128,7 @@ Movement keys never hijack typing: while an input field has focus they are ignor
 - Species features (ears, tails, snouts, beaks) are CSS pseudo-elements hanging off the same base sprite, so every variant keeps the same hitbox even when silhouettes differ.
 - Starting lane positions and character variants are randomized enough that players cannot identify themselves from fixed ordering.
 - Lanes and racer sprites are sized so all 20 racers fit in-frame without vertical scrolling.
+- Racer sprites may overflow the board edges (lane 1 ears and KO markers poke above the top) instead of being clipped flat.
 - Lanes use slight depth/perspective like the reference screenshot.
 - The finish line is straight and uses a black-and-white checkered flag treatment.
 - All 20 lanes fit on one screen without vertical scrolling.

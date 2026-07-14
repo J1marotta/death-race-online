@@ -78,6 +78,8 @@ Run `npm run dev`, open the local Vite URL, and check:
 - A kill feed in the playfield corner shows `killer ▸ victim` and fades after a few seconds.
 - The control bar stays visible below the playfield in every state.
 - Shot racers stay visible as bodies and eliminated humans become spectators.
+- Lane 1 racers' ears and KO markers overflow above the board edge instead of being clipped.
+- Your assigned lane varies between rounds and between rooms.
 - A round ends only when a non-eliminated racer reaches the finish.
 - NPCs read as a crowd: they hold at the line for ~1.5s after `go`, then mostly walk with short sprint bursts, comfortably slower than a committed human.
 - The round never freezes on `go` — if the phase does not turn immediately, it recovers within moments.

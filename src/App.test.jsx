@@ -11,6 +11,7 @@ import { join } from 'node:path'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import { createHumanAssignments } from './laneAssignments'
 import { createNpcProfile, getNpcStep, SPRINT_BURST_TICKS } from './npcBehavior'
 
 const appStyles = readFileSync(join(process.cwd(), 'src', 'App.css'), 'utf8')
@@ -1006,6 +1007,40 @@ describe('game controls', () => {
     expect(movedAfterIdle.length).toBeGreaterThan(0)
   })
 
+  it('randomises lane assignments fairly across rooms and rounds', () => {
+    const players = ['James', 'Mia']
+    const hostLaneCounts = new Map()
+    for (let sample = 0; sample < 400; sample += 1) {
+      const assignments = createHumanAssignments(
+        players,
+        `DR${sample.toString(36).toUpperCase()}:1:${players.join('|')}`,
+      )
+      hostLaneCounts.set(
+        assignments.James,
+        (hostLaneCounts.get(assignments.James) ?? 0) + 1,
+      )
+      expect(assignments.James).not.toBe(assignments.Mia)
+    }
+
+    // 400 seeded rooms over 20 lanes: every lane must appear as the host
+    // lane, and none may dominate (expected ~20 per lane).
+    expect(hostLaneCounts.size).toBe(20)
+    const counts = [...hostLaneCounts.values()]
+    expect(Math.max(...counts)).toBeLessThan(60)
+    expect(Math.min(...counts)).toBeGreaterThan(2)
+
+    // The lane reshuffles between rounds within one room.
+    const hostLanePerRound = new Set(
+      Array.from(
+        { length: 6 },
+        (_, round) =>
+          createHumanAssignments(players, `DRSAME:${round + 1}:${players.join('|')}`)
+            .James,
+      ),
+    )
+    expect(hostLanePerRound.size).toBeGreaterThan(2)
+  })
+
   it('never lets an NPC sprint longer than the burst cap', () => {
     // Worst case: a pattern that always wants to run.
     const pattern = ['run', 'run', 'run', 'run', 'run', 'run', 'run']
@@ -1038,6 +1073,8 @@ describe('game controls', () => {
   it('keeps the finish line behind larger racers without forcing a taller page', () => {
     expect(appStyles).toMatch(/\.finish-line\s*{[\s\S]*z-index:\s*1;/)
     expect(appStyles).toMatch(/\.lane\s*{[\s\S]*z-index:\s*2;/)
+    // Lane 1 ears and KO markers may poke above the board edge.
+    expect(appStyles).toMatch(/\.playfield\s*{[^}]*overflow:\s*visible/)
     expect(appStyles).toMatch(/\.racer\s*{[\s\S]*--racer-scale:\s*1\.2;/)
     expect(appStyles).toMatch(/\.playfield\s*{[\s\S]*height:\s*520px;/)
     expect(appStyles).toMatch(

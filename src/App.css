@@ -511,7 +511,9 @@ code {
   grid-template-rows: repeat(20, 1fr);
   height: 520px;
   min-height: 0;
-  overflow: hidden;
+  /* Visible overflow lets lane 1's ears and KO markers poke above the board
+     edge instead of being clipped flat. */
+  overflow: visible;
   border: 1px solid var(--border);
   border-radius: 8px;
   background:

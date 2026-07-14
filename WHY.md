@@ -473,6 +473,14 @@ Two layered fixes. First, snapshots from a round older than the client's current
 
 Lesson: in a distributed system, messages arrive from the past. Any state reset needs a version check on incoming data, or the past will overwrite the present.
 
+### The Shuffle That Favored Low Bits
+
+Lane assignments come from a seeded Fisher-Yates shuffle so every client derives the same secret lanes. The swap index was computed as `state % (index + 1)` from a linear congruential generator — and an LCG's low bits are its worst bits. The lowest bit just alternates, the bottom k bits cycle with period 2^k, and a modulo mostly reads those low bits. The result was a patterned shuffle: technically deterministic and shared, but not fair.
+
+The fix is one line: scale from the high bits instead — `Math.floor((state / 2^32) * (index + 1))` — and a regression test now pins fairness by generating 400 seeded rooms and checking every lane appears as the host lane with no lane dominating.
+
+Lesson: with an LCG, take bits from the top. `state % n` is the classic trap; the high bits are where the randomness lives.
+
 ### The Round That Froze On Go
 
 Round 3 of 5: the countdown hit "go" and nothing happened, for anyone, forever. The host's client sends the `playing` action when the countdown completes, guarded by a fire-once flag so it does not spam the server. The flag was set *before* the request resolved — so when that one request failed (a network blip, a transient error), the flag stayed set, nothing ever retried, and since only the host may advance the phase, every client in the room was stranded on "go".

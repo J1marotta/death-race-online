@@ -774,3 +774,9 @@ Last updated: 2026-07-14
 - Room codes are now dashless single words (DR7Q2K style). Codes flow client -> path -> idFromName unchanged, so old dashed links still resolve (to their own rooms).
 - Regression tests: stale old-round snapshot rejection, final-scores persistence with host roundCount adoption, the prominent join card, and updated scoreboard-flow and room-code tests.
 - Verified with `npm test` (127 passing, run five times); `npm run lint`; `npm run build`; title screen screenshot via headless Edge.
+
+### task 73 : Deepen The New Bug-Museum Entries In WHY.html
+
+- Upgraded "The Corpse That Came Back To The Start Line" from prose to a full teaching entry: a t0-t5 failure timeline showing the in-flight snapshot racing the round reset, both fixes as code panels (the stale-round version check and the self-healing death bookkeeping), and a note on why the fixes are layered rather than alternatives.
+- Upgraded "The Match That Refused To End" the same way: the two stacked causes broken out, the phase-truce and roundCount-adoption fixes as code panels, and a description of how the regression test proves both at once.
+- Verified with `npm test` (127 passing, includes the WHY.html smoke tests); `npm run lint`.

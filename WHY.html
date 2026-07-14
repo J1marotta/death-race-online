@@ -1120,15 +1120,86 @@ const getLiveProgress = useCallback(racer => {
   <div class="bug-card">
     <span class="bug-tag sev">correctness</span><span class="bug-tag area">netcode</span>
     <h3>The Corpse That Came Back To The Start Line</h3>
-    <p>The corpse fix above had a sequel. A playtest showed one shot NPC frozen correctly mid-track and another standing dead at the start line — timing-dependent, so it smelled like a race. It was: when the host clicks "Next round", the client resets its round state immediately (corpse positions cleared, NPC positions rebuilt to the start line, the seen-lanes set emptied) — but a room snapshot from the round that just ended can still be in flight. Arriving after the reset, it re-applied the old <code class="inline">shotRacerIds</code>, froze those corpses at the rebuilt <em>start positions</em>, and poisoned the seen-lanes set so the new round's kill on the same lane rendered at the start line with no KO.</p>
-    <p>Two layered fixes: snapshots from a round older than the client's current round are rejected whole, and the death bookkeeping self-heals — a lane that un-dies is forgotten so the next kill re-captures fresh.</p>
+    <p>The corpse fix above had a sequel. A playtest showed one shot NPC frozen correctly mid-track and another standing dead at the start line — timing-dependent, so it smelled like a race. It was one. The killer detail: the client resets its round state the moment the host clicks "Next round", but the network does not stop delivering messages that were already in flight.</p>
+    <pre class="bare"><code class="js">// the failure, as a timeline
+t0  host clicks "Next round"
+t1  client resets: corpses cleared, NPC positions rebuilt AT THE START LINE,
+    seen-lanes set emptied, local round -> 2
+t2  a snapshot from round 1 (sent before t0) finally arrives
+t3  client applies its old shotRacerIds -> lane 12 "dies" again
+t4  the death effect captures lane 12's current position...
+    which the reset just rebuilt to the START LINE
+t5  lane 12 is now marked "seen", so when it is shot for real in
+    round 2: no KO marker, corpse rendered at the start line</code></pre>
+    <p>Two layered fixes. The first is a version check: every snapshot carries the server's round number, so anything older than the client's current round is rejected before it can touch any state. The second makes the bookkeeping self-healing, so even a same-round revert (stale response inside one round) cannot leave poison behind.</p>
+    <details class="code-panel" open>
+      <summary>Fix 1 — reject snapshots from the past <small>src/App.jsx — room sync effect</small></summary>
+      <pre><code class="js">// In-flight snapshots from a round that already ended locally must be
+// dropped whole: applying their shotRacerIds after resetRoundState used
+// to re-freeze old corpses at the rebuilt start positions and mark those
+// lanes as already seen.
+if (Number.isFinite(roomSnapshot.round) && roomSnapshot.round < currentRound) {
+  return
+}</code></pre>
+    </details>
+    <details class="code-panel">
+      <summary>Fix 2 — self-healing death bookkeeping <small>src/App.jsx — death detection effect</small></summary>
+      <pre><code class="js">// Self-heal when a lane un-dies (a stale snapshot briefly reverting a
+// kill): forget its bookkeeping so a later kill on the same lane
+// re-captures a fresh position and pops its KO again.
+const activeShotLanes = new Set(shotRacerIds)
+const revivedLaneIds = [...seenLanes].filter(
+  (laneId) => !activeShotLanes.has(laneId),
+)
+if (revivedLaneIds.length) {
+  revivedLaneIds.forEach((laneId) => seenLanes.delete(laneId))
+  setDeathProgressByLane(current => {
+    const next = { ...current }
+    for (const laneId of revivedLaneIds) {
+      delete next[laneId]
+    }
+    return next
+  })
+}</code></pre>
+    </details>
+    <p>Why both? Fix 1 alone closes the cross-round race but not a same-round revert; fix 2 alone heals the poisoning but lets the stale corpse flash on screen first. Belt and braces: reject what you can identify as stale, and make everything else recoverable.</p>
     <div class="lesson">In a distributed system, messages arrive from the past. Any state reset needs a version check on incoming data, or the past will overwrite the present.</div>
   </div>
 
   <div class="bug-card">
     <span class="bug-tag sev">correctness</span><span class="bug-tag area">state sync</span>
     <h3>The Match That Refused To End</h3>
-    <p>Winning the final round showed the final scores for a heartbeat, then dumped the player back to the scoreboard. Two causes stacked: the server has no <code class="inline">gameOver</code> phase (it parks on roundOver/scoreboard), so the next heartbeat snapshot yanked the locally-final client back into the round loop — and joiners never adopted the host's round count, so a guest in a 3-round match thought five rounds remained. Now the phase sync leaves a locally-completed match alone, and every client adopts <code class="inline">roundCount</code> from the room snapshot.</p>
+    <p>Winning the final round showed the final scores for a heartbeat, then dumped the player back to the scoreboard. Two independent causes stacked:</p>
+    <ul style="font-size:15px">
+      <li><strong>The server has no <code class="inline">gameOver</code> phase.</strong> It parks on <code class="inline">roundOver</code>/<code class="inline">scoreboard</code> after the last round. The client's phase sync faithfully mirrored whatever the server said — so the very next heartbeat snapshot yanked a locally-finished client straight back into the round loop. Final scores appeared for exactly one sync interval, then vanished.</li>
+      <li><strong>Joiners never adopted the host's round count.</strong> <code class="inline">roundCount</code> was serialized in every room snapshot, but no client ever read it back. A guest in a 3-round match kept the default of 5, so their "is the match complete?" check disagreed with the host's and they never saw a final-scores action at all.</li>
+    </ul>
+    <details class="code-panel" open>
+      <summary>Fix 1 — a truce between local gameOver and server phases <small>src/App.jsx — room sync effect</small></summary>
+      <pre><code class="js">if (['playing', 'roundOver', 'scoreboard'].includes(roomSnapshot.phase)) {
+  setState(current => {
+    // The server has no gameOver phase; once the match completes locally,
+    // late roundOver/scoreboard snapshots must not yank the player out of
+    // the final-scores screen back into the round loop.
+    if (
+      current === 'gameOver' &&
+      ['roundOver', 'scoreboard'].includes(roomSnapshot.phase)
+    ) {
+      return current
+    }
+    return current === roomSnapshot.phase ? current : roomSnapshot.phase
+  })
+}</code></pre>
+    </details>
+    <details class="code-panel">
+      <summary>Fix 2 — adopt the host's round count <small>src/App.jsx — room sync effect</small></summary>
+      <pre><code class="js">// Joiners must adopt the host's round count or their match-complete
+// check disagrees with the host's and the final scores never show.
+if (roomSnapshot.roundCount && roomSnapshot.roundCount !== roundCount) {
+  setRoundCount(roomSnapshot.roundCount)
+}</code></pre>
+    </details>
+    <p>The regression test for this bug advertises a 1-round match from the mock server, wins it, clicks "Show final scores", then lets more roundOver-phase snapshots arrive — and asserts the final-scores screen is still standing. The test passing also proves round-count adoption, because the client only offers "Show final scores" if it agrees the match is over.</p>
     <div class="lesson">Purely client-side states need an explicit truce with server sync. If the server does not know a state exists, the sync code must be told not to stomp it.</div>
   </div>
 

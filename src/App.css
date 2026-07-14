@@ -684,6 +684,125 @@ code {
   box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.28);
 }
 
+/* Sprint stamina meter: rides directly above the Space key so the budget
+   reads at the key you're holding. Hue tracks the tank (green→amber→red),
+   bottoming out jolts the key and flashes the trough red, and topping back
+   up fires a bright ready pop. */
+.sprint-key {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sprint-meter {
+  position: relative;
+  height: 6px;
+  overflow: hidden;
+  border: 1px solid #0b0e14;
+  border-radius: 3px;
+  background: #10141d;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.sprint-meter-fill {
+  display: block;
+  width: calc(var(--stamina) * 100%);
+  height: 100%;
+  background: hsl(calc(var(--stamina) * 118) 82% 52%);
+  box-shadow:
+    inset 0 -2px 0 rgba(0, 0, 0, 0.3),
+    0 0 8px hsl(calc(var(--stamina) * 118) 90% 58% / 0.55);
+  transition: width 60ms linear;
+}
+
+.control-key-sprint.exhausted .sprint-key {
+  animation: sprint-empty-shake 360ms steps(2, jump-none);
+}
+
+.control-key-sprint.exhausted .sprint-meter::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #ef4444;
+  animation: sprint-empty-flash 480ms steps(3, jump-none) forwards;
+}
+
+/* The returning fill pulses so the wait reads as "recharging", not broken. */
+.control-key-sprint.exhausted .sprint-meter-fill,
+.control-key-sprint.recharging .sprint-meter-fill {
+  animation: sprint-recharge-pulse 700ms ease-in-out infinite;
+}
+
+.control-key-sprint.exhausted kbd {
+  border-color: #7f1d1d;
+  color: #f87171;
+  background: linear-gradient(180deg, #2a1518, #171c28);
+}
+
+.sprint-meter-pop {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  animation: sprint-ready-pop 450ms ease-out forwards;
+}
+
+@keyframes sprint-empty-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20% {
+    transform: translateX(-2px);
+  }
+
+  40% {
+    transform: translateX(2px);
+  }
+
+  60% {
+    transform: translateX(-2px);
+  }
+
+  80% {
+    transform: translateX(1px);
+  }
+}
+
+@keyframes sprint-empty-flash {
+  0% {
+    opacity: 0.9;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes sprint-recharge-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes sprint-ready-pop {
+  0% {
+    opacity: 0.95;
+    box-shadow: 0 0 14px rgba(255, 255, 255, 0.9);
+  }
+
+  100% {
+    opacity: 0;
+    box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+  }
+}
+
 .lane {
   position: relative;
   z-index: 2;
@@ -1047,6 +1166,106 @@ code {
 .racer.npc-bobbing {
   animation: step-bob var(--bob-duration, 620ms) ease-in-out infinite;
   animation-delay: var(--bob-delay, 0ms);
+}
+
+/* Sprint juice on the controlled racer: chunky dust puffs and speed lines
+   while sprinting, a sweat drip and a heavier, slumped trudge while winded.
+   The winded rule sits after .racer.walking so exhaustion wins the bob. */
+.racer-dust,
+.racer-sweat {
+  display: none;
+  position: absolute;
+  pointer-events: none;
+}
+
+.racer.running .racer-dust {
+  display: block;
+  left: -9px;
+  bottom: -2px;
+  width: 4px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.55);
+  animation: dust-kick 360ms steps(3, jump-none) infinite;
+}
+
+.racer.running .racer-dust::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  bottom: 8px;
+  width: 9px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.4);
+  box-shadow: -5px 6px 0 rgba(255, 255, 255, 0.28);
+  animation: speed-lines 240ms steps(2, jump-none) infinite;
+}
+
+.racer.winded {
+  animation: winded-trudge 880ms ease-in-out infinite;
+  filter: saturate(0.75);
+}
+
+.racer.winded .racer-sweat {
+  display: block;
+  top: -7px;
+  right: -4px;
+  width: 3px;
+  height: 5px;
+  border-radius: 0 0 2px 2px;
+  background: #7dd3fc;
+  animation: sweat-drip 700ms steps(4, jump-none) infinite;
+}
+
+@keyframes dust-kick {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.9;
+  }
+
+  100% {
+    transform: translate(-9px, -5px) scale(1.8);
+    opacity: 0;
+  }
+}
+
+@keyframes speed-lines {
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: translateX(0);
+  }
+
+  50% {
+    opacity: 0.25;
+    transform: translateX(-3px);
+  }
+}
+
+@keyframes sweat-drip {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+
+  30% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(7px);
+    opacity: 0;
+  }
+}
+
+@keyframes winded-trudge {
+  0%,
+  100% {
+    transform: translate(-50%, -48%) scale(var(--racer-scale));
+  }
+
+  50% {
+    transform: translate(-50%, -46%) scale(calc(var(--racer-scale) * 0.96));
+  }
 }
 
 .racer.dead {

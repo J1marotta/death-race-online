@@ -592,6 +592,7 @@
   <a href="#codebase-tour">Codebase Tour</a>
   <a href="#lobby-flow">How A Lobby Works</a>
   <a href="#live-play">How Live Play Works</a>
+  <a href="#sprint-stamina">Why Sprint Costs Something</a>
   <a href="#netcode">Smooth Netcode</a>
   <a href="#durable-object">The Durable Object Idea</a>
   <a href="#websockets">WebSockets And Polling</a>
@@ -739,6 +740,15 @@
   </ul>
   <p>The host still drives phase transitions, but the contested moments — who crossed first, who killed whom — are decided server-side from live input data. NPC wins still come from the host because NPCs are simulated deterministically on every client, and the server does not run that simulation.</p>
   <p>For friends testing a hidden-identity party game, this architecture is the right kind of honest: real multiplayer rooms, clear state ownership, enough synchronization to play, and not too much infrastructure too early.</p>
+</section>
+
+<section id="sprint-stamina">
+  <h2>Why Sprint Costs Something</h2>
+  <p>For most of the project's life, sprint was free: hold Space, go 1.5x forever. That made the optimal strategy degenerate — hold Space from go to finish — and a degenerate optimal strategy is poison for a hidden-identity game, because every human plays identically (flat out) and identically is exactly what NPCs don't do.</p>
+  <p>Sprint is now a stamina budget: <strong>2 seconds</strong> of sprint in the tank, a hard lockout at empty until the bar refills to 100%, and a refill that only starts after <strong>1 full second</strong> without sprinting and takes <strong>3 seconds</strong> from empty. Held greedily, sprint uptime lands around 40%. The numbers were chosen against the NPCs: the crowd sprints in short seeded bursts, so a human who has to burst-and-recover now produces movement that looks like the crowd by default. Hiding got easier for players who manage the resource and harder for players who don't — the tank empties, the racer visibly slumps into a winded trudge, and that is a tell you created by being greedy.</p>
+  <p>Two design rulings keep it fair rather than fussy. Partial drains never lock you out — release Space above empty and it's available again instantly, so tap-management is rewarded, not punished. And the lockout ends generously: if Space is still held when the bar tops up, sprint resumes by itself on the ready pop, so nobody loses a race to a missed re-press.</p>
+  <p>The feedback had to be loud because the rule is invisible. The meter lives directly on the Space key in the control bar (the thing your thumb is already thinking about), its hue drains green to amber to red, bottoming out shakes the key and flashes the trough, the refill pulses so the wait reads as recharging rather than broken, and topping up fires a white pop that says "go" without requiring a glance. On the track, dust puffs and speed lines mark sprinting and a sweat drip marks exhaustion — so the state reads in the same place your eyes already are: the racers.</p>
+  <p>One engineering note: none of this touched the netcode. Remote players sync <code>movementMode</code>, and stamina gates <code>movementMode</code> locally before it ever leaves the client — an exhausted sprinter syncs as a walker, so every other client renders the correct speed for free.</p>
 </section>
 
 <section id="netcode">

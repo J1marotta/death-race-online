@@ -804,3 +804,14 @@ Last updated: 2026-07-14
 - The playfield no longer clips its children: lane 1 racers' ears and KO markers now poke above the board edge instead of being cut flat, with a CSS regression assertion.
 - Documented "The Shuffle That Favored Low Bits" in the WHY.md and WHY.html bug museums, updated spec round flow and visual direction, and extended the README QA checklist.
 - Verified with `npm test` (131 passing); `npm run lint`; `npm run build`.
+
+### task 77 : Sprint Stamina With A Juicy Meter
+
+- Sprint is now a budgeted burst: a 2-second stamina tank drains while Space is held, empties into a hard lockout (the racer drops to walking speed even with Space held), and only re-arms once the bar refills to 100%. Refill starts after 1 second without sprinting and takes 3 seconds from empty (~40% sprint uptime held greedily). Partial drains never lock out, and sprint auto-resumes on the ready pop if Space is still held. Stamina resets each round; NPCs keep their separate burst-cap pacing.
+- Stamina gates `movementMode` locally before it syncs, so remote clients render an exhausted sprinter as a walker with zero netcode changes.
+- Meter juice: the stamina bar rides directly above the Space key in the control bar, its hue drains green -> amber -> red, bottoming out shakes the key and flashes the trough red, the returning fill pulses while recharging, and reaching full fires a white ready pop (keyed remount so it always replays).
+- Racer juice: the controlled racer kicks up stepped dust puffs and speed lines while sprinting, and shows a sweat drip plus a slumped, desaturated winded trudge while exhausted.
+- Fixed a stale test assertion from the "faster walking" commit: run speed is 1.5x walk but the run-vs-walk test still demanded 1.9x, so it failed at HEAD; the bound is now 1.4x.
+- Regression tests: stamina drains and drops the racer to a walk at empty, refill waits the full rest second, tops up to 100, clears the lockout, and renders the ready pop. Stamina tests start under fake timers so the frame loop schedules against the mocked clock.
+- Documented the design in spec.md (Player Controls) and "Why Sprint Costs Something" in WHY.md and WHY.html.
+- Verified with `npm test` (133 passing); `npm run lint`.

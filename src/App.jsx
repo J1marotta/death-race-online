@@ -137,8 +137,8 @@ const ROOM_CODE = Math.random().toString(36).slice(2, 6).toUpperCase()
 const ROUND_OPTIONS = [3, 5, 7]
 const COUNTDOWN_STEPS = ['3', '2', '1', 'go']
 const COUNTDOWN_STEP_MS = 500
-const WALK_SPEED = 0.3
-const RUN_SPEED = WALK_SPEED * 1.3
+const WALK_SPEED = 0.4
+const RUN_SPEED = WALK_SPEED * 1.5
 const TICK_MS = 80
 // NPCs hold at the line after go — a crowd reacts, it doesn't launch. Each
 // NPC adds its own small seeded stagger on top.
@@ -178,6 +178,12 @@ const MOVEMENT_SPEEDS_BY_MODE = {
   walking: WALK_SPEED,
   running: RUN_SPEED
 }
+// Sprint stamina: 2s of sprint at full tilt, then a hard lockout until the
+// bar refills completely. Refill waits 1s after the last sprint frame and
+// takes 3s from empty, so sprint is a budgeted burst rather than a held key.
+const SPRINT_MAX_MS = 2000
+const SPRINT_REFILL_MS = 3000
+const SPRINT_REFILL_DELAY_MS = 1000
 const KO_MARKER_MS = 1100
 const KILL_FEED_TTL_MS = 4200
 const SHAKE_VICTIM_MS = 500
@@ -292,6 +298,12 @@ function App() {
   const [roomCode, setRoomCode] = useState(initialRoomCode)
   const [countdownIndex, setCountdownIndex] = useState(0)
   const [movementMode, setMovementMode] = useState('stopped')
+  const [sprintStamina, setSprintStamina] = useState({
+    pct: 100,
+    exhausted: false,
+    recharging: false,
+  })
+  const [sprintReadyPop, setSprintReadyPop] = useState(0)
   const [controlledProgress, setControlledProgress] = useState(0)
   const [npcTick, setNpcTick] = useState(0)
   const [npcProgressByLane, setNpcProgressByLane] = useState(() =>
@@ -321,6 +333,11 @@ function App() {
   const [soundMuted, setSoundMuted] = useState(false)
   const playfieldRef = useRef(null)
   const pressedKeys = useRef({ run: false, walk: false })
+  const staminaRef = useRef({
+    ms: SPRINT_MAX_MS,
+    exhausted: false,
+    lastSprintAt: 0,
+  })
   const playingRequested = useRef(false)
   const audioContextRef = useRef(null)
   const musicNodesRef = useRef(null)
@@ -925,23 +942,26 @@ function App() {
     )
   }, [controlledRacerId])
 
-  useEffect(() => {
-    const syncMovement = () => {
-      const { run, walk } = pressedKeys.current
-      setHeldKeys(current =>
-        current.walk === walk && current.run === run ? current : { walk, run }
-      )
-      if (run) {
-        setMovementMode('running')
-        return
-      }
-      if (walk) {
-        setMovementMode('walking')
-        return
-      }
-      setMovementMode('stopped')
+  // Movement mode is derived from raw key state plus stamina: an exhausted
+  // sprinter holding Space trudges at walk speed until the bar is 100% again.
+  const syncMovement = useCallback(() => {
+    const { run, walk } = pressedKeys.current
+    setHeldKeys(current =>
+      current.walk === walk && current.run === run ? current : { walk, run }
+    )
+    const stamina = staminaRef.current
+    if (run && !stamina.exhausted && stamina.ms > 0) {
+      setMovementMode('running')
+      return
     }
+    if (walk || run) {
+      setMovementMode('walking')
+      return
+    }
+    setMovementMode('stopped')
+  }, [])
 
+  useEffect(() => {
     const isMovementKey = (event) =>
       event.code === 'Space' || event.code === 'ArrowRight'
     // Movement keys must never hijack typing: leave name fields alone
@@ -997,7 +1017,7 @@ function App() {
       window.removeEventListener('blur', clearMovement)
       document.removeEventListener('visibilitychange', clearMovement)
     }
-  }, [controlledRacerEliminated, state])
+  }, [controlledRacerEliminated, state, syncMovement])
 
   // Release the on-screen fire button when the physical button releases; the
   // timeout backstops a mouseup that lands outside the window.
@@ -1032,6 +1052,53 @@ function App() {
       )
     })
   }, [controlledRacerEliminated, movementMode, state])
+
+  // Sprint stamina drains while actually sprinting and refills only after a
+  // full second without sprinting; bottoming out flips `exhausted`, which
+  // syncMovement turns into a walk until the tank is completely full again.
+  useEffect(() => {
+    if (state !== 'playing' || controlledRacerEliminated) {
+      return undefined
+    }
+    return createFrameLoop((dt, now) => {
+      const stamina = staminaRef.current
+      const sprinting =
+        pressedKeys.current.run && !stamina.exhausted && stamina.ms > 0
+      if (dt > 0 && sprinting) {
+        stamina.ms = Math.max(0, stamina.ms - dt)
+        stamina.lastSprintAt = now
+        if (stamina.ms === 0) {
+          stamina.exhausted = true
+          syncMovement()
+        }
+      } else if (
+        dt > 0 &&
+        stamina.ms < SPRINT_MAX_MS &&
+        now - stamina.lastSprintAt >= SPRINT_REFILL_DELAY_MS
+      ) {
+        stamina.ms = Math.min(
+          SPRINT_MAX_MS,
+          stamina.ms + (dt * SPRINT_MAX_MS) / SPRINT_REFILL_MS
+        )
+        if (stamina.ms === SPRINT_MAX_MS) {
+          setSprintReadyPop(count => count + 1)
+          if (stamina.exhausted) {
+            stamina.exhausted = false
+            syncMovement()
+          }
+        }
+      }
+      const pct = (stamina.ms / SPRINT_MAX_MS) * 100
+      const recharging = stamina.ms < SPRINT_MAX_MS && !sprinting
+      setSprintStamina(current =>
+        current.pct === pct &&
+        current.exhausted === stamina.exhausted &&
+        current.recharging === recharging
+          ? current
+          : { pct, exhausted: stamina.exhausted, recharging }
+      )
+    })
+  }, [controlledRacerEliminated, state, syncMovement])
 
   useEffect(() => {
     if (state !== 'playing') {
@@ -1616,6 +1683,9 @@ function App() {
   const resetRoundState = useCallback((nextHumanLaneIds = humanLaneIds, nextControlledRacerId = controlledRacerId) => {
     setCountdownIndex(0)
     setControlledProgress(0)
+    staminaRef.current = { ms: SPRINT_MAX_MS, exhausted: false, lastSprintAt: 0 }
+    setSprintStamina({ pct: 100, exhausted: false, recharging: false })
+    setSprintReadyPop(0)
     setNpcTick(0)
     remoteSnapshotsRef.current = {}
     setRemoteProgressByPlayer({})
@@ -2475,6 +2545,9 @@ function App() {
                     isEliminated ? 'dead' : '',
                     isEliminated && koMarkers[lane.id] ? 'just-shot' : '',
                     isControlled && !isEliminated ? movementMode : '',
+                    isControlled && !isEliminated && sprintStamina.exhausted
+                      ? 'winded'
+                      : '',
                     !isHuman && state === 'playing' && !isEliminated
                         ? `npc-bobbing ${npcMotionClass}`
                         : ''
@@ -2496,6 +2569,12 @@ function App() {
                     <span className='racer-head' />
                     <span className='racer-body' />
                     <span className='racer-shadow' />
+                    {isControlled ? (
+                      <>
+                        <span className='racer-dust' aria-hidden='true' />
+                        <span className='racer-sweat' aria-hidden='true' />
+                      </>
+                    ) : null}
                   </span>
                   {isEliminated ? (
                     <span className='body-marker'>
@@ -2557,14 +2636,42 @@ function App() {
             <span
               className={[
                 'control-key',
+                'control-key-sprint',
                 controlsActive ? '' : 'locked',
                 controlsActive && heldKeys.run ? 'held' : '',
+                controlsActive && sprintStamina.exhausted ? 'exhausted' : '',
+                controlsActive &&
+                !sprintStamina.exhausted &&
+                sprintStamina.recharging
+                  ? 'recharging'
+                  : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
               data-testid='control-sprint'
             >
-              <kbd aria-label='Space bar'>Space</kbd>
+              <span className='sprint-key'>
+                <span
+                  className='sprint-meter'
+                  role='progressbar'
+                  aria-label='Sprint stamina'
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(sprintStamina.pct)}
+                  data-testid='sprint-meter'
+                  style={{ '--stamina': sprintStamina.pct / 100 }}
+                >
+                  <span className='sprint-meter-fill' />
+                  {sprintReadyPop > 0 ? (
+                    <span
+                      key={sprintReadyPop}
+                      className='sprint-meter-pop'
+                      aria-hidden='true'
+                    />
+                  ) : null}
+                </span>
+                <kbd aria-label='Space bar'>Space</kbd>
+              </span>
               <span className='control-label'>Sprint</span>
             </span>
             <span

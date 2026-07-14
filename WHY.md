@@ -202,6 +202,18 @@ If this ever becomes competitive, more should move server-side, because client-o
 
 For friends testing a hidden-identity party game, the current architecture is the right kind of honest: real multiplayer rooms, clear state ownership, enough synchronization to play, and not too much infrastructure too early.
 
+## Why Sprint Costs Something
+
+For most of the project's life, sprint was free: hold Space, go 1.5x forever. That made the optimal strategy degenerate — hold Space from go to finish — and a degenerate optimal strategy is poison for a hidden-identity game, because every human plays identically (flat out) and identically is exactly what NPCs don't do.
+
+Sprint is now a stamina budget: 2 seconds of sprint in the tank, a hard lockout at empty until the bar refills to 100%, and a refill that only starts after 1 full second without sprinting and takes 3 seconds from empty. Held greedily, sprint uptime lands around 40%. The numbers were chosen against the NPCs: the crowd sprints in short seeded bursts, so a human who has to burst-and-recover now produces movement that looks like the crowd by default. Hiding got easier for players who manage the resource and harder for players who don't — the tank empties, the racer visibly slumps into a winded trudge, and that is a tell you created by being greedy.
+
+Two design rulings keep it fair rather than fussy. Partial drains never lock you out — release Space above empty and it's available again instantly, so tap-management is rewarded, not punished. And the lockout ends generously: if Space is still held when the bar tops up, sprint resumes by itself on the ready pop, so nobody loses a race to a missed re-press.
+
+The feedback had to be loud because the rule is invisible. The meter lives directly on the Space key in the control bar (the thing your thumb is already thinking about), its hue drains green to amber to red, bottoming out shakes the key and flashes the trough, the refill pulses so the wait reads as recharging rather than broken, and topping up fires a white pop that says "go" without requiring a glance. On the track, dust puffs and speed lines mark sprinting and a sweat drip marks exhaustion — so the state reads in the same place your eyes already are: the racers.
+
+One engineering note: none of this touched the netcode. Remote players sync `movementMode`, and stamina gates `movementMode` locally before it ever leaves the client — an exhausted sprinter syncs as a walker, so every other client renders the correct speed for free.
+
 ## How The Netcode Stays Smooth
 
 The screen runs at 60fps. The network does not, and never needs to.

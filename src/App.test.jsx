@@ -896,7 +896,68 @@ describe('game controls', () => {
     fireEvent.keyUp(window, { code: 'Space' })
     const runEnd = Number.parseFloat(racer.style.getPropertyValue('--racer-progress'))
 
-    expect(runEnd - runStart).toBeGreaterThan((walkEnd - walkStart) * 1.9)
+    // Run speed is WALK_SPEED * 1.5, so anything comfortably above walking
+    // pace proves sprint engaged without depending on frame timing jitter.
+    expect(runEnd - runStart).toBeGreaterThan((walkEnd - walkStart) * 1.4)
+  })
+
+  // The stamina frame loop starts the moment play begins, so these tests use
+  // startPlayingWithFakeTimers — starting under real timers would leave the
+  // loop's scheduled frame orphaned once fake timers are installed.
+  it('drains sprint stamina and drops to a walk when the tank empties', async () => {
+    await startPlayingWithFakeTimers()
+    const meter = screen.getByTestId('sprint-meter')
+    expect(meter.getAttribute('aria-valuenow')).toBe('100')
+
+    fireEvent.keyDown(window, { code: 'Space' })
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+    const midway = Number(meter.getAttribute('aria-valuenow'))
+    expect(midway).toBeLessThan(100)
+    expect(midway).toBeGreaterThan(0)
+
+    act(() => {
+      vi.advanceTimersByTime(1400)
+    })
+    expect(meter.getAttribute('aria-valuenow')).toBe('0')
+    expect(screen.getByTestId('control-sprint').className).toContain('exhausted')
+
+    // Space is still held, but the exhausted racer only trudges.
+    const controlledLane = screen
+      .getByTestId('local-crosshair')
+      .closest('[data-testid^="lane-"]')
+    const racer = controlledLane.querySelector('[data-testid^="racer-"]')
+    expect(racer.className).toContain('walking')
+    expect(racer.className).not.toContain('running')
+    fireEvent.keyUp(window, { code: 'Space' })
+  })
+
+  it('refills stamina only after a second of rest and pops when full', async () => {
+    await startPlayingWithFakeTimers()
+    const meter = screen.getByTestId('sprint-meter')
+
+    fireEvent.keyDown(window, { code: 'Space' })
+    act(() => {
+      vi.advanceTimersByTime(2400)
+    })
+    fireEvent.keyUp(window, { code: 'Space' })
+    expect(meter.getAttribute('aria-valuenow')).toBe('0')
+
+    // Refill waits a full second after the tank bottomed out.
+    act(() => {
+      vi.advanceTimersByTime(500)
+    })
+    expect(Number(meter.getAttribute('aria-valuenow'))).toBe(0)
+
+    act(() => {
+      vi.advanceTimersByTime(3400)
+    })
+    expect(meter.getAttribute('aria-valuenow')).toBe('100')
+    expect(screen.getByTestId('control-sprint').className).not.toContain(
+      'exhausted',
+    )
+    expect(meter.querySelector('.sprint-meter-pop')).toBeTruthy()
   })
 
   it('shows a straight checkered finish line on the playfield', async () => {

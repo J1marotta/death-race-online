@@ -71,7 +71,16 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 - Mouse: aim.
 - Mouse 1: fire.
 
-Sprinting has no stamina, cooldown, noise meter, or extra UI. The risk is behavioral: sprinting makes intent easier to read and may draw shots.
+Sprinting is a budgeted burst, not a held key:
+
+- The stamina tank holds 2 seconds of sprint. Holding `Space` drains it; at empty the racer drops to walking speed even with `Space` still held.
+- Emptying the tank is a hard lockout: sprint stays unavailable until the bar refills to 100%. If `Space` is still held when it tops up, sprinting resumes automatically.
+- Refill starts only after 1 second without sprinting and takes 3 seconds from empty, so sprint uptime is roughly 40% when held greedily.
+- Partial drains never lock out: release `Space` above empty and you can sprint again immediately.
+- Stamina resets to full at the start of every round. NPCs keep their own separate burst-cap pacing (see NPC Behavior).
+- Beyond the meter, the risk stays behavioral: sprinting makes intent easier to read and may draw shots.
+
+The stamina meter rides directly above the `Space` key in the control bar. Its fill hue tracks the tank (green → amber → red), bottoming out jolts the key with a shake and a red flash then pulses the returning fill while locked out, and reaching full fires a bright ready pop. On the track, the controlled racer kicks up dust puffs and speed lines while sprinting, and shows a sweat drip with a slumped, desaturated trudge while exhausted.
 
 The bar below the playfield renders the controls as physical-looking `<kbd>` buttons: they highlight and visually depress while the real key is held, the mouse element's left button lights up on fire and greys out once the bullet is spent (with the bullet pip removed), and the whole bar dims whenever the player cannot act (countdown, eliminated, or outside live play). The buttons are indicators only — they are not clickable.
 

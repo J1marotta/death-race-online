@@ -2086,22 +2086,6 @@ function App() {
 
       {state === 'lobby' ? (
         <div className='lobby-action-grid'>
-          {isCurrentHost ? (
-            <button
-              type='button'
-              className='host-start'
-              onClick={() => void startGameFromLobby()}
-              disabled={!hostCanStart}
-            >
-              {hostCanStart ? 'Start game' : 'Waiting for ready'}
-            </button>
-          ) : (
-            <div className='assignment-summary' aria-label='Host start status'>
-              <span>Host start</span>
-              <strong>Waiting for host</strong>
-              <p>{roomReady ? 'The room is ready.' : 'Everyone needs to ready up.'}</p>
-            </div>
-          )}
           <button
             type='button'
             className='host-start'
@@ -2116,6 +2100,23 @@ function App() {
           >
             {currentRoomPlayer?.ready ? 'Ready' : 'Ready up'}
           </button>
+          {isCurrentHost ? (
+            <button
+              type='button'
+              className={hostCanStart ? 'host-start' : 'host-start-green'}
+              onClick={() => void startGameFromLobby()}
+              disabled={!hostCanStart}
+            >
+              {hostCanStart ? 'Start game' : 'Waiting for ready'}
+            </button>
+          ) : (
+            <div className='assignment-summary' aria-label='Host start status'>
+              <span>Host start</span>
+              <strong>Waiting for host</strong>
+              <p>{roomReady ? 'The room is ready.' : 'Everyone needs to ready up.'}</p>
+            </div>
+          )}
+          
         </div>
       ) : null}
 

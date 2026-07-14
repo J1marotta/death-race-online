@@ -491,6 +491,15 @@ code {
   color: var(--accent-contrast);
 }
 
+.host-start-green {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--accent-green);
+  border-color: var(--accent-green);
+  color: var(--accent-contrast)
+}
+
 .actions {
   position: sticky;
   top: 0;

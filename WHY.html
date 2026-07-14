@@ -1,0 +1,1426 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Why Death Race Works — Interactive Guide</title>
+<style>
+  :root {
+    --bg: #0c0f15;
+    --panel: #131722;
+    --panel-2: #191f2e;
+    --border: #2a3145;
+    --text: #9aa3b5;
+    --text-h: #e8ecf4;
+    --accent: #e13d35;
+    --gold: #facc15;
+    --green: #4ade80;
+    --blue: #60a5fa;
+    --mono: 'Cascadia Code', 'Consolas', 'SF Mono', monospace;
+    --sans: 'Segoe UI', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.65 var(--sans);
+  }
+
+  /* ---------- layout ---------- */
+  .progress-bar {
+    position: fixed;
+    top: 0; left: 0;
+    height: 3px;
+    width: 0;
+    background: linear-gradient(90deg, var(--accent), var(--gold));
+    z-index: 50;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 32px;
+    padding: 0 20px;
+  }
+
+  nav.toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    max-height: 100vh;
+    overflow-y: auto;
+    padding: 24px 0 40px;
+    font-size: 13px;
+  }
+
+  nav.toc .toc-title {
+    color: var(--text-h);
+    font: 700 11px/1 var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+  }
+
+  nav.toc a {
+    display: block;
+    color: var(--text);
+    text-decoration: none;
+    padding: 4px 10px;
+    border-left: 2px solid var(--border);
+    transition: color 120ms, border-color 120ms;
+  }
+
+  nav.toc a:hover { color: var(--text-h); }
+
+  nav.toc a.active {
+    color: var(--gold);
+    border-left-color: var(--gold);
+  }
+
+  main { padding: 24px 0 120px; min-width: 0; }
+
+  /* ---------- typography ---------- */
+  h1 {
+    color: var(--text-h);
+    font-size: 40px;
+    line-height: 1.05;
+    margin: 12px 0 8px;
+  }
+
+  h2 {
+    color: var(--text-h);
+    font-size: 26px;
+    margin: 56px 0 12px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  h3 { color: var(--text-h); font-size: 18px; margin: 28px 0 8px; }
+
+  .eyebrow {
+    color: var(--accent);
+    font: 700 12px/1 var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  p, li { max-width: 72ch; }
+  strong { color: var(--text-h); }
+  a { color: var(--blue); }
+
+  .lead { font-size: 19px; color: var(--text-h); }
+
+  /* ---------- callouts ---------- */
+  .lesson {
+    margin: 18px 0;
+    padding: 12px 16px;
+    border: 1px solid rgba(250, 204, 21, 0.35);
+    border-left: 4px solid var(--gold);
+    border-radius: 6px;
+    background: rgba(250, 204, 21, 0.06);
+  }
+
+  .lesson::before {
+    content: 'Lesson';
+    display: block;
+    color: var(--gold);
+    font: 700 11px/1 var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+  }
+
+  .note {
+    margin: 18px 0;
+    padding: 12px 16px;
+    border: 1px solid rgba(96, 165, 250, 0.35);
+    border-left: 4px solid var(--blue);
+    border-radius: 6px;
+    background: rgba(96, 165, 250, 0.06);
+  }
+
+  .note::before {
+    content: 'How it connects';
+    display: block;
+    color: var(--blue);
+    font: 700 11px/1 var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+  }
+
+  /* ---------- code ---------- */
+  details.code-panel {
+    margin: 16px 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+    overflow: hidden;
+  }
+
+  details.code-panel summary {
+    cursor: pointer;
+    padding: 10px 16px;
+    color: var(--text-h);
+    font: 700 13px/1.4 var(--mono);
+    user-select: none;
+    list-style: none;
+  }
+
+  details.code-panel summary::before {
+    content: '▸ ';
+    color: var(--accent);
+  }
+
+  details.code-panel[open] summary::before { content: '▾ '; }
+
+  details.code-panel summary small {
+    color: var(--text);
+    font-weight: 400;
+    margin-left: 8px;
+  }
+
+  pre {
+    margin: 0;
+    padding: 14px 16px;
+    overflow-x: auto;
+    background: #0a0d13;
+    border-top: 1px solid var(--border);
+    font: 13px/1.6 var(--mono);
+    color: #c8d1e4;
+    tab-size: 2;
+  }
+
+  pre.bare {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 16px 0;
+  }
+
+  code.inline {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font: 13px var(--mono);
+    color: var(--text-h);
+  }
+
+  .tok-kw { color: #c586c0; }
+  .tok-str { color: #ce9178; }
+  .tok-com { color: #6a9955; font-style: italic; }
+  .tok-num { color: #b5cea8; }
+  .tok-fn { color: #dcdcaa; }
+
+  /* ---------- diff tabs ---------- */
+  .tabs { margin: 16px 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+
+  .tab-row { display: flex; background: var(--panel); border-bottom: 1px solid var(--border); }
+
+  .tab-row button {
+    flex: 0 0 auto;
+    padding: 9px 18px;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font: 700 12px/1 var(--mono);
+    cursor: pointer;
+  }
+
+  .tab-row button.active { color: var(--text-h); background: var(--panel-2); }
+  .tab-row button.tab-bad.active { color: #fca5a5; }
+  .tab-row button.tab-good.active { color: var(--green); }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .tab-panel pre { border-top: none; }
+
+  /* ---------- architecture diagram ---------- */
+  .arch { display: grid; gap: 6px; margin: 20px 0; max-width: 560px; }
+
+  .arch-box {
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+    cursor: pointer;
+    transition: border-color 120ms;
+  }
+
+  .arch-box:hover, .arch-box.open { border-color: var(--accent); }
+
+  .arch-box strong { display: block; font: 700 14px/1.3 var(--mono); }
+  .arch-box small { color: var(--text); }
+
+  .arch-box .arch-detail {
+    display: none;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border);
+    font-size: 14px;
+  }
+
+  .arch-box.open .arch-detail { display: block; }
+
+  .arch-arrow { text-align: center; color: var(--accent); font: 700 14px var(--mono); }
+
+  /* ---------- flow stepper ---------- */
+  .stepper { margin: 18px 0; }
+
+  .stepper ol { padding-left: 0; list-style: none; counter-reset: step; max-width: 640px; }
+
+  .stepper li {
+    counter-increment: step;
+    padding: 7px 12px 7px 44px;
+    position: relative;
+    border-radius: 6px;
+    opacity: 0.45;
+    transition: opacity 150ms, background 150ms;
+  }
+
+  .stepper li::before {
+    content: counter(step);
+    position: absolute;
+    left: 8px; top: 8px;
+    width: 24px; height: 24px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    font: 700 12px var(--mono);
+    color: var(--text);
+    background: var(--panel);
+  }
+
+  .stepper li.done { opacity: 0.8; }
+  .stepper li.done::before { border-color: var(--green); color: var(--green); }
+
+  .stepper li.current {
+    opacity: 1;
+    background: rgba(225, 61, 53, 0.08);
+    color: var(--text-h);
+  }
+
+  .stepper li.current::before {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ---------- buttons & inputs ---------- */
+  button.ui {
+    min-height: 36px;
+    padding: 0 16px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel);
+    color: var(--text-h);
+    font: 700 13px/1 var(--sans);
+    cursor: pointer;
+  }
+
+  button.ui:hover { border-color: var(--accent); }
+  button.ui.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .demo {
+    margin: 20px 0;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--panel);
+  }
+
+  .demo-title {
+    color: var(--text-h);
+    font: 700 12px/1 var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 10px;
+  }
+
+  .demo-title::before { content: '⚡ '; color: var(--gold); }
+
+  .demo-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin: 10px 0;
+    font-size: 13px;
+  }
+
+  .demo-controls label { display: flex; gap: 8px; align-items: center; color: var(--text); }
+  .demo-controls input[type='range'] { accent-color: var(--accent); }
+
+  .readout { font: 700 13px var(--mono); color: var(--gold); }
+
+  /* ---------- dead reckoning demo ---------- */
+  .dr-track {
+    position: relative;
+    height: 44px;
+    margin: 8px 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background:
+      linear-gradient(90deg, transparent 0 92.5%, rgba(248, 250, 252, 0.4) 92.5% 94%, transparent 94%),
+      var(--panel-2);
+    overflow: hidden;
+  }
+
+  .dr-label {
+    position: absolute;
+    left: 8px; top: 4px;
+    font: 700 10px/1 var(--mono);
+    text-transform: uppercase;
+    color: var(--text);
+    z-index: 2;
+  }
+
+  .dr-dot {
+    position: absolute;
+    top: 50%;
+    width: 16px; height: 16px;
+    border-radius: 3px;
+    border: 2px solid #111;
+    transform: translate(-50%, -50%);
+    box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.4);
+  }
+
+  .dr-dot.truth { background: var(--text); opacity: 0.35; }
+  .dr-dot.snap { background: var(--accent); }
+  .dr-dot.reckon { background: var(--green); }
+
+  /* ---------- cost calculator ---------- */
+  .cost-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .cost-cell {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel-2);
+  }
+
+  .cost-cell span { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .cost-cell strong { font: 800 18px/1.4 var(--mono); color: var(--text-h); overflow-wrap: anywhere; }
+  .cost-cell.hot strong { color: var(--green); }
+
+  /* ---------- juice demo ---------- */
+  .juice-field {
+    position: relative;
+    height: 64px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background:
+      linear-gradient(90deg, transparent 0 91%, #111 91% 91.5%, #f8fafc 91.5% 93%, #111 93% 93.5%, transparent 93.5%),
+      var(--panel-2);
+    overflow: hidden;
+    margin: 10px 0;
+  }
+
+  .juice-racer {
+    position: absolute;
+    top: 50%;
+    left: 55%;
+    width: 20px; height: 24px;
+    transform: translate(-50%, -50%);
+    border: 2px solid #111;
+    border-radius: 3px;
+    background: #7dd3fc;
+    box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.42), inset 0 -6px 0 rgba(0, 0, 0, 0.22);
+    transition: none;
+  }
+
+  .juice-racer.dead {
+    transform: translate(-50%, -20%) rotate(90deg);
+    filter: saturate(0.5);
+    opacity: 0.75;
+  }
+
+  .juice-field.shake { animation: j-shake 500ms ease-out; }
+
+  @keyframes j-shake {
+    0% { transform: translate(0, 0); }
+    15% { transform: translate(-7px, 4px); }
+    30% { transform: translate(6px, -4px); }
+    45% { transform: translate(-5px, -2px); }
+    60% { transform: translate(4px, 3px); }
+    75% { transform: translate(-3px, 1px); }
+    100% { transform: translate(0, 0); }
+  }
+
+  .juice-flash {
+    position: absolute;
+    inset: 0;
+    background: rgba(248, 250, 252, 0.3);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .juice-flash.on { animation: j-flash 300ms ease-out; }
+
+  @keyframes j-flash { from { opacity: 1; } to { opacity: 0; } }
+
+  .juice-ko {
+    position: absolute;
+    top: 50%;
+    left: 55%;
+    color: var(--gold);
+    font: 900 15px/1 var(--mono);
+    white-space: nowrap;
+    text-shadow: 2px 2px 0 #111;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .juice-ko.on { animation: j-ko 1100ms cubic-bezier(0.28, 1.6, 0.4, 1) forwards; }
+
+  @keyframes j-ko {
+    0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0; }
+    14% { transform: translate(-50%, -150%) scale(1.35); opacity: 1; }
+    30% { transform: translate(-50%, -70%) scale(1); }
+    50% { transform: translate(-50%, -120%) scale(1.1); }
+    70% { transform: translate(-50%, -80%) scale(1); }
+    100% { transform: translate(-50%, -95%) scale(1); opacity: 1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .juice-field.shake, .juice-flash.on, .juice-ko.on { animation: none; }
+    .juice-ko.on { opacity: 1; transform: translate(-50%, -95%); }
+  }
+
+  /* ---------- bug museum ---------- */
+  .bug-card {
+    margin: 18px 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--panel);
+    padding: 16px 18px;
+  }
+
+  .bug-card h3 { margin-top: 0; }
+
+  .bug-tag {
+    display: inline-block;
+    font: 700 10px/1 var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    padding: 4px 8px;
+    border-radius: 4px;
+    margin-right: 6px;
+  }
+
+  .bug-tag.sev { background: rgba(225, 61, 53, 0.15); color: #fca5a5; border: 1px solid rgba(225, 61, 53, 0.4); }
+  .bug-tag.area { background: rgba(96, 165, 250, 0.12); color: var(--blue); border: 1px solid rgba(96, 165, 250, 0.35); }
+
+  /* ---------- file cards ---------- */
+  .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; margin: 16px 0; }
+
+  .file-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+
+  .file-card code { font: 700 13px var(--mono); color: var(--gold); }
+  .file-card p { margin: 6px 0 0; font-size: 13px; }
+
+  table { border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+  th, td { border: 1px solid var(--border); padding: 8px 14px; text-align: left; }
+  th { color: var(--text-h); background: var(--panel); }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    nav.toc { position: static; max-height: none; }
+  }
+</style>
+</head>
+<body>
+<div class="progress-bar" id="progressBar"></div>
+
+<div class="layout">
+<nav class="toc" id="toc">
+  <div class="toc-title">Why Death Race Works</div>
+  <a href="#heartbeat">The Heartbeat</a>
+  <a href="#plain-language">Plain-Language Version</a>
+  <a href="#what-we-built">What We Built</a>
+  <a href="#architecture">Architecture</a>
+  <a href="#codebase-tour">Codebase Tour</a>
+  <a href="#lobby-flow">How A Lobby Works</a>
+  <a href="#live-play">How Live Play Works</a>
+  <a href="#netcode">Smooth Netcode</a>
+  <a href="#durable-object">The Durable Object Idea</a>
+  <a href="#websockets">WebSockets And Polling</a>
+  <a href="#react-vite">Why React And Vite</a>
+  <a href="#dom-css">Why DOM Instead Of Canvas</a>
+  <a href="#decisions">Key Technical Decisions</a>
+  <a href="#bug-museum">The Bug Museum</a>
+  <a href="#tests">The Test Safety Net</a>
+  <a href="#deployment">Deployment Shape</a>
+  <a href="#costs">What WebSockets Cost</a>
+  <a href="#prototype">Still Prototype-Shaped</a>
+  <a href="#thinking">How Engineers Think</a>
+  <a href="#lessons">Lessons To Carry Forward</a>
+  <a href="#pitfalls">Future Pitfalls</a>
+  <a href="#mental-model">The Best Mental Model</a>
+</nav>
+
+<main>
+<header id="heartbeat">
+  <p class="eyebrow">Interactive engineering guide · generated from WHY.md</p>
+  <h1>Why Death Race Works</h1>
+  <p class="lead">Death Race is a browser game about suspicion.</p>
+  <p>On the surface, it is twenty little racers moving toward a finish line. Underneath, it is a social deduction game wearing running shoes. Every human secretly controls one racer. Nobody gets a name tag during the race. Everyone gets one bullet. The real game is not "can I go fast?" It is "can I move just naturally enough that nobody realizes which one is me?"</p>
+  <p>That is the heartbeat of the project:</p>
+  <ul>
+    <li>Hide in a crowd.</li>
+    <li>Read other people's movement tells.</li>
+    <li>Spend your one shot wisely.</li>
+    <li>Survive long enough for your racer to cross the line.</li>
+  </ul>
+  <p><strong>The rest of the engineering exists to protect that feeling.</strong> Everything on this page — the code panels, the demos, the bug stories — traces back to that one sentence.</p>
+</header>
+
+<section id="plain-language">
+  <h2>The Plain-Language Version</h2>
+  <p>Think of the game as three connected places:</p>
+  <ol>
+    <li><strong>The arcade cabinet:</strong> the React app in the browser.</li>
+    <li><strong>The race office:</strong> the Cloudflare Worker API.</li>
+    <li><strong>The official clipboard:</strong> one Durable Object per room code.</li>
+  </ol>
+  <p>The browser draws the track, handles keyboard and mouse input, and shows the lobby. The Worker receives room actions like "create", "join", "ready", "start", "shot", and "next round". The Durable Object is the single source of truth for one lobby. If room <code class="inline">DR-ABCD</code> exists, that room has exactly one official room object coordinating it.</p>
+  <p>That matters because multiplayer games get weird when every browser invents its own truth. If one player thinks Mia is ready, another thinks she is not, and the host thinks the room started already, the game stops feeling like a game and starts feeling like a broken group chat. The Durable Object is the referee holding the clipboard.</p>
+</section>
+
+<section id="what-we-built">
+  <h2>What We Built</h2>
+  <p>The project is now a deployed multiplayer prototype, not just a local mockup. Players can:</p>
+  <ul>
+    <li>Create a lobby and receive a shareable room code.</li>
+    <li>Join from another browser with a username and see the real connected roster.</li>
+    <li>Ready up; the game starts only when everyone is ready, and only the host can start it.</li>
+    <li>Enter the same countdown and playing state on every client.</li>
+    <li>Send live movement snapshots at 20Hz and shoot once per round.</li>
+    <li>Earn 3 points for winning a round and 1 point for killing another human player.</li>
+    <li>Share shot, kill, winner, scoreboard, and next-round state.</li>
+    <li>See a closed-room state if the host leaves or the room expires.</li>
+  </ul>
+  <p>The current live loop is intentionally desktop/laptop first. Touch controls, accounts, permanent profiles, and ranked play can come later. Right now the important promise is simpler: a friend can open the site, type your code, join your lobby, ready up, and play.</p>
+</section>
+
+<section id="architecture">
+  <h2>The Architecture In One Picture</h2>
+  <p>Click any box to see what it actually does and why it exists.</p>
+  <div class="arch" id="archDiagram">
+    <div class="arch-box"><strong>Cloudflare Pages</strong><small>hosts the React/Vite app</small>
+      <div class="arch-detail">The static build output of <code class="inline">npm run build</code>. It serves HTML, JS, and CSS — no game logic runs here. The build is cheap to deploy and cache globally, which is why the frontend and backend deploy separately.</div>
+    </div>
+    <div class="arch-arrow">↓</div>
+    <div class="arch-box"><strong>src/multiplayer/api.js</strong><small>wraps room API calls and WebSocket URLs</small>
+      <div class="arch-detail">The frontend's phone line. Every room action (create, join, ready, shot…) is one small function that POSTs an <code class="inline">action</code> payload. It also decides which backend to talk to: <code class="inline">/api/rooms</code> on localhost, the deployed Worker URL in production.</div>
+    </div>
+    <div class="arch-arrow">↓</div>
+    <div class="arch-box"><strong>Cloudflare Worker: workers/rooms.js</strong><small>routes requests to the right room</small>
+      <div class="arch-detail">A thin router. Its whole job is <code class="inline">env.ROOM_LOBBY.idFromName(roomCode)</code> — mapping a human room code to exactly one Durable Object, then forwarding the request. Same code, same object, every time.</div>
+    </div>
+    <div class="arch-arrow">↓</div>
+    <div class="arch-box"><strong>Durable Object: RoomLobbyObject</strong><small>the referee holding the clipboard</small>
+      <div class="arch-detail">Keeps the live room in memory, persists durable changes to storage, validates host-only actions, batches input broadcasts on a 50ms ticker, adjudicates human finish-line wins, resolves kill attribution from live lane claims, and cleans up abandoned rooms with alarms.</div>
+    </div>
+    <div class="arch-arrow">↓</div>
+    <div class="arch-box"><strong>All connected browsers</strong><small>receive room snapshots</small>
+      <div class="arch-detail">Every client receives the same room snapshots over WebSocket (or HTTP polling as fallback) and renders the same lobby and game phase. Browsers are allowed to be lively and visual — but the room state lives on the server.</div>
+    </div>
+  </div>
+  <p>The clean idea: <strong>the browser is allowed to be lively and visual, but the room state lives on the server.</strong></p>
+</section>
+
+<section id="codebase-tour">
+  <h2>The Codebase Tour</h2>
+  <p>The repo is small enough to understand without a map, but the map helps.</p>
+  <div class="file-grid">
+    <div class="file-card"><code>src/App.jsx</code><p>The main game surface: menu → lobby → countdown → playing → round over → scoreboard → game over. Local input, aiming, shooting, juice effects, room sync, and the 20-lane playfield.</p></div>
+    <div class="file-card"><code>src/App.css</code><p>The visual world: the 1200px laptop layout, racer sprites, crosshairs, bodies, KO markers, screen shake, the kill feed, and the checkered finish line.</p></div>
+    <div class="file-card"><code>src/multiplayer/api.js</code><p>The frontend's phone line to the room backend, including the localhost/production API base decision.</p></div>
+    <div class="file-card"><code>src/multiplayer/roomState.js</code><p>Pure room-state rules shared by the app and the Worker: joins, readiness, shots, kill scoring, round transitions, destruction decisions. One set of rules, two consumers.</p></div>
+    <div class="file-card"><code>workers/rooms.js</code><p>The Worker and Durable Object room coordinator: HTTP actions, CORS, WebSockets, storage, broadcasts, host validation, heartbeats, cleanup alarms.</p></div>
+    <div class="file-card"><code>src/npcBehavior.js</code><p>Seeded NPC pacing personalities so the crowd you hide in moves like players do.</p></div>
+    <div class="file-card"><code>*.test.js(x)</code><p>UI regression tests, API wrapper tests, pure state-rule tests, and Worker behavior tests. Every scary bug became one.</p></div>
+    <div class="file-card"><code>spec.md / progress.md / todo.md / WHY.md</code><p>Design truth, build log, remaining work, and this story — kept separate so stale plans can't masquerade as current truth.</p></div>
+  </div>
+  <div class="note">Why <code class="inline">roomState.js</code> matters most: when both the client tests and the Worker use the same room helper logic, the game has fewer places to lie to itself. The rules cannot drift into two slightly different versions.</div>
+</section>
+
+<section id="lobby-flow">
+  <h2>How A Lobby Works</h2>
+  <p>This is the exact flow the lobby had to earn. Step through it — the difference between a fake lobby and a real lobby is that every step changes the <em>shared room snapshot</em>, not just your screen.</p>
+  <div class="stepper" id="lobbyStepper">
+    <div class="demo-controls">
+      <button class="ui primary" id="stepNext">Step ▸</button>
+      <button class="ui" id="stepReset">Reset</button>
+      <span class="readout" id="stepReadout"></span>
+    </div>
+    <ol>
+      <li>Host clicks <code class="inline">Create lobby</code>.</li>
+      <li>The app generates a room code like <code class="inline">DR-1JLQ</code>.</li>
+      <li>The browser sends <code class="inline">action: create</code> to the Worker.</li>
+      <li>The Worker routes that code to one Durable Object.</li>
+      <li>The Durable Object creates a room with James as host.</li>
+      <li>The host sees the room code and real player list.</li>
+      <li>A friend enters their username and the code.</li>
+      <li>The friend sends <code class="inline">action: join</code>.</li>
+      <li>The room adds them as a connected player.</li>
+      <li>Everyone sees the updated roster.</li>
+      <li>Each connected player clicks <code class="inline">Ready up</code>.</li>
+      <li>The Worker only allows the host to start when every connected player is ready.</li>
+      <li>The host starts the countdown.</li>
+      <li>Both browsers follow the same room phase into live play.</li>
+    </ol>
+  </div>
+</section>
+
+<section id="live-play">
+  <h2>How Live Play Works</h2>
+  <p>During live play, every browser still renders its own scene. That keeps the UI fast and simple. But important events are shared through the room:</p>
+  <ul>
+    <li>Local movement sends input snapshots at 20Hz over the live socket.</li>
+    <li>The latest snapshots live in the room's memory and go out as compact 50ms deltas.</li>
+    <li>Shots are recorded in room state with killer and victim attribution.</li>
+    <li>Shot racers are eliminated for every client and freeze where they fell.</li>
+    <li>The room adjudicates human finish-line wins from the freshest inputs; the host reports NPC wins.</li>
+    <li>The shared scoreboard, kill counts, and round history come from the room.</li>
+  </ul>
+  <p>The host still drives phase transitions, but the contested moments — who crossed first, who killed whom — are decided server-side from live input data. NPC wins still come from the host because NPCs are simulated deterministically on every client, and the server does not run that simulation.</p>
+  <p>For friends testing a hidden-identity party game, this architecture is the right kind of honest: real multiplayer rooms, clear state ownership, enough synchronization to play, and not too much infrastructure too early.</p>
+</section>
+
+<section id="netcode">
+  <h2>How The Netcode Stays Smooth</h2>
+  <p>The screen runs at 60fps. The network does not, and never needs to. The trick is <strong>dead reckoning</strong>: each frame, the client extrapolates a remote racer forward from its last synced progress and movement mode (the speed constants are shared), easing toward the target instead of snapping once per sync.</p>
+
+  <div class="demo">
+    <div class="demo-title">Live demo — snapping vs dead reckoning</div>
+    <p style="font-size:14px; margin-top:0">Both clients receive the same updates at the sync rate you pick. The grey ghost is the true position. The red racer <em>snaps</em> to each update. The green racer <em>dead-reckons</em>: it keeps extrapolating between updates and eases onto corrections. Slow the sync rate down and watch the red one stutter while the green one stays believable.</p>
+    <div class="demo-controls">
+      <button class="ui primary" id="drToggle">Start</button>
+      <label>Sync every <input type="range" id="drRate" min="100" max="1200" step="50" value="400" /> <span class="readout" id="drRateOut">400ms</span></label>
+    </div>
+    <div class="dr-track"><span class="dr-label">truth (60fps)</span><span class="dr-dot truth" id="drTruth"></span></div>
+    <div class="dr-track"><span class="dr-label">snap on sync</span><span class="dr-dot snap" id="drSnap"></span></div>
+    <div class="dr-track"><span class="dr-label">dead reckoned</span><span class="dr-dot reckon" id="drReckon"></span></div>
+  </div>
+
+  <details class="code-panel">
+    <summary>The real frame loop <small>src/App.jsx — createFrameLoop</small></summary>
+    <pre><code class="js">// Runs onFrame(dtMs, nowMs) every animation frame; falls back to a 16ms
+// timeout where requestAnimationFrame is unavailable (jsdom). Returns a stop
+// function.
+const createFrameLoop = (onFrame) => {
+  const usingRaf = typeof window.requestAnimationFrame === 'function'
+  let handle = null
+  let stopped = false
+  let last = null
+  const frame = (now) => {
+    if (stopped) return
+    const dt = last === null ? 0 : Math.min(Math.max(now - last, 0), MAX_FRAME_DT_MS)
+    last = now
+    onFrame(dt, now)
+    schedule()
+  }
+  const schedule = () => {
+    handle = usingRaf
+      ? window.requestAnimationFrame(frame)
+      : window.setTimeout(() => frame(performance.now()), FRAME_FALLBACK_MS)
+  }
+  schedule()
+  return () => { stopped = true }
+}</code></pre>
+  </details>
+
+  <details class="code-panel">
+    <summary>The real dead reckoning step <small>src/App.jsx — remote racer extrapolation</small></summary>
+    <pre><code class="js">// Dead reckoning: advance remote racers every frame from their last synced
+// progress and movement mode, easing toward the extrapolated target instead
+// of snapping once per sync.
+const speedPerMs = (MOVEMENT_SPEEDS_BY_MODE[snapshot.movementMode] ?? 0) / TICK_MS
+const target = Math.min(
+  snapshot.progress + speedPerMs * Math.max(now - snapshot.receivedAt, 0),
+  NPC_MAX_PROGRESS,
+)
+const displayed = current[name]
+let value = target
+if (Number.isFinite(displayed) && Math.abs(target - displayed) <= REMOTE_SNAP_DISTANCE) {
+  // small corrections ease over 150ms...
+  value = displayed + (target - displayed) * Math.min(1, dt / REMOTE_BLEND_MS)
+}
+// ...large ones snap through (the if condition fails and value = target)</code></pre>
+  </details>
+
+  <p>The rest of the pipeline keeps the network honest and cheap: clients send input at 20Hz over the WebSocket (deduped when nothing changed), the Durable Object rebroadcasts compact deltas on a 50ms ticker that stops itself when traffic goes quiet, and the sockets use Cloudflare's hibernation API so idle rooms cost nothing.</p>
+  <div class="lesson">Smoothness is a rendering trick layered on honest, lower-rate network state. Physical round-trip time to the room still exists; dead reckoning is what hides it.</div>
+</section>
+
+<section id="durable-object">
+  <h2>The Durable Object Idea</h2>
+  <p>A normal serverless function is like a front desk worker who forgets every conversation after answering it. That is fine for simple requests, but awkward for a live game room.</p>
+  <p>A Durable Object is different. It is more like assigning one room manager to one room code. Every request for <code class="inline">DR-1JLQ</code> goes to the same coordinator. That coordinator can keep room state, schedule cleanup, and broadcast changes to connected sockets.</p>
+  <details class="code-panel" open>
+    <summary>The entire routing trick <small>workers/rooms.js — default export</small></summary>
+    <pre><code class="js">export default {
+  async fetch(request, env) {
+    const url = new URL(request.url)
+    const roomCode = getRoomCodeFromPath(url.pathname)
+
+    if (!roomCode) {
+      return json({ error: 'Room code required' }, 400)
+    }
+
+    // Same room code -> same id -> same Durable Object, every time.
+    const id = env.ROOM_LOBBY.idFromName(roomCode)
+    const stub = env.ROOM_LOBBY.get(id)
+    return stub.fetch(request)
+  },
+}</code></pre>
+  </details>
+  <p>That is why Durable Objects fit this project: a room code naturally maps to one room owner, multiplayer state needs one official version, WebSockets need a place to live, and cleanup should happen even when players disappear.</p>
+</section>
+
+<section id="websockets">
+  <h2>WebSockets And Polling</h2>
+  <p>The app uses WebSockets for live traffic in both directions and HTTP polling as a fallback.</p>
+  <table>
+    <tr><th></th><th>WebSocket</th><th>Polling fallback</th></tr>
+    <tr><td><strong>Speed</strong></td><td>Fast, pushes updates immediately</td><td>Slower, pulls on an interval</td></tr>
+    <tr><td><strong>Carries</strong></td><td>Input at 20Hz, heartbeats, shots</td><td>The same actions over HTTP POST</td></tr>
+    <tr><td><strong>When</strong></td><td>The normal path</td><td>Socket fails, tests run without socket support, or a network gets fussy</td></tr>
+  </table>
+  <div class="lesson">Good engineers often keep a boring backup path around. It is like having a manual door next to an automatic one. Most people use the automatic door. When it jams, the manual door keeps the building usable.</div>
+</section>
+
+<section id="react-vite">
+  <h2>Why React And Vite</h2>
+  <p>React is good for this because the game currently has a lot of stateful UI: lobby controls, player rows, ready states, error panels, scoreboards, round states, conditional side panels, crosshairs, and reveal tags. Vite is fast and plain — it gives a tight local loop without making the project feel bigger than it is.</p>
+  <p>We did not reach for a heavy game engine because the first playable version is about proving the hidden-identity loop. A full engine can be helpful later, but early on it would mostly add ceremony. This game needed a clear track, clean input, and honest multiplayer state more than it needed a physics system.</p>
+</section>
+
+<section id="dom-css">
+  <h2>Why DOM And CSS Instead Of Canvas</h2>
+  <p>The earliest spec allowed a 2D canvas renderer. The current implementation uses DOM and CSS for the playfield. That was a practical choice: the game needed 20 readable lanes, pixel-style racers, crosshairs, bodies, reveal labels, a checkered finish line, and lots of UI around the track. CSS handles that well.</p>
+  <p>It also makes testing easier — the test suite can query lanes, buttons, labels, and markers directly. Even the juice (screen shake, the KO bounce, hit flashes) is pure CSS keyframes triggered by class changes, which means <code class="inline">prefers-reduced-motion</code> support is one media query instead of a rendering-engine feature.</p>
+  <p>Canvas may still be useful later if animation complexity grows or the art direction becomes more elaborate. But switching to canvas should be a response to pressure, not a reflex.</p>
+</section>
+
+<section id="decisions">
+  <h2>The Most Important Technical Decisions</h2>
+
+  <h3>1. Real Rooms, Not Fake UI</h3>
+  <p>The project had early local/prototype behavior. That was useful while shaping the game, but became dangerous once the goal was "my friends can join and play." The rule now is simple: <strong>if the UI says there is a room, the backend room should exist.</strong> No placeholder room on GET, no joining before the host creates, join errors visible instead of silently entering a fake lobby.</p>
+
+  <h3>2. Everyone Ready Means Everyone</h3>
+  <p>The host can only start when every connected player, including the host, is ready. This rule lives in shared state logic, not scattered button checks. Buttons are allowed to explain and reflect the rule; the backend must enforce it.</p>
+  <details class="code-panel">
+    <summary>The rule, in one place <small>src/multiplayer/roomState.js — canStartRoom</small></summary>
+    <pre><code class="js">export function canStartRoom(room) {
+  return (
+    room.players.length > 0 &&
+    room.players.every((player) => player.connected) &&
+    room.players.some((player) => player.role === 'host') &&
+    room.players.every((player) => player.ready)
+  )
+}</code></pre>
+  </details>
+
+  <h3>3. Host-Only Round Control</h3>
+  <p>Only the host can start countdowns, advance live play, record round winners, show scoreboards, and start next rounds. Without that, every client becomes a little steering wheel — one enthusiastic guest could move the room forward before everyone else is ready.</p>
+  <details class="code-panel">
+    <summary>Backend enforcement <small>workers/rooms.js — countdown action</small></summary>
+    <pre><code class="js">if (action === 'countdown') {
+  if (toPlayerId(body.playerName ?? '') !== room.hostId) {
+    return json({ error: 'Only the host can start the game' }, 403)
+  }
+  if (!canStartRoom(room)) {
+    return json({ error: 'Room is not ready' }, 400)
+  }
+  const nextRoom = startRoomCountdown(room)
+  await this.saveRoom(nextRoom)
+  return json({ room: serializeRoom(nextRoom) })
+}</code></pre>
+  </details>
+
+  <h3>4. Heartbeats Are Per Player</h3>
+  <p>A major cleanup bug came from the wrong kind of "touch." If every room request refreshed every player, disconnected players never looked stale. The fix was per-player heartbeats: each browser refreshes only its own timestamp, so the room can tell the difference between "Mia is still here" and "James clicked something."</p>
+
+  <h3>5. Internal State Should Not Become UI Noise</h3>
+  <p>The visible <code class="inline">Sync</code> status flickered between transport states like <code class="inline">live</code> and <code class="inline">connected</code>. Internally, that information helps with recovery. Visually, it was just noise. We kept the internal state and removed the visible flicker. Not every useful engineering detail deserves a place on screen — users need confidence, not a networking diary.</p>
+
+  <h3>6. Kills Are Scored Where The Truth Lives</h3>
+  <p>When kill points arrived (a round win is 3 points, a human kill is 1, NPC kills are worth nothing), the tempting shortcut was to let the shooting client declare "I killed Mia" — it already knows the lane assignments. We did not do that. The server resolves the victim from the freshest inputs: whichever connected player last claimed that lane is the human victim, anything else is an NPC. The shooter's client still scores optimistically for instant feedback, but the authoritative number always comes back from the room.</p>
+  <details class="code-panel">
+    <summary>Server-side kill attribution <small>src/multiplayer/roomState.js — recordRoomShot (excerpt)</small></summary>
+    <pre><code class="js">// The victim is resolved from the freshest inputs: a connected player whose
+// controlled lane matches the shot lane is a human kill, anything else is
+// an NPC. Lane assignments themselves only exist client-side.
+const victimName =
+  Object.entries(room.inputs ?? {}).find(
+    ([playerName, input]) =>
+      Number(input?.laneId) === numericLaneId &&
+      room.players.some(
+        (player) => player.name === playerName && player.connected,
+      ),
+  )?.[0] ?? null
+const victimType = victimName ? 'human' : 'npc'
+
+// Kill credit requires a fresh human takedown: no NPC farming, no points
+// for shooting a corpse, no points for shooting yourself.
+if (
+  !laneAlreadyShot &&
+  victimType === 'human' &&
+  victimName !== shooterName &&
+  Object.hasOwn(nextScores, shooterName)
+) {
+  nextScores[shooterName] += KILL_POINTS
+  nextKills[shooterName] += 1
+}</code></pre>
+  </details>
+  <p>The same change forced a cleanup: room inputs now reset when a new round starts, because a stale lane claim from the previous round could have credited a kill against a player who was no longer in that lane. Stale inputs could also have mis-adjudicated a finish, so clearing them fixed a latent bug we had not hit yet.</p>
+  <p>The design rule for the juice itself: <strong>attribution must not leak hidden identity.</strong> A killer's <em>name</em> on the KO marker and kill feed reveals nothing about which lane the killer controls, and a victim's name is only revealed once they are already dead. The tension mechanic survives intact.</p>
+
+  <div class="demo">
+    <div class="demo-title">Live demo — the kill juice, exactly as shipped</div>
+    <p style="font-size:14px; margin-top:0">This uses the same CSS keyframes and the same Web Audio gunshot synth as the game: a filtered noise crack layered over a low sine thump. (Shake and bounce are disabled if your OS asks for reduced motion.)</p>
+    <div class="demo-controls">
+      <button class="ui primary" id="juiceShoot">🔫 Shoot</button>
+      <button class="ui" id="juiceReset">Reset</button>
+    </div>
+    <div class="juice-field" id="juiceField">
+      <span class="juice-flash" id="juiceFlash"></span>
+      <span class="juice-racer" id="juiceRacer"></span>
+      <span class="juice-ko" id="juiceKo">KO! ← James</span>
+    </div>
+  </div>
+
+  <details class="code-panel">
+    <summary>The gunshot synth <small>src/App.jsx — scheduleGunshot (excerpt)</small></summary>
+    <pre><code class="js">// Gunshot crack: a burst of decaying noise through a lowpass filter.
+const buffer = ctx.createBuffer(1, Math.floor(sampleRate * 0.2), sampleRate)
+const channel = buffer.getChannelData(0)
+for (let i = 0; i < channel.length; i += 1) {
+  channel[i] = (Math.random() * 2 - 1) * (1 - i / channel.length) ** 2
+}
+// ...through lowpass at 2800Hz, gain 0.4 decaying to silence in 200ms
+
+// Low thump gives the crack body; frequency steps down instead of
+// ramping so the schedule stays valid on minimal AudioParam mocks.
+thumpOscillator.frequency.setValueAtTime(130, startAt)
+thumpOscillator.frequency.setValueAtTime(70, startAt + 0.05)
+thumpOscillator.frequency.setValueAtTime(45, startAt + 0.12)</code></pre>
+  </details>
+</section>
+
+<section id="bug-museum">
+  <h2>Bugs We Hit And What They Taught Us</h2>
+  <p>Every serious bug here became a regression test. These are the ones worth remembering.</p>
+
+  <div class="bug-card">
+    <span class="bug-tag sev">trust</span><span class="bug-tag area">frontend flow</span>
+    <h3>The Hardcoded Room Problem</h3>
+    <p>The UI behaved like the room was hardcoded — classic prototype residue. The screen looked interactive, but the mental model was still "local demo." The fix was to audit the button flow against the desired real flow: host creates, gets a code, a friend joins that exact room, everyone sees the same roster, everyone readies, host starts.</p>
+    <div class="lesson">When a user gives you a flow, test against the flow, not against individual components. A button can work in isolation and still fail the story.</div>
+  </div>
+
+  <div class="bug-card">
+    <span class="bug-tag sev">trust</span><span class="bug-tag area">backend</span>
+    <h3>Placeholder Rooms</h3>
+    <p>The Worker originally allowed missing rooms to appear through GET or join behavior. That made the UI feel like it worked, but it was not trustworthy. The fix: only the explicit <code class="inline">create</code> action creates a room; missing rooms now return <code class="inline">Room not found</code>.</p>
+    <div class="lesson">Fake success is worse than honest failure. A clear error gives you something to fix. A fake room lets the bug put on a nice jacket and walk around.</div>
+  </div>
+
+  <div class="bug-card">
+    <span class="bug-tag sev">deploy</span><span class="bug-tag area">api routing</span>
+    <h3>Production API Fallback</h3>
+    <p>The deployed Pages app initially tried to call relative <code class="inline">/api/rooms</code>. That works in local dev — but the room backend is a separate deployed Worker with a different origin.</p>
+    <details class="code-panel">
+      <summary>The fix <small>src/multiplayer/api.js — getRoomsApiBase</small></summary>
+      <pre><code class="js">export function getRoomsApiBase(hostname = window.location.hostname) {
+  if (import.meta.env.VITE_ROOMS_API_BASE) {
+    return import.meta.env.VITE_ROOMS_API_BASE   // explicit override
+  }
+  if (!['localhost', '127.0.0.1', ''].includes(hostname)) {
+    return PRODUCTION_API_BASE                   // deployed Pages -> deployed Worker
+  }
+  return DEFAULT_API_BASE                        // localhost -> /api/rooms
+}</code></pre>
+    </details>
+    <div class="lesson">Local paths can lie. Production has origins, routing, CORS, and deployment boundaries. Always test the deployed shape.</div>
+  </div>
+
+  <div class="bug-card">
+    <span class="bug-tag sev">deploy</span><span class="bug-tag area">browser rules</span>
+    <h3>CORS Preflight</h3>
+    <p>After the frontend pointed at the Worker, the browser still blocked requests because the Worker did not answer CORS preflight requests. The fix: CORS headers on JSON responses, an OPTIONS response for preflight, and Worker tests for both.</p>
+    <div class="lesson">Postman and unit tests are not a browser. Browsers enforce rules that server-to-server tools do not. If the app runs in a browser, verify in a browser.</div>
+  </div>
+
+  <div class="bug-card">
+    <span class="bug-tag sev">design</span><span class="bug-tag area">simulation</span>
+    <h3>NPCs That Idled Forever</h3>
+    <p>Early NPC calming went too far: NPCs spent ~40% of ticks stopped or idle-crawling, averaging 39% of a running player's speed. The fastest NPC finished in ~47 seconds against a ~21 second player — so anyone moving with intent was instantly identifiable as human. The fix flipped the model from "wandering extras" to "players": run-heavy pacing personalities with walk breaks and brief human-scale stops. Front-runner NPCs now finish in 23–24 seconds.</p>
+    <div class="lesson">In a hidden-identity game, NPCs are not scenery. They are the crowd you hide in, so they must be statistically similar to the players.</div>
+  </div>
+
+  <div class="bug-card">
+    <span class="bug-tag sev">audio</span><span class="bug-tag area">web audio</span>
+    <h3>Music That Sounded Like Static</h3>
+    <p>The first gameplay music sustained a square-wave bass and a sawtooth drone continuously under a fast minor-key note loop. Harsh waveforms held forever read as noise, not music. The fix: soft sine pads holding a Cmaj7/Am7/Dm7/G7 progression, a gentle triangle melody at a relaxed beat, and a quiet bass note on each chord change.</p>
+    <div class="lesson">Generated audio is cheap to ship and easy to get wrong. Waveform choice and envelope shape matter more than the notes.</div>
+  </div>
+
+  <div class="bug-card">
+    <span class="bug-tag sev">correctness</span><span class="bug-tag area">rendering</span>
+    <h3>Corpses That Teleported Back To The Start</h3>
+    <p>Eliminated racers were supposed to stay where they fell. Instead, <code class="inline">getLiveProgress</code> returned <code class="inline">racer.progress</code> — the lane's <em>starting</em> position — for any shot racer, so a corpse dropped at 60% of the track instantly teleported back to its spawn point. Nobody had noticed because most eliminations happened early, near the start positions.</p>
+    <div class="tabs" data-tabs>
+      <div class="tab-row">
+        <button class="tab-bad active" data-tab="0">✗ Before (the bug)</button>
+        <button class="tab-good" data-tab="1">✓ After (the fix)</button>
+      </div>
+      <div class="tab-panel active"><pre><code class="js">const getLiveProgress = useCallback(racer => {
+  if (shotRacerIds.includes(racer.id)) {
+    return racer.progress   // BUG: this is the lane's STARTING position,
+  }                         // so every corpse snaps back to spawn
+  // ...live sources for racers still racing
+})</code></pre></div>
+      <div class="tab-panel"><pre><code class="js">// Dead racers freeze at the progress captured when the hit landed instead
+// of snapping back to the lane start position.
+const getLiveProgress = useCallback(racer => {
+  if (shotRacerIds.includes(racer.id)) {
+    const frozenProgress = deathProgressByLane[racer.id]
+    return Number.isFinite(frozenProgress)
+      ? frozenProgress          // captured at hit time (shooter) or
+      : getTrackProgress(racer) // sync time (everyone else)
+  }
+  return getTrackProgress(racer)
+})</code></pre></div>
+    </div>
+    <div class="lesson">A wrong value that is <em>usually close</em> to the right value can hide for a long time. The bug only became visible once we went looking at kills that landed mid-track.</div>
+  </div>
+
+  <div class="bug-card">
+    <span class="bug-tag sev">trust</span><span class="bug-tag area">input</span>
+    <h3>Mouse Aim And Click-To-Kill</h3>
+    <p>There were control bugs where the mouse felt offset, movement felt stuck, and clicking too broadly could kill. Dangerous, because a hidden-identity game needs players to trust the controls. The fixes: calculate aim from playfield geometry, match the crosshair to the mouse, only eliminate a racer when the shot lands within the ±3.5% hit window, and add regression tests for all of it.</p>
+    <div class="lesson">Input code deserves tests. When controls feel unfair, players blame the game even if the idea is good.</div>
+  </div>
+
+  <div class="bug-card">
+    <span class="bug-tag sev">cleanup</span><span class="bug-tag area">lifecycle</span>
+    <h3>Host Leave, Abandoned Tabs, And Room Destruction</h3>
+    <p>Rooms needed to die when the host leaves or everyone disconnects — otherwise old rooms linger, confuse players, and bill forever. The layers: host-leave detection, per-player heartbeats, cleanup alarms, a closed-room UI state, and an idle rule where heartbeats keep a player <em>connected</em> but deliberately do not count as room <em>activity</em>.</p>
+    <details class="code-panel">
+      <summary>Liveness vs activity <small>src/multiplayer/roomState.js — isRoomIdleExpired</small></summary>
+      <pre><code class="js">// Idle expiry uses lastActivityAt, which only meaningful actions refresh —
+// heartbeats deliberately do not count, so an abandoned-but-open tab cannot
+// keep a room alive forever.
+export function isRoomIdleExpired(room, idleTtlMs, now = Date.now()) {
+  const lastActivity =
+    Date.parse(room.lastActivityAt ?? room.updatedAt ?? room.createdAt ?? '') || 0
+  return now - lastActivity > idleTtlMs
+}</code></pre>
+    </details>
+    <div class="lesson">Liveness and activity are different signals. A heartbeat proves the tab exists, not that anyone is playing. Timeouts should key off intent, and the server, not the client, must own the final cutoff.</div>
+  </div>
+</section>
+
+<section id="tests">
+  <h2>Tests: The Safety Net We Actually Used</h2>
+  <p>This project has a useful spread of tests — and the point is that <strong>different tests catch different lies</strong>:</p>
+  <table>
+    <tr><th>Layer</th><th>Catches</th><th>Example</th></tr>
+    <tr><td>Pure state tests</td><td>Logic lies</td><td>"A corpse shot must not award a kill point"</td></tr>
+    <tr><td>UI tests</td><td>Behavior lies</td><td>"Clicking away from a racer must not kill it"</td></tr>
+    <tr><td>API wrapper tests</td><td>Request-shape lies</td><td>"Production hosts must call the deployed Worker"</td></tr>
+    <tr><td>Worker tests</td><td>Backend lies</td><td>"A non-host countdown request returns 403"</td></tr>
+    <tr><td>Live browser smoke tests</td><td>Environment lies</td><td>"A second browser really can join by code"</td></tr>
+  </table>
+  <p>The live smoke tests caught things that unit tests could not: production API routing, CORS, the actual two-browser join flow, and live input sync from guest to host.</p>
+</section>
+
+<section id="deployment">
+  <h2>Deployment Shape</h2>
+  <p>The frontend deploys to Cloudflare Pages; the room backend deploys as a separate Cloudflare Worker. When code changes only the frontend, deploy Pages. When code changes <code class="inline">workers/rooms.js</code>, deploy the Worker too.</p>
+  <pre class="bare"><code class="js">npm test                  // 104 tests
+npm run lint              // oxlint
+npm run build             // vite build -> dist/
+npm run deploy:cloudflare // Pages (frontend)
+npm run deploy:rooms      // Worker (room backend)</code></pre>
+  <div class="lesson">"It works locally" is a useful checkpoint, not the finish line. The game did not work for friends until the deployed Pages app, deployed Worker, CORS, production API base, and room flow all lined up.</div>
+</section>
+
+<section id="costs">
+  <h2>What The WebSockets Actually Cost</h2>
+  <p>An 8-player playtest showed ~60k worker hits, which looked alarming. It is not, once you know how Cloudflare counts: analytics show <em>raw</em> message counts, but billing applies a <strong>20:1 ratio</strong> to incoming Durable Object WebSocket messages. Outgoing broadcasts, protocol pings, and auto-responses are free. Duration — not requests — is the dominant cost at scale, and hibernation plus the self-stopping input ticker keep idle rooms at zero duration.</p>
+
+  <div class="demo">
+    <div class="demo-title">Live demo — the billing math</div>
+    <div class="demo-controls">
+      <label>Players <input type="range" id="costPlayers" min="1" max="20" value="8" /> <span class="readout" id="costPlayersOut">8</span></label>
+      <label>Input rate <input type="range" id="costHz" min="1" max="30" value="20" /> <span class="readout" id="costHzOut">20Hz</span></label>
+      <label>Minutes played <input type="range" id="costMins" min="1" max="120" value="6" /> <span class="readout" id="costMinsOut">6</span></label>
+    </div>
+    <div class="cost-grid">
+      <div class="cost-cell"><span>Raw messages (what analytics shows)</span><strong id="costRaw">—</strong></div>
+      <div class="cost-cell"><span>Billed requests (÷20)</span><strong id="costBilled">—</strong></div>
+      <div class="cost-cell hot"><span>Approx. request cost @ $0.15/M</span><strong id="costDollars">—</strong></div>
+    </div>
+    <p style="font-size:13px; margin-bottom:0">The scary number is the raw count. The billable number is 20× smaller, and the real cost lever (duration) is already handled by hibernation.</p>
+  </div>
+
+  <p>Observability follows the same discipline: Workers Logs is enabled, but automatic invocation logs are off — logging every 20Hz input invocation would produce ~576k log events per hour for one busy room. The worker instead emits a handful of structured lifecycle events (room created/destroyed, sockets opened/closed, ticker started/stopped, rounds adjudicated), which is what you actually query when something goes wrong.</p>
+  <div class="lesson">Measure before optimizing, and know which meter you are reading. The scary number was a raw analytics count; the billable number was 20× smaller and the real cost lever was already handled.</div>
+</section>
+
+<section id="prototype">
+  <h2>What Is Still Prototype-Shaped</h2>
+  <p>The game is real enough for friends to join and play, but it is not hardened like a competitive production game. Important caveats:</p>
+  <ul>
+    <li>The client still renders and participates heavily in gameplay simulation, including all NPC simulation.</li>
+    <li>Hidden assignments are deterministic and client-derived — fine for friendly testing, not secure against inspection.</li>
+    <li>Human finishes and kills are adjudicated server-side, but identity is still just a player name, so it is not hardened against impersonation.</li>
+    <li>No accounts or persistent player identity exist yet; mobile and tablet controls are deferred.</li>
+  </ul>
+  <p>That is not a failure. It is an honest stage. The project is now past fake multiplayer and into real playtest territory.</p>
+</section>
+
+<section id="thinking">
+  <h2>How Good Engineers Think Through This Project</h2>
+  <ul>
+    <li><strong>They protect the core experience.</strong> The core experience is not "use WebSockets" or "deploy to Cloudflare." It is hidden-identity racing with one shot. Good engineering keeps asking: does this change make that experience clearer, fairer, faster, or easier to test?</li>
+    <li><strong>They separate design truth from work logs.</strong> <code class="inline">spec.md</code> says what the game should be, <code class="inline">todo.md</code> what remains, <code class="inline">progress.md</code> what happened, <code class="inline">WHY.md</code> why it is shaped this way. That split prevents stale plans from masquerading as current truth.</li>
+    <li><strong>They replace fake features with honest features.</strong> The lobby improved when we stopped accepting "looks like a lobby" and demanded "a second browser can join this lobby by code."</li>
+    <li><strong>They make bugs pay rent.</strong> Every serious bug became a regression test. A bug without a test is a story you might have to relive.</li>
+    <li><strong>They verify where the risk lives.</strong> Unit tests for local logic, Testing Library for UI, Worker tests plus real deploys for Cloudflare behavior — and two actual browser sessions against the deployed URL for "friends can join," because that was the user's real requirement.</li>
+  </ul>
+</section>
+
+<section id="lessons">
+  <h2>Lessons To Carry Forward</h2>
+  <h3>Multiplayer Is Mostly State Discipline</h3>
+  <p>The hard part is not opening a socket. The hard part is deciding who is allowed to change what, when, and how everyone else learns about it. In Death Race: the room owns the roster, readiness, shots, kills, and winners; the host controls phase transitions; clients render and send input. That boundary is what keeps the game understandable.</p>
+  <h3>The Backend Should Enforce The Rules</h3>
+  <p>A disabled button is nice. A backend check is necessary. The UI can hide <code class="inline">Start game</code> from guests, but the Worker still rejects non-host countdown requests. Frontend constraints help honest users. Backend constraints protect the state.</p>
+  <h3>Small Modules Beat Grand Architecture</h3>
+  <p><code class="inline">roomState.js</code> is the right abstraction size: not a framework, just the shared room rules in one place. Easy to test, easy to import in the Worker, hard for frontend and backend rules to drift apart.</p>
+  <h3>Write Tests For The Behavior You Fear Losing</h3>
+  <p>The best regression tests came directly from scary bugs: "clicking anywhere gets a kill," "host leaves but room still exists," "CORS blocks the browser," "corpses teleport home." Those are not abstract correctness tests. They are memory aids: this hurt once, do not let it hurt again.</p>
+</section>
+
+<section id="pitfalls">
+  <h2>Future Pitfalls And How To Avoid Them</h2>
+  <ul>
+    <li><strong>Cheating and hidden information.</strong> Hidden identity is presentation-level secrecy today. For competitive play, hidden assignments and authoritative simulation must move deeper into the backend. Decide the trust model early.</li>
+    <li><strong>Latency and fairness.</strong> Distant players may need server timestamps or reconciliation around when a shot counts. Do not solve it before real playtests demand it — but do not forget it exists.</li>
+    <li><strong>Room cleanup.</strong> Heartbeats and alarms are the first layer; future work may need stronger reconnection and "rejoin as the same player" flows.</li>
+    <li><strong>State explosion.</strong> <code class="inline">App.jsx</code> can become too crowded as features arrive. Likely future extractions: gameplay simulation helpers, round transition hooks, input sync hooks, lobby and scoreboard components. Extract when the behavior has settled enough that the boundary is obvious.</li>
+  </ul>
+</section>
+
+<section id="mental-model">
+  <h2>The Best Mental Model</h2>
+  <p>Death Race is a party game with a race track, a room clipboard, and a radio.</p>
+  <ul>
+    <li>The <strong>track</strong> is what players see.</li>
+    <li>The <strong>clipboard</strong> is the Durable Object holding the official room state.</li>
+    <li>The <strong>radio</strong> is the WebSocket telling everyone when the clipboard changes.</li>
+  </ul>
+  <p>When the game feels good, players should forget the clipboard and radio exist. They should only feel the tension of twenty racers, one secret identity, one bullet, and a finish line that suddenly feels much too far away.</p>
+  <p>That is why the architecture matters. Not because Cloudflare is shiny. Not because WebSockets are exciting. <strong>Because the technology gets out of the way just enough for the suspicion to breathe.</strong></p>
+</section>
+</main>
+</div>
+
+<script>
+(() => {
+  'use strict'
+
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+  /* ---------- reading progress bar ---------- */
+  const progressBar = document.getElementById('progressBar')
+  const updateProgress = () => {
+    const total = document.documentElement.scrollHeight - window.innerHeight
+    const ratio = total > 0 ? window.scrollY / total : 0
+    progressBar.style.width = (ratio * 100).toFixed(2) + '%'
+  }
+  window.addEventListener('scroll', updateProgress, { passive: true })
+  updateProgress()
+
+  /* ---------- TOC scroll spy ---------- */
+  const tocLinks = Array.from(document.querySelectorAll('nav.toc a'))
+  const sections = tocLinks
+    .map((link) => document.querySelector(link.getAttribute('href')))
+    .filter(Boolean)
+  const spy = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue
+        tocLinks.forEach((link) =>
+          link.classList.toggle('active', link.getAttribute('href') === '#' + entry.target.id),
+        )
+      }
+    },
+    { rootMargin: '-10% 0px -70% 0px' },
+  )
+  sections.forEach((section) => spy.observe(section))
+
+  /* ---------- tiny JS syntax highlighter ---------- */
+  const KEYWORDS = new Set(('const let var function return if else for of in new typeof await async ' +
+    'export import from default null undefined true false class extends this break continue').split(' '))
+  const TOKEN_RE = /(\/\/[^\n]*)|('(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\]|\\.)*`)|\b(\d+(?:\.\d+)?)\b|\b([A-Za-z_$][\w$]*)(?=\s*\()|\b([A-Za-z_$][\w$]*)\b/g
+
+  const highlight = (source) => {
+    const escaped = source
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+    return escaped.replace(TOKEN_RE, (match, comment, string, number, fnName, word) => {
+      if (comment) return '<span class="tok-com">' + comment + '</span>'
+      if (string) return '<span class="tok-str">' + string + '</span>'
+      if (number) return '<span class="tok-num">' + number + '</span>'
+      if (fnName) {
+        return KEYWORDS.has(fnName)
+          ? '<span class="tok-kw">' + fnName + '</span>'
+          : '<span class="tok-fn">' + fnName + '</span>'
+      }
+      if (word && KEYWORDS.has(word)) return '<span class="tok-kw">' + word + '</span>'
+      return match
+    })
+  }
+
+  document.querySelectorAll('pre code.js').forEach((block) => {
+    block.innerHTML = highlight(block.textContent)
+  })
+
+  /* ---------- architecture diagram ---------- */
+  document.querySelectorAll('.arch-box').forEach((box) => {
+    box.addEventListener('click', () => box.classList.toggle('open'))
+  })
+
+  /* ---------- before/after tabs ---------- */
+  document.querySelectorAll('[data-tabs]').forEach((tabs) => {
+    const buttons = tabs.querySelectorAll('.tab-row button')
+    const panels = tabs.querySelectorAll('.tab-panel')
+    buttons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const index = Number(button.dataset.tab)
+        buttons.forEach((other, i) => other.classList.toggle('active', i === index))
+        panels.forEach((panel, i) => panel.classList.toggle('active', i === index))
+      })
+    })
+  })
+
+  /* ---------- lobby flow stepper ---------- */
+  const stepper = document.getElementById('lobbyStepper')
+  const steps = Array.from(stepper.querySelectorAll('li'))
+  const stepReadout = document.getElementById('stepReadout')
+  let stepIndex = -1
+  const renderSteps = () => {
+    steps.forEach((step, i) => {
+      step.classList.toggle('done', i < stepIndex)
+      step.classList.toggle('current', i === stepIndex)
+    })
+    stepReadout.textContent =
+      stepIndex < 0 ? '' :
+      stepIndex >= steps.length - 1 ? 'Both browsers are now in the same live round.' :
+      'Step ' + (stepIndex + 1) + ' of ' + steps.length
+  }
+  document.getElementById('stepNext').addEventListener('click', () => {
+    stepIndex = Math.min(stepIndex + 1, steps.length - 1)
+    renderSteps()
+  })
+  document.getElementById('stepReset').addEventListener('click', () => {
+    stepIndex = -1
+    renderSteps()
+  })
+
+  /* ---------- dead reckoning demo ---------- */
+  const drTruth = document.getElementById('drTruth')
+  const drSnap = document.getElementById('drSnap')
+  const drReckon = document.getElementById('drReckon')
+  const drToggle = document.getElementById('drToggle')
+  const drRate = document.getElementById('drRate')
+  const drRateOut = document.getElementById('drRateOut')
+
+  const DR_SPEED = 0.012           // progress % per ms, roughly a running racer
+  const BLEND_MS = 150             // same easing window as the game
+  const SNAP_DISTANCE = 8          // same snap threshold as the game
+  let drRunning = false
+  let drRaf = null
+  let dr = null
+
+  const resetDr = (now) => ({
+    truth: 2,
+    lastFrame: now,
+    lastSync: now,
+    synced: { progress: 2, receivedAt: now },
+    snapShown: 2,
+    reckonShown: 2,
+  })
+
+  const drFrame = (now) => {
+    if (!drRunning) return
+    const dt = Math.min(now - dr.lastFrame, 100)
+    dr.lastFrame = now
+
+    dr.truth += DR_SPEED * dt
+    if (dr.truth >= 100) dr = resetDr(now)
+
+    // the "network": deliver a snapshot every N ms
+    if (now - dr.lastSync >= Number(drRate.value)) {
+      dr.lastSync = now
+      dr.synced = { progress: dr.truth, receivedAt: now }
+      dr.snapShown = dr.truth // snapping client teleports here
+    }
+
+    // dead-reckoning client: extrapolate from the last snapshot, ease onto it
+    const target = dr.synced.progress + DR_SPEED * (now - dr.synced.receivedAt)
+    if (Math.abs(target - dr.reckonShown) <= SNAP_DISTANCE) {
+      dr.reckonShown += (target - dr.reckonShown) * Math.min(1, dt / BLEND_MS)
+    } else {
+      dr.reckonShown = target
+    }
+
+    drTruth.style.left = Math.min(dr.truth, 99) + '%'
+    drSnap.style.left = Math.min(dr.snapShown, 99) + '%'
+    drReckon.style.left = Math.min(dr.reckonShown, 99) + '%'
+    drRaf = requestAnimationFrame(drFrame)
+  }
+
+  drToggle.addEventListener('click', () => {
+    drRunning = !drRunning
+    drToggle.textContent = drRunning ? 'Pause' : 'Start'
+    drToggle.classList.toggle('primary', !drRunning)
+    if (drRunning) {
+      const now = performance.now()
+      if (!dr) dr = resetDr(now)
+      dr.lastFrame = now
+      drRaf = requestAnimationFrame(drFrame)
+    } else {
+      cancelAnimationFrame(drRaf)
+    }
+  })
+  drRate.addEventListener('input', () => {
+    drRateOut.textContent = drRate.value + 'ms'
+  })
+
+  /* ---------- cost calculator ---------- */
+  const costPlayers = document.getElementById('costPlayers')
+  const costHz = document.getElementById('costHz')
+  const costMins = document.getElementById('costMins')
+  const format = (value) => value.toLocaleString('en-US')
+  const updateCost = () => {
+    const players = Number(costPlayers.value)
+    const hz = Number(costHz.value)
+    const mins = Number(costMins.value)
+    document.getElementById('costPlayersOut').textContent = players
+    document.getElementById('costHzOut').textContent = hz + 'Hz'
+    document.getElementById('costMinsOut').textContent = mins
+    const raw = players * hz * 60 * mins
+    const billed = Math.ceil(raw / 20)
+    const dollars = (billed / 1_000_000) * 0.15
+    document.getElementById('costRaw').textContent = format(raw)
+    document.getElementById('costBilled').textContent = format(billed)
+    document.getElementById('costDollars').textContent =
+      dollars < 0.01 ? '$' + dollars.toFixed(5) : '$' + dollars.toFixed(3)
+  }
+  ;[costPlayers, costHz, costMins].forEach((input) => input.addEventListener('input', updateCost))
+  updateCost()
+
+  /* ---------- juice demo (the game's own gunshot + shake + KO) ---------- */
+  const juiceField = document.getElementById('juiceField')
+  const juiceRacer = document.getElementById('juiceRacer')
+  const juiceFlash = document.getElementById('juiceFlash')
+  const juiceKo = document.getElementById('juiceKo')
+  let audioContext = null
+
+  const playGunshot = () => {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext
+    if (!AudioCtx) return
+    if (!audioContext || audioContext.state === 'closed') audioContext = new AudioCtx()
+    if (audioContext.state === 'suspended') audioContext.resume()
+    const ctx = audioContext
+    const startAt = ctx.currentTime + 0.01
+
+    // Crack: a burst of decaying noise through a lowpass filter — the same
+    // synth the game schedules in scheduleGunshot().
+    const sampleRate = ctx.sampleRate
+    const buffer = ctx.createBuffer(1, Math.floor(sampleRate * 0.2), sampleRate)
+    const channel = buffer.getChannelData(0)
+    for (let i = 0; i < channel.length; i += 1) {
+      channel[i] = (Math.random() * 2 - 1) * (1 - i / channel.length) ** 2
+    }
+    const source = ctx.createBufferSource()
+    source.buffer = buffer
+    const filter = ctx.createBiquadFilter()
+    filter.type = 'lowpass'
+    filter.frequency.setValueAtTime(2800, startAt)
+    const crackGain = ctx.createGain()
+    crackGain.gain.setValueAtTime(0.4, startAt)
+    crackGain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.2)
+    source.connect(filter)
+    filter.connect(crackGain)
+    crackGain.connect(ctx.destination)
+    source.start(startAt)
+    source.stop(startAt + 0.21)
+
+    // Thump: a low sine stepping down gives the crack body.
+    const thump = ctx.createOscillator()
+    const thumpGain = ctx.createGain()
+    thump.type = 'sine'
+    thump.frequency.setValueAtTime(130, startAt)
+    thump.frequency.setValueAtTime(70, startAt + 0.05)
+    thump.frequency.setValueAtTime(45, startAt + 0.12)
+    thumpGain.gain.setValueAtTime(0.32, startAt)
+    thumpGain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.26)
+    thump.connect(thumpGain)
+    thumpGain.connect(ctx.destination)
+    thump.start(startAt)
+    thump.stop(startAt + 0.27)
+  }
+
+  const retrigger = (element, className) => {
+    element.classList.remove(className)
+    void element.offsetWidth // force reflow so the animation restarts
+    element.classList.add(className)
+  }
+
+  document.getElementById('juiceShoot').addEventListener('click', () => {
+    playGunshot()
+    juiceRacer.classList.add('dead')
+    if (!reducedMotion) {
+      retrigger(juiceField, 'shake')
+      retrigger(juiceFlash, 'on')
+    }
+    retrigger(juiceKo, 'on')
+  })
+
+  document.getElementById('juiceReset').addEventListener('click', () => {
+    juiceRacer.classList.remove('dead')
+    juiceField.classList.remove('shake')
+    juiceFlash.classList.remove('on')
+    juiceKo.classList.remove('on')
+  })
+})()
+</script>
+</body>
+</html>

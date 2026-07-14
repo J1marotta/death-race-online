@@ -1,5 +1,7 @@
 # Why Death Race Works
 
+> Prefer to explore? `WHY.html` is an interactive version of this document with live demos (dead reckoning, the WebSocket cost math, the kill juice) and highlighted code walkthroughs. Open it directly in a browser. When this file changes, update `WHY.html` to match.
+
 Death Race is a browser game about suspicion.
 
 On the surface, it is twenty little racers moving toward a finish line. Underneath, it is a social deduction game wearing running shoes. Every human secretly controls one racer. Nobody gets a name tag during the race. Everyone gets one bullet. The real game is not "can I go fast?" It is "can I move just naturally enough that nobody realizes which one is me?"

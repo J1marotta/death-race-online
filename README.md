@@ -56,6 +56,8 @@ npm run build
 - `spec.md`: game design and technical shape.
 - `progress.md`: completed work and current state.
 - `todo.md`: remaining work.
+- `WHY.md`: the architecture story — how the pieces fit and what to learn from them.
+- `WHY.html`: interactive version of `WHY.md` with live demos and code walkthroughs; open it directly in a browser.
 
 ## Manual QA
 

@@ -718,3 +718,14 @@ Last updated: 2026-07-14
 - Scoreboard now shows a kills count beside each player's score; round history shows `+3` for human wins.
 - Added regression coverage: kill scoring rules, kill persistence across rounds/renames/leaves, input clearing on new rounds, frozen corpse positions, KO marker lifecycle, shooter/victim shake and flash, kill feed lifecycle, and scoreboard kill counts.
 - Verified with `npm test` (104 passing); `npm run lint`; `npm run build`.
+
+### task 68 : Convert WHY.md Into An Interactive WHY.html
+
+- Built `WHY.html`, a self-contained interactive version of `WHY.md` (no dependencies, opens directly from disk) covering every section of the document.
+- Interactive features: a scroll-spy table of contents with a reading progress bar, a clickable architecture diagram, a step-through lobby flow, collapsible syntax-highlighted code panels showing the real code behind each decision, and before/after diff tabs for the corpse-teleport bug.
+- Live demos: snapping vs dead reckoning side by side with an adjustable sync rate, the WebSocket billing math with player/rate/duration sliders, and the kill juice (screen shake, flash, KO bounce) using the same CSS keyframes and Web Audio gunshot synth as the game.
+- Respects `prefers-reduced-motion` in the demos, mirroring the game.
+- Added `why.test.js`, a jsdom smoke test that executes the page script and exercises every interactive control (highlighting, cost calculator, stepper, tabs, juice demo, dead reckoning toggle, architecture boxes).
+- Verified visually with headless Edge screenshots of the rendered page and functionally via the smoke test.
+- Cross-linked the docs: `WHY.md` now points to `WHY.html` (and requires keeping it in sync), and the README docs list includes both.
+- Verified with `npm test`; `npm run lint`; `npm run build`.

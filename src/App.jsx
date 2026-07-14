@@ -1,6 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
+
+import { WIN_POINTS, canStartRoom } from './multiplayer/roomState'
 import {
+  startCountdown as apiStartCountdown,
+  startNextRound as apiStartNextRound,
+  startPlaying as apiStartPlaying,
   createRoom,
   createRoomSocket,
   finishRound,
@@ -10,18 +14,16 @@ import {
   recordShot,
   renameRoomPlayer,
   sendPlayerHeartbeat,
-  showScoreboard,
-  startCountdown as apiStartCountdown,
-  startPlaying as apiStartPlaying,
-  startNextRound as apiStartNextRound,
   setPlayerReady,
+  showScoreboard,
   submitPlayerInput,
   updateRoom,
 } from './multiplayer/api'
-import { canStartRoom, WIN_POINTS } from './multiplayer/roomState'
-import { evaluateInputSend } from './multiplayer/inputCadence'
-import { createHumanAssignments } from './laneAssignments'
 import { createNpcProfile, getNpcStep } from './npcBehavior'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+
+import { createHumanAssignments } from './laneAssignments'
+import { evaluateInputSend } from './multiplayer/inputCadence'
 
 const PLAYERS = ['James', 'Mia', 'Noah', 'Ava']
 // Racers are cute pixel animals: the shape picks the species, the archetype
@@ -131,12 +133,12 @@ const STATE_LABELS = {
   gameOver: 'Game over'
 }
 
-const ROOM_CODE = 'DR2048'
+const ROOM_CODE = Math.random().toString(36).slice(2, 6).toUpperCase()
 const ROUND_OPTIONS = [3, 5, 7]
 const COUNTDOWN_STEPS = ['3', '2', '1', 'go']
 const COUNTDOWN_STEP_MS = 500
-const WALK_SPEED = 0.162
-const RUN_SPEED = WALK_SPEED * 2
+const WALK_SPEED = 0.3
+const RUN_SPEED = WALK_SPEED * 1.3
 const TICK_MS = 80
 // NPCs hold at the line after go — a crowd reacts, it doesn't launch. Each
 // NPC adds its own small seeded stagger on top.
@@ -2122,17 +2124,17 @@ function App() {
           <div className='control-group'>
             <span>Privacy</span>
             <div className='segmented-control' aria-label='Lobby privacy'>
-              {['public', 'private'].map(option => (
+              {[{name: 'Public', value: 'public'}, {name: 'Private', value: 'private'}].map(option => (
                 <button
-                  key={option}
+                  key={option.value}
                   type='button'
-                  className={privacy === option ? 'active' : ''}
+                  className={privacy === option.value ? 'active' : ''}
                   onClick={() => {
-                    setPrivacy(option)
-                    void syncRoom('settings', { privacy: option, roundCount })
+                    setPrivacy(option.value)
+                    void syncRoom('settings', { privacy: option.value, roundCount })
                   }}
                 >
-                  {option}
+                  {option.name}
                 </button>
               ))}
             </div>

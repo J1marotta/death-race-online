@@ -740,3 +740,15 @@ Last updated: 2026-07-14
 - Reviewed and deliberately skipped: batching lobby storage writes and deduplicating alarm reschedules (pennies at this scale, added risk), ticker changes (it already self-stops; the real traffic driver was aim), and remote snap-distance tuning (speculative).
 - Docs: added a "How The Pricing Works" section to WHY.md and WHY.html (meters, ratios, and the mapping from each meter to what the game does), updated the netcode sections and the WHY.html cost calculator with the event-driven cadence, added "The Shot That Erased Your Lane Claim" to the bug museum, and updated the spec's input-cadence and firing-input rules.
 - Verified with `npm test` (118 passing, run five times); `npm run lint`; `npm run build`.
+
+### task 70 : Turn The Racers Into Cute Pixel Animals
+
+- Replaced the 8 human silhouette variants (hats, jackets, masks) with 8 animal species drawn purely in CSS: cat (pointy ears, striped tail), bunny (tall ears, cotton tail), bear (round ears, muzzle), fox (tall triangle ears, white-tipped bushy tail), frog (eye bumps with pupils, grin), pig (floppy ears, snout with nostrils, tail nub), chick (head tuft, beak, tail feathers), and mouse (big round ears, button nose, thin tail).
+- Species features hang off per-shape pseudo-elements on the same base sprite, so every variant keeps the exact same hitbox (spec requirement). Eyes moved from a background gradient to `.racer-head::before` so faces can recolor freely.
+- Replaced the archetype palettes with 5 pastel fur palettes — Peach, Sky, Mint, Honey, Berry — where `--suit` is fur, `--head` is face/belly, and `--trim` is the accent (inner ears, snouts, tails).
+- Kept `shape-N` class names unchanged because `npcBehavior.js` seeds NPC personalities from `shapeClass`; renaming would have silently reshuffled every NPC's pacing.
+- Racer tooltips now read species and palette (e.g. `Bunny · Mint`) instead of the old archetype name.
+- Iterated visually with a scratch grid page (8 species x 5 palettes plus a dead row) screenshotted via headless Edge at 3x and at the in-game 1.2x scale; fixed the pig's horn-like ears and floating tail hook, the chick's bulky tail feathers, and the fox's headband-looking two-tone face along the way.
+- Deflaked two more seed-dependent tests found during verification: the shooter-shake and kill-feed tests targeted lane 19 blindly, but lane assignments are seeded per room code, so lane 19 is occasionally a human (or the local player, whose death shakes differently). Both now target a guaranteed NPC lane.
+- Added a regression test asserting all 20 racers carry species-and-palette titles covering all 8 species and 5 palettes.
+- Verified with `npm test` (119 passing, run four times); `npm run lint`; `npm run build`.

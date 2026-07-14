@@ -652,7 +652,7 @@
   <p>The repo is small enough to understand without a map, but the map helps.</p>
   <div class="file-grid">
     <div class="file-card"><code>src/App.jsx</code><p>The main game surface: menu → lobby → countdown → playing → round over → scoreboard → game over. Local input, aiming, shooting, juice effects, room sync, and the 20-lane playfield.</p></div>
-    <div class="file-card"><code>src/App.css</code><p>The visual world: the 1200px laptop layout, racer sprites, crosshairs, bodies, KO markers, screen shake, the kill feed, and the checkered finish line.</p></div>
+    <div class="file-card"><code>src/App.css</code><p>The visual world: the 1200px laptop layout, the cute pixel-animal racers (8 species built from CSS pseudo-elements, 5 pastel fur palettes), crosshairs, bodies, KO markers, screen shake, the kill feed, and the checkered finish line.</p></div>
     <div class="file-card"><code>src/multiplayer/api.js</code><p>The frontend's phone line to the room backend, including the localhost/production API base decision.</p></div>
     <div class="file-card"><code>src/multiplayer/roomState.js</code><p>Pure room-state rules shared by the app and the Worker: joins, readiness, shots, kill scoring, round transitions, destruction decisions. One set of rules, two consumers.</p></div>
     <div class="file-card"><code>workers/rooms.js</code><p>The Worker and Durable Object room coordinator: HTTP actions, CORS, WebSockets, storage, broadcasts, host validation, heartbeats, cleanup alarms.</p></div>

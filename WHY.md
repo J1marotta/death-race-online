@@ -92,7 +92,7 @@ The repo is small enough to understand without a map, but the map helps.
   The main game surface. It owns the visible game states: menu, lobby, countdown, playing, round over, scoreboard, and game over. It also handles local input, aiming, shooting, UI state, room sync, and rendering the 20-lane playfield.
 
 - `src/App.css`
-  The visual world: the 1200px laptop layout, lobby panels, racer sprites, crosshairs, bodies, checkered finish line, countdown overlay, and responsive behavior.
+  The visual world: the 1200px laptop layout, lobby panels, the cute pixel-animal racers (8 species drawn entirely from CSS pseudo-elements, 5 pastel fur palettes), crosshairs, bodies, checkered finish line, countdown overlay, and responsive behavior.
 
 - `src/index.css`
   Global theme variables and document-level styling.

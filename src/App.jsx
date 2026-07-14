@@ -23,7 +23,10 @@ import { evaluateInputSend } from './multiplayer/inputCadence'
 import { createNpcProfile, getNpcStep, hashString } from './npcBehavior'
 
 const PLAYERS = ['James', 'Mia', 'Noah', 'Ava']
-const ARCHETYPES = ['Driver', 'Runner', 'Mask', 'Coat', 'Cap']
+// Racers are cute pixel animals: the shape picks the species, the archetype
+// picks the pastel fur palette.
+const ARCHETYPES = ['Peach', 'Sky', 'Mint', 'Honey', 'Berry']
+const SPECIES = ['Cat', 'Bunny', 'Bear', 'Fox', 'Frog', 'Pig', 'Chick', 'Mouse']
 const HUMAN_COLORS = ['red', 'blue', 'green', 'yellow']
 const CHARACTER_SHAPE_COUNT = 8
 const START_POSITIONS = [
@@ -41,17 +44,18 @@ const shuffleStartPositions = (count) => {
   return result
 }
 
-const laneShapeSeed = (index) =>
-  `shape-${(index * 7 + Math.floor(index / 2)) % CHARACTER_SHAPE_COUNT}`
+const laneShapeIndex = (index) =>
+  (index * 7 + Math.floor(index / 2)) % CHARACTER_SHAPE_COUNT
 
 const laneStartPositions = shuffleStartPositions(20)
 
 const LANES = Array.from({ length: 20 }, (_, index) => ({
   id: index + 1,
   archetype: ARCHETYPES[index % ARCHETYPES.length],
+  species: SPECIES[laneShapeIndex(index)],
   progress: laneStartPositions[index],
   depth: Math.floor(index / 5),
-  shapeClass: laneShapeSeed(index)
+  shapeClass: `shape-${laneShapeIndex(index)}`
 }))
 
 const STATE_COPY = {
@@ -2403,7 +2407,7 @@ function App() {
                         : {})
                     }}
                     data-testid={`racer-${lane.id}`}
-                    title={lane.archetype}
+                    title={`${lane.species} · ${lane.archetype}`}
                   >
                     <span className='racer-head' />
                     <span className='racer-body' />

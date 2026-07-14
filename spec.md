@@ -112,8 +112,9 @@ Control reminders are visible below the playfield during the race.
 ## Visual Direction
 
 - Pixel-art style.
-- 8 character shape variants are reused across the 20 lanes.
-- Character variants keep the same hitbox even when their silhouettes differ.
+- Racers are cute pixel animals: 8 species (cat, bunny, bear, fox, frog, pig, chick, mouse) are reused across the 20 lanes.
+- 5 pastel fur palettes (Peach, Sky, Mint, Honey, Berry) color the species; palettes are cosmetic and shared by humans and NPCs alike.
+- Species features (ears, tails, snouts, beaks) are CSS pseudo-elements hanging off the same base sprite, so every variant keeps the same hitbox even when silhouettes differ.
 - Starting lane positions and character variants are randomized enough that players cannot identify themselves from fixed ordering.
 - Lanes and racer sprites are sized so all 20 racers fit in-frame without vertical scrolling.
 - Lanes use slight depth/perspective like the reference screenshot.

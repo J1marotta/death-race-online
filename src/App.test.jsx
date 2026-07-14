@@ -415,14 +415,20 @@ describe('game controls', () => {
 
   it('shakes and flashes the playfield when the local shot lands', async () => {
     const playfield = await startPlayingWithFakeTimers()
-    const racer19 = screen.getByTestId('racer-19')
+    // Lane assignments are seeded per room code, so a fixed lane could be a
+    // human (or the local player, whose death shakes differently) — target a
+    // guaranteed NPC.
+    const npcRacer = screen
+      .getAllByTestId(/^racer-/)
+      .find((racer) => racer.className.includes('npc-bobbing'))
+    const laneId = Number(npcRacer.dataset.testid.replace('racer-', ''))
     const progress = Number.parseFloat(
-      racer19.style.getPropertyValue('--racer-progress'),
+      npcRacer.style.getPropertyValue('--racer-progress'),
     )
 
     fireEvent.mouseDown(playfield, {
       clientX: (progress / 100) * 1000,
-      clientY: 925,
+      clientY: (laneId - 0.5) * 50,
     })
 
     expect(playfield.className).toContain('shake-shooter')
@@ -457,19 +463,22 @@ describe('game controls', () => {
 
   it('shows kills in the kill feed and fades them out', async () => {
     const playfield = await startPlayingWithFakeTimers()
-    const racer19 = screen.getByTestId('racer-19')
+    const npcRacer = screen
+      .getAllByTestId(/^racer-/)
+      .find((racer) => racer.className.includes('npc-bobbing'))
+    const laneId = Number(npcRacer.dataset.testid.replace('racer-', ''))
     const progress = Number.parseFloat(
-      racer19.style.getPropertyValue('--racer-progress'),
+      npcRacer.style.getPropertyValue('--racer-progress'),
     )
 
     fireEvent.mouseDown(playfield, {
       clientX: (progress / 100) * 1000,
-      clientY: 925,
+      clientY: (laneId - 0.5) * 50,
     })
 
     const killFeed = screen.getByLabelText('Kill feed')
     expect(within(killFeed).getByText(/James/)).toBeTruthy()
-    expect(within(killFeed).getByText(/NPC 19/)).toBeTruthy()
+    expect(within(killFeed).getByText(new RegExp(`NPC ${laneId}`))).toBeTruthy()
 
     act(() => {
       vi.advanceTimersByTime(5000)
@@ -930,6 +939,32 @@ describe('game controls', () => {
     await screen.findByLabelText('Countdown')
 
     expect(screen.getAllByTestId(/^lane-/)).toHaveLength(20)
+  })
+
+  it('renders every racer as a cute animal with a pastel palette', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Start game' })).toBeTruthy(),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Start game' }))
+    await screen.findByLabelText('Countdown')
+
+    const racers = screen.getAllByTestId(/^racer-/)
+    expect(racers).toHaveLength(20)
+    expect(
+      racers.every((racer) =>
+        /^(Cat|Bunny|Bear|Fox|Frog|Pig|Chick|Mouse) · (Peach|Sky|Mint|Honey|Berry)$/.test(
+          racer.title,
+        ),
+      ),
+    ).toBe(true)
+    // All 8 species and all 5 palettes appear across the 20 lanes.
+    expect(new Set(racers.map((racer) => racer.title.split(' · ')[0])).size).toBe(8)
+    expect(new Set(racers.map((racer) => racer.title.split(' · ')[1])).size).toBe(5)
+    expect(appStyles).toMatch(/\.archetype-peach\s*{/)
+    expect(appStyles).toMatch(/shape-1: bunny/)
   })
 
   it('renames the current lobby player through the real players list', async () => {

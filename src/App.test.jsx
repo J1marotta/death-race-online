@@ -960,6 +960,32 @@ describe('game controls', () => {
     expect(meter.querySelector('.sprint-meter-pop')).toBeTruthy()
   })
 
+  it('keeps the NPC crowd pace well below a walking human', async () => {
+    await startPlayingWithFakeTimers()
+    const readProgress = () =>
+      Array.from({ length: 20 }, (_, index) =>
+        Number.parseFloat(
+          screen
+            .getByTestId(`racer-${index + 1}`)
+            .style.getPropertyValue('--racer-progress'),
+        ),
+      )
+
+    const start = readProgress()
+    act(() => {
+      vi.advanceTimersByTime(8000)
+    })
+    const end = readProgress()
+    const deltas = start
+      .map((value, index) => end[index] - value)
+      .sort((a, b) => a - b)
+    // The median racer is an NPC (18 of 20 lanes). A walking human covers 40
+    // progress in 8s; the crowd must amble far below that but still move.
+    const median = deltas[10]
+    expect(median).toBeGreaterThan(8)
+    expect(median).toBeLessThan(26)
+  })
+
   it('shows a straight checkered finish line on the playfield', async () => {
     const playfield = await startPlaying()
 

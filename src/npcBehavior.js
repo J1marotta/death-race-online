@@ -8,8 +8,8 @@ export const hashString = value => {
 }
 
 // Sprints come in short bursts: whenever any source says run, a seeded duty
-// cycle lets it through for at most SPRINT_BURST_TICKS in a row (about half
-// a second) and downgrades the rest of the window to a walk.
+// cycle lets it through for at most SPRINT_BURST_TICKS in a row (~160ms
+// darts) and downgrades the rest of the window to a walk.
 export const SPRINT_WINDOW_TICKS = 4
 export const SPRINT_BURST_TICKS = 2
 

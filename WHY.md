@@ -459,6 +459,14 @@ The fix flipped the behavior model from "wandering extras" to "players": run-hea
 
 Lesson: in a hidden-identity game, NPCs are not scenery. They are the crowd you hide in, so they must be statistically similar to the players.
 
+### The Crowd That Outran The Winded
+
+Sprint stamina quietly rebalanced the whole race. NPC pacing had been tuned against a human who could hold sprint forever (~7.5 progress/s); once stamina capped a committed human at ~5.8, the untouched crowd was suddenly moving at 82% of the best possible human pace — and *faster* than any human who ever rested. Playtesting read as "the NPCs are racing," but nothing about the NPCs had changed. The humans had.
+
+The fix was measured, not felt: a simulation replicating the exact NPC tick math showed the crowd at 4.76 progress/s against the walker's 5.0. A single `NPC_PACE_SCALE = 0.6` on the NPC speed table brings the pack to ~2.9 progress/s — back to the original design intent of "roughly half a committed player" — finishing around 33 seconds against the human's 16, while keeping every burst, stop, and personality intact. A regression test pins the median crowd racer's 8-second progress inside an amble band so no future speed change silently re-races the crowd.
+
+Lesson: pace is relative. Nerfing the player buffs everything you didn't touch, so retune the crowd against the player's *new* ceiling — and let a simulation, not vibes, pick the number.
+
 ### Music That Sounded Like Static
 
 The first gameplay music sustained a square-wave bass and a sawtooth drone continuously under a fast minor-key note loop. Harsh waveforms held forever read as noise, not music.

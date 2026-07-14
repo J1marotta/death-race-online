@@ -1091,6 +1091,14 @@ thumpOscillator.frequency.setValueAtTime(45, startAt + 0.12)</code></pre>
   </div>
 
   <div class="bug-card">
+    <span class="bug-tag sev">design</span><span class="bug-tag area">simulation</span>
+    <h3>The Crowd That Outran The Winded</h3>
+    <p>Sprint stamina quietly rebalanced the whole race. NPC pacing had been tuned against a human who could hold sprint forever (~7.5 progress/s); once stamina capped a committed human at ~5.8, the untouched crowd was suddenly moving at 82% of the best possible human pace — and <em>faster</em> than any human who ever rested. Playtesting read as "the NPCs are racing," but nothing about the NPCs had changed. The humans had.</p>
+    <p>The fix was measured, not felt: a simulation replicating the exact NPC tick math showed the crowd at 4.76 progress/s against the walker's 5.0. A single <code class="inline">NPC_PACE_SCALE = 0.6</code> on the NPC speed table brings the pack to ~2.9 progress/s — back to "roughly half a committed player" — finishing around 33 seconds against the human's 16, with every burst, stop, and personality intact. A regression test pins the median crowd racer's 8-second progress inside an amble band so no future speed change silently re-races the crowd.</p>
+    <div class="lesson">Pace is relative. Nerfing the player buffs everything you didn't touch, so retune the crowd against the player's <em>new</em> ceiling — and let a simulation, not vibes, pick the number.</div>
+  </div>
+
+  <div class="bug-card">
     <span class="bug-tag sev">audio</span><span class="bug-tag area">web audio</span>
     <h3>Music That Sounded Like Static</h3>
     <p>The first gameplay music sustained a square-wave bass and a sawtooth drone continuously under a fast minor-key note loop. Harsh waveforms held forever read as noise, not music. The fix: soft sine pads holding a Cmaj7/Am7/Dm7/G7 progression, a gentle triangle melody at a relaxed beat, and a quiet bass note on each chord change.</p>

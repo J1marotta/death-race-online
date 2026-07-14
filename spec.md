@@ -120,9 +120,9 @@ Movement keys never hijack typing: while an input field has focus they are ignor
 ## NPC Behavior
 
 - NPCs fill all unused racer slots.
-- NPCs are the crowd, not the competition: they mostly walk with short sprint bursts and brief human-scale stops, averaging roughly half a sprinting player's pace.
+- NPCs are the crowd, not the competition: they mostly walk with short sprint bursts and brief human-scale stops, and all NPC speeds are scaled to 60% of player speeds so the pack averages roughly half a committed (stamina-managed) player's pace — ~2.9 progress/s vs ~5.8.
 - NPCs hold at the start line for about 1.5 seconds after go (plus a small seeded per-NPC stagger) before moving — a crowd reacts, it doesn't launch.
-- No NPC sprints longer than ~0.5 seconds at a time: every sprint demand passes through a seeded duty cycle that downgrades the rest of its window to a walk.
+- No NPC sprints longer than ~160ms at a time: every sprint demand passes through a seeded duty cycle that downgrades the rest of its window to a walk, so sprints read as darts, not races.
 - A committed human comfortably outruns the pack, but NPCs still finish and can win a round when every human stalls.
 - Each NPC has a seeded pacing personality (burst-heavy or walk-heavy mixes) so the pack does not race identically.
 - NPCs should imitate human hesitation and intent.

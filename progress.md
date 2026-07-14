@@ -815,3 +815,12 @@ Last updated: 2026-07-14
 - Regression tests: stamina drains and drops the racer to a walk at empty, refill waits the full rest second, tops up to 100, clears the lockout, and renders the ready pop. Stamina tests start under fake timers so the frame loop schedules against the mocked clock.
 - Documented the design in spec.md (Player Controls) and "Why Sprint Costs Something" in WHY.md and WHY.html.
 - Verified with `npm test` (133 passing); `npm run lint`.
+
+### task 78 : Reign In The Crowd After The Stamina Nerf
+
+- Sprint stamina had quietly re-raced the crowd: NPC pacing was tuned against a hold-Space-forever human (~7.5 progress/s), but a stamina-managed human tops out at ~5.8, leaving the untouched crowd at 82% of the best human pace and faster than anyone who rested.
+- Measured before changing: a simulation replicating the exact NPC tick math (`.claude/npc-pace-sim.mjs`) showed the crowd at 4.76 progress/s vs the walker's 5.0. Bracketed 0.55/0.6/0.65 scales and picked `NPC_PACE_SCALE = 0.6`, which lands the pack at ~2.9 progress/s — 49% of a committed player, the original "half a sprinting player" design intent — finishing ~33s vs the human's ~16s with all burst/stop personality texture intact.
+- Folded in the in-flight npcBehavior duty-cycle tuning (SPRINT_WINDOW 4 / SPRINT_BURST 2): NPC sprints are now ~160ms darts, and the stale "half a second" comment was corrected.
+- Regression test: the median racer (an NPC in 18 of 20 lanes) must advance 8-26 progress over 8 seconds — an amble band well under a walking human's 40 — so future speed changes cannot silently re-race the crowd.
+- Documented "The Crowd That Outran The Winded" in the WHY.md and WHY.html bug museums and updated the spec NPC behavior numbers.
+- Verified with `npm test` (134 passing); `npm run lint`.

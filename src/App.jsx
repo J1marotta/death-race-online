@@ -167,11 +167,16 @@ const NPC_PATTERNS = [
   ['walk', 'run', 'walk', 'walk', 'run', 'stop', 'walk'],
   ['run', 'walk', 'walk', 'run', 'walk', 'run', 'stop']
 ]
+// The crowd ambles: NPC speeds are scaled down so the pack averages roughly
+// half a committed (stamina-managed) player's pace — ~2.9 progress/s vs the
+// player's ~5.8. Before this scale the crowd ran at 82% of a committed human
+// and outpaced anyone who ever rested, which read as "the NPCs are racing".
+const NPC_PACE_SCALE = 0.6
 const NPC_SPEEDS = {
-  idle: WALK_SPEED / 3,
+  idle: (WALK_SPEED / 3) * NPC_PACE_SCALE,
   stop: 0,
-  walk: WALK_SPEED,
-  run: RUN_SPEED
+  walk: WALK_SPEED * NPC_PACE_SCALE,
+  run: RUN_SPEED * NPC_PACE_SCALE
 }
 const MOVEMENT_SPEEDS_BY_MODE = {
   stopped: 0,

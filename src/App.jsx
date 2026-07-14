@@ -19,7 +19,7 @@ import {
   submitPlayerInput,
   updateRoom,
 } from './multiplayer/api'
-import { createNpcProfile, getNpcStep } from './npcBehavior'
+import { NPC_PATTERNS, createNpcProfile, getNpcStep } from './npcBehavior'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { createHumanAssignments } from './laneAssignments'
@@ -157,16 +157,6 @@ const FRAME_FALLBACK_MS = 16
 const MAX_FRAME_DT_MS = 250
 const REMOTE_BLEND_MS = 150
 const REMOTE_SNAP_DISTANCE = 8
-// Crowd pacing personalities: mostly walking with sprint bursts and brief
-// stops. Sprint share is ~36% of steps (down ~40% from the old run-heavy
-// mix), so NPCs read as the crowd you hide in rather than competition —
-// they still finish and can win when every human stalls.
-const NPC_PATTERNS = [
-  ['run', 'walk', 'run', 'walk', 'walk', 'run', 'stop'],
-  ['walk', 'run', 'walk', 'walk', 'stop', 'run', 'walk'],
-  ['walk', 'run', 'walk', 'walk', 'run', 'stop', 'walk'],
-  ['run', 'walk', 'walk', 'run', 'walk', 'run', 'stop']
-]
 // The crowd ambles: NPC speeds are scaled down so the pack averages roughly
 // half a committed (stamina-managed) player's pace — ~2.9 progress/s vs the
 // player's ~5.8. Before this scale the crowd ran at 82% of a committed human

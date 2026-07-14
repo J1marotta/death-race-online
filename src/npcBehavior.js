@@ -1,3 +1,14 @@
+// Crowd pacing personalities: nervous people milling toward a finish line,
+// not joggers. Every pattern mixes walks with real loitering — full stops and
+// idle shuffles — plus short sprint darts, so a human who hides by standing
+// still is statistically at home in the pack.
+export const NPC_PATTERNS = [
+  ['run', 'walk', 'stop', 'walk', 'idle', 'run', 'stop'],
+  ['walk', 'stop', 'run', 'idle', 'walk', 'walk', 'stop'],
+  ['idle', 'walk', 'run', 'stop', 'walk', 'run', 'idle'],
+  ['walk', 'run', 'stop', 'walk', 'idle', 'stop', 'run']
+]
+
 export const hashString = value => {
   let hash = 2166136261
   for (let index = 0; index < value.length; index += 1) {
@@ -58,8 +69,10 @@ export const getNpcStep = (racer, tick, seedParts) => {
   let step = baseStep
   if (longRoll > 85 || shortRoll > 92) {
     step = 'run'
-  } else if (shortRoll < 6) {
-    step = 'stop'
+  } else if (shortRoll < 12) {
+    // Loiter rolls land on top of the pattern so pauses arrive off-beat:
+    // a full stop most of the time, an idle shuffle the rest.
+    step = shortRoll < 8 ? 'stop' : 'idle'
   }
   if (step !== 'run') {
     return step

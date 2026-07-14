@@ -824,3 +824,12 @@ Last updated: 2026-07-14
 - Regression test: the median racer (an NPC in 18 of 20 lanes) must advance 8-26 progress over 8 seconds — an amble band well under a walking human's 40 — so future speed changes cannot silently re-race the crowd.
 - Documented "The Crowd That Outran The Winded" in the WHY.md and WHY.html bug museums and updated the spec NPC behavior numbers.
 - Verified with `npm test` (134 passing); `npm run lint`.
+
+### task 79 : A Crowd That Loiters — More Stop And Idle For NPCs
+
+- The scaled crowd never stopped moving (measured shares: 24% run, 60% walk, 16% stop, 0% idle), so a human loitering to hide stuck out against perpetual joggers. This is a hiding game; stillness must be common in the pack.
+- NPC_PATTERNS moved from App.jsx into npcBehavior.js (exported, single source of truth for the app, the pace simulator, and tests) and rewrote the four personalities to mix walks, sprint darts, full stops, and idle shuffles — the previously unused idle speed (walk/3) finally earns its keep as a slow creep.
+- The seeded loiter roll doubled (6% -> 12% of short blocks) and now splits stop-heavy: two-thirds full stop, one-third idle shuffle, landing off-beat from the patterns.
+- Simulated result: the crowd loiters ~40% of steps (26% stop + 15% idle), pace drops from 2.85 to 2.22 progress/s (~38% of a committed player), finish ~42s vs the player's ~16s. Deliberately walks back toward the old "idled forever" territory — safe now because stamina-era players also stop, so stillness reads as strategy, not set dressing.
+- Documented the follow-up in the "Crowd That Outran The Winded" museum entries (WHY.md, WHY.html) and updated the spec NPC behavior numbers.
+- Verified with `npm test` (134 passing, the crowd-pace amble band holds); `npm run lint`.

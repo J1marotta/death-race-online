@@ -465,6 +465,8 @@ Sprint stamina quietly rebalanced the whole race. NPC pacing had been tuned agai
 
 The fix was measured, not felt: a simulation replicating the exact NPC tick math showed the crowd at 4.76 progress/s against the walker's 5.0. A single `NPC_PACE_SCALE = 0.6` on the NPC speed table brings the pack to ~2.9 progress/s — back to the original design intent of "roughly half a committed player" — finishing around 33 seconds against the human's 16, while keeping every burst, stop, and personality intact. A regression test pins the median crowd racer's 8-second progress inside an amble band so no future speed change silently re-races the crowd.
 
+A follow-up pass leaned into what the game had become: a hiding game. The scaled crowd still *never stopped moving*, so a human loitering to blend in stuck out against a pack of perpetual joggers. New pacing patterns and loiter rolls put the crowd at a full stop or an idle shuffle about 40% of the time (pace ~2.2 progress/s, finish ~42s). This deliberately walks back toward the "idled forever" territory above — the difference is that now the *players* also stop, so stillness reads as strategy instead of set dressing.
+
 Lesson: pace is relative. Nerfing the player buffs everything you didn't touch, so retune the crowd against the player's *new* ceiling — and let a simulation, not vibes, pick the number.
 
 ### Music That Sounded Like Static

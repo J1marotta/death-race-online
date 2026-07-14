@@ -120,7 +120,7 @@ Movement keys never hijack typing: while an input field has focus they are ignor
 ## NPC Behavior
 
 - NPCs fill all unused racer slots.
-- NPCs are the crowd, not the competition: they mostly walk with short sprint bursts and brief human-scale stops, and all NPC speeds are scaled to 60% of player speeds so the pack averages roughly half a committed (stamina-managed) player's pace — ~2.9 progress/s vs ~5.8.
+- NPCs are the crowd, not the competition: they walk, dart, and — about 40% of the time — loiter (full stops plus slow idle shuffles), because this is a hiding game and a human standing still must look at home in the pack. All NPC speeds are scaled to 60% of player speeds; the pack averages ~2.2 progress/s (~38% of a committed, stamina-managed player's ~5.8), finishing around 42 seconds against the player's ~16.
 - NPCs hold at the start line for about 1.5 seconds after go (plus a small seeded per-NPC stagger) before moving — a crowd reacts, it doesn't launch.
 - No NPC sprints longer than ~160ms at a time: every sprint demand passes through a seeded duty cycle that downgrades the rest of its window to a walk, so sprints read as darts, not races.
 - A committed human comfortably outruns the pack, but NPCs still finish and can win a round when every human stalls.

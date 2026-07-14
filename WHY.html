@@ -497,6 +497,40 @@
     .juice-ko.on { opacity: 1; transform: translate(-50%, -95%); }
   }
 
+  /* ---------- animal sprite demo (trimmed copy of src/App.css sprites) ---------- */
+  .wa-grid { display: flex; gap: 36px; flex-wrap: wrap; margin: 14px 0 4px; }
+  .wa-cell { width: 110px; height: 118px; position: relative; text-align: center; }
+  .wa-cell small { position: absolute; bottom: 0; left: 0; right: 0; font: 700 11px var(--mono); color: var(--text); text-transform: uppercase; }
+
+  .wa {
+    --head: #fdeacc; --suit: #f5a86a; --trim: #c96b34;
+    position: absolute; top: 8px; left: 26px;
+    display: grid; grid-template-rows: 9px 13px; place-items: center;
+    width: 22px; height: 25px;
+    border: 2px solid #111;
+    background: var(--suit);
+    box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.42), inset 0 -5px 0 rgba(0, 0, 0, 0.22);
+    transform: scale(3); transform-origin: top left;
+    image-rendering: pixelated;
+  }
+  .wa.p-sky { --head: #eaf6ff; --suit: #8ec8e8; --trim: #4a7fb5; }
+  .wa.p-mint { --head: #e9fbef; --suit: #8fd8ad; --trim: #3f9d6d; }
+
+  .wa-head { position: relative; width: 12px; height: 9px; margin-top: 1px; border-radius: 3px 3px 2px 2px; background: var(--head); }
+  .wa-head::before { content: ''; position: absolute; top: 2px; left: 3px; width: 2px; height: 3px; background: #111; box-shadow: 5px 0 0 #111; }
+  .wa-body { width: 12px; height: 10px; border-radius: 4px 4px 3px 3px; background: var(--head); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.08); }
+
+  .wa.cat::before { content: ''; position: absolute; top: -5px; left: 3px; width: 16px; height: 5px; background: var(--suit); clip-path: polygon(0 100%, 20% 0, 40% 100%, 60% 100%, 80% 0, 100% 100%); }
+  .wa.cat::after { content: ''; position: absolute; top: 9px; left: -6px; width: 6px; height: 3px; border-radius: 2px 0 0 2px; background: var(--trim); }
+
+  .wa.bunny::before { content: ''; position: absolute; top: -8px; left: 5px; width: 4px; height: 8px; border-radius: 2px 2px 0 0; background: var(--suit); box-shadow: 7px 0 0 var(--suit); }
+  .wa.bunny::after { content: ''; position: absolute; top: 13px; left: -5px; width: 5px; height: 5px; border-radius: 50%; background: var(--head); }
+
+  .wa.frog::before { content: ''; position: absolute; top: -4px; left: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--suit); box-shadow: 10px 0 0 var(--suit); }
+  .wa.frog::after { content: ''; position: absolute; top: -2px; left: 5px; width: 2px; height: 2px; border-radius: 50%; background: #111; box-shadow: 10px 0 0 #111; }
+  .wa.frog .wa-head::before { display: none; }
+  .wa.frog .wa-head::after { content: ''; position: absolute; bottom: 1px; left: 3px; width: 6px; height: 2px; border-radius: 0 0 2px 2px; background: rgba(17, 17, 17, 0.75); }
+
   /* ---------- bug museum ---------- */
   .bug-card {
     margin: 18px 0;
@@ -563,6 +597,7 @@
   <a href="#websockets">WebSockets And Polling</a>
   <a href="#react-vite">Why React And Vite</a>
   <a href="#dom-css">Why DOM Instead Of Canvas</a>
+  <a href="#animal-css">The Animal Racer CSS</a>
   <a href="#decisions">Key Technical Decisions</a>
   <a href="#bug-museum">The Bug Museum</a>
   <a href="#tests">The Test Safety Net</a>
@@ -820,6 +855,71 @@ if (Number.isFinite(displayed) && Math.abs(target - displayed) <= REMOTE_SNAP_DI
   <p>The earliest spec allowed a 2D canvas renderer. The current implementation uses DOM and CSS for the playfield. That was a practical choice: the game needed 20 readable lanes, pixel-style racers, crosshairs, bodies, reveal labels, a checkered finish line, and lots of UI around the track. CSS handles that well.</p>
   <p>It also makes testing easier — the test suite can query lanes, buttons, labels, and markers directly. Even the juice (screen shake, the KO bounce, hit flashes) is pure CSS keyframes triggered by class changes, which means <code class="inline">prefers-reduced-motion</code> support is one media query instead of a rendering-engine feature.</p>
   <p>Canvas may still be useful later if animation complexity grows or the art direction becomes more elaborate. But switching to canvas should be a response to pressure, not a reflex.</p>
+</section>
+
+<section id="animal-css">
+  <h2>How The Animal Racer CSS Works</h2>
+  <p>Every racer is three spans and zero images. The whole zoo — 8 species in 5 palettes, 40 distinct looks — is roughly 150 lines of CSS built from four tricks. These three are live, rendered by a copy of the game's sprite CSS:</p>
+
+  <div class="wa-grid">
+    <div class="wa-cell">
+      <span class="wa cat"><span class="wa-head"></span><span class="wa-body"></span></span>
+      <small>cat · peach</small>
+    </div>
+    <div class="wa-cell">
+      <span class="wa bunny p-sky"><span class="wa-head"></span><span class="wa-body"></span></span>
+      <small>bunny · sky</small>
+    </div>
+    <div class="wa-cell">
+      <span class="wa frog p-mint"><span class="wa-head"></span><span class="wa-body"></span></span>
+      <small>frog · mint</small>
+    </div>
+  </div>
+
+  <p><strong>The box is the body.</strong> The base <code class="inline">.racer</code> element is a 22×25 bordered box whose background is the fur color — and that box is also the hitbox. <code class="inline">.racer-head</code> is a rounded face patch, <code class="inline">.racer-body</code> a belly patch. Nothing about a species changes the box, which is how the spec's "same hitbox for every variant" rule survives: a bunny with tall ears occupies exactly the same clickable area as a frog.</p>
+
+  <p><strong>The box-shadow clone trick.</strong> A <code class="inline">box-shadow</code> with no blur is a pixel-perfect copy of the element's shape, offset by the shadow's distance — so every symmetric feature costs one element and one shadow, never two elements.</p>
+  <details class="code-panel" open>
+    <summary>Two eyes from one pixel <small>src/App.css — .racer-head::before</small></summary>
+    <pre><code class="js">.racer-head::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  width: 2px;          /* one 2x3 eye... */
+  height: 3px;
+  background: #111;
+  box-shadow: 5px 0 0 #111;   /* ...and its twin, 5px to the right */
+}
+
+/* the same trick duplicates ears: */
+.shape-1::before {            /* bunny */
+  width: 4px; height: 8px;    /* one tall ear */
+  background: var(--suit);
+  box-shadow: 7px 0 0 var(--suit);  /* second ear, free */
+}</code></pre>
+  </details>
+
+  <p><strong>Clip-path for the pointy bits.</strong> Triangular features — cat and fox ears, the chick's beak and tail feathers — are polygon cuts on small rectangles. One polygon cuts both cat ears out of a single strip:</p>
+  <details class="code-panel">
+    <summary>Both cat ears from one strip <small>src/App.css — .shape-0::before</small></summary>
+    <pre><code class="js">.shape-0::before {
+  content: '';
+  position: absolute;
+  top: -5px;                  /* hangs above the box, hitbox unchanged */
+  width: 16px;
+  height: 5px;
+  background: var(--suit);
+  /* two triangles: up at 20% and 80%, notch between them */
+  clip-path: polygon(0 100%, 20% 0, 40% 100%, 60% 100%, 80% 0, 100% 100%);
+}</code></pre>
+  </details>
+
+  <p><strong>Species are pseudo-element slots.</strong> Each <code class="inline">shape-N</code> class fills up to three slots on the shared anatomy: <code class="inline">::before</code> is the headgear (ears, eye bumps, tuft), <code class="inline">::after</code> is usually the tail (hanging off the left, since racers run right), and <code class="inline">.racer-head::after</code> carries the face feature (bear muzzle, pig snout, mouse nose, chick beak, frog grin). Palettes are just three custom properties — <code class="inline">--suit</code> for fur, <code class="inline">--head</code> for face and belly, <code class="inline">--trim</code> for accents — swapped by the <code class="inline">archetype-*</code> class, so any species renders in any palette with no extra rules.</p>
+
+  <p>Two non-obvious constraints shaped this. First, the <code class="inline">shape-N</code> class names never changed even though the silhouettes did, because <code class="inline">npcBehavior.js</code> seeds each NPC's pacing personality from its <code class="inline">shapeClass</code> string — renaming the classes would have silently reshuffled every NPC's behavior. Second, everything composes with the existing states because it is all one element tree: the dead rotation, desaturation, hit flash, and step-bob animations apply to the same box the features hang off, so corpses keep their ears.</p>
+
+  <div class="lesson">Pseudo-elements and unblurred box-shadows are a free sprite sheet. Before reaching for image assets or canvas, check how far "one box, three vars, and a few shadows" can go.</div>
 </section>
 
 <section id="decisions">

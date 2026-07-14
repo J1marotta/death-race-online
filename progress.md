@@ -752,3 +752,14 @@ Last updated: 2026-07-14
 - Deflaked two more seed-dependent tests found during verification: the shooter-shake and kill-feed tests targeted lane 19 blindly, but lane assignments are seeded per room code, so lane 19 is occasionally a human (or the local player, whose death shakes differently). Both now target a guaranteed NPC lane.
 - Added a regression test asserting all 20 racers carry species-and-palette titles covering all 8 species and 5 palettes.
 - Verified with `npm test` (119 passing, run four times); `npm run lint`; `npm run build`.
+
+### task 71 : Rebind Controls And Add A Live Kbd Control Bar
+
+- Rebound movement: `Right Arrow` walks and `Space` sprints (was Space walk / Left Shift run). Clean switch — Left Shift no longer does anything, so the UI and the bindings tell one story.
+- Replaced the text control reminders below the playfield with physical-looking `<kbd>` buttons: raised by a hard drop shadow, they highlight and sink by the same travel distance while the real key is held. A mouse-shaped element shows aim/fire; its left button lights up on fire, and the whole element greys (bullet pip removed) once the shot is spent, matching the crosshair.
+- The buttons are visual indicators only (not clickable), and the whole bar dims with no depress feedback whenever the player cannot act: countdown, eliminated, or outside live play.
+- Fixed a latent input bug found during the rebind: the key handler called preventDefault on Space before checking game state, so players could not type spaces into the name fields. Movement keys are now ignored entirely while an input has focus, and preventDefault only applies during countdown/play.
+- Updated WHY.md and WHY.html with a "How The Animal Racer CSS Works" section covering the four tricks behind the sprites: the bordered box doubling as body and hitbox, the unblurred box-shadow clone trick, clip-path polygons for pointy features, and per-shape pseudo-element slots with three palette custom properties. WHY.html renders live cat/bunny/frog sprites from a trimmed copy of the game CSS.
+- Verified the bar visually via a scratch state grid (idle, held, spent, locked) screenshotted in headless Edge; fixed a specificity bug that flattened the mouse element into a landscape rectangle.
+- Updated spec player controls, README QA checklist, and test coverage: rebound movement tests, kbd depress/release, countdown dimming, spent fire button, and spaces-in-inputs regression.
+- Verified with `npm test` (124 passing); `npm run lint`; `npm run build`.

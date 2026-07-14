@@ -239,15 +239,66 @@ describe('game controls', () => {
     expect(screen.getByTestId('local-crosshair').style.left).toBe('70%')
   })
 
-  it('shows controls below the playfield', async () => {
+  it('shows kbd control buttons below the playfield', async () => {
     await startPlaying()
 
     const controls = screen.getByLabelText('Controls')
-    expect(within(controls).getByText('Space to walk.')).toBeTruthy()
-    expect(within(controls).getByText('Left shift to run.')).toBeTruthy()
-    expect(within(controls).getByText('Mouse to aim and shoot.')).toBeTruthy()
-    expect(within(controls).getByText('You only get one bullet.')).toBeTruthy()
+    expect(within(controls).getByText('Walk')).toBeTruthy()
+    expect(within(controls).getByText('Sprint')).toBeTruthy()
+    expect(within(controls).getByText('Aim · Fire')).toBeTruthy()
+    expect(within(controls).getByLabelText('Right arrow key').tagName).toBe('KBD')
+    expect(within(controls).getByLabelText('Space bar').tagName).toBe('KBD')
+    expect(within(controls).getByLabelText('Left mouse button').tagName).toBe('KBD')
     expect(controls.closest('.playfield')).toBeNull()
+  })
+
+  it('depresses the walk and sprint keys while held and releases them', async () => {
+    await startPlaying()
+
+    fireEvent.keyDown(window, { code: 'ArrowRight' })
+    expect(screen.getByTestId('control-walk').className).toContain('held')
+    expect(screen.getByTestId('control-sprint').className).not.toContain('held')
+
+    fireEvent.keyDown(window, { code: 'Space' })
+    expect(screen.getByTestId('control-sprint').className).toContain('held')
+
+    fireEvent.keyUp(window, { code: 'ArrowRight' })
+    fireEvent.keyUp(window, { code: 'Space' })
+    expect(screen.getByTestId('control-walk').className).not.toContain('held')
+    expect(screen.getByTestId('control-sprint').className).not.toContain('held')
+  })
+
+  it('dims the control buttons during the countdown and ignores presses', async () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Start game' })).toBeTruthy(),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Start game' }))
+    await screen.findByLabelText('Countdown')
+
+    fireEvent.keyDown(window, { code: 'ArrowRight' })
+    expect(screen.getByTestId('control-walk').className).toContain('locked')
+    expect(screen.getByTestId('control-walk').className).not.toContain('held')
+  })
+
+  it('greys the fire button and removes the bullet pip after firing', async () => {
+    const playfield = await startPlaying()
+
+    expect(screen.getByTestId('control-fire').querySelector('.control-bullet')).toBeTruthy()
+
+    fireEvent.mouseDown(playfield, { clientX: 900, clientY: 925 })
+
+    expect(screen.getByTestId('control-fire').className).toContain('spent')
+    expect(screen.getByTestId('control-fire').querySelector('.control-bullet')).toBeNull()
+  })
+
+  it('leaves spaces alone while typing in name fields', async () => {
+    render(<App />)
+    const nameInput = screen.getByLabelText('Player name')
+
+    // fireEvent returns false when preventDefault was called.
+    expect(fireEvent.keyDown(nameInput, { code: 'Space', key: ' ' })).toBe(true)
   })
 
   it('keeps a clear sound toggle outside the playfield', async () => {
@@ -545,11 +596,11 @@ describe('game controls', () => {
     const racer = controlledLane.querySelector('[data-testid^="racer-"]')
     const startingProgress = racer.style.getPropertyValue('--racer-progress')
 
-    fireEvent.keyDown(window, { code: 'Space' })
+    fireEvent.keyDown(window, { code: 'ArrowRight' })
     act(() => {
       vi.advanceTimersByTime(400)
     })
-    fireEvent.keyUp(window, { code: 'Space' })
+    fireEvent.keyUp(window, { code: 'ArrowRight' })
 
     const startingValue = Number.parseFloat(startingProgress)
     const endingValue = Number.parseFloat(racer.style.getPropertyValue('--racer-progress'))
@@ -570,19 +621,19 @@ describe('game controls', () => {
     const racer = controlledLane.querySelector('[data-testid^="racer-"]')
 
     const walkStart = Number.parseFloat(racer.style.getPropertyValue('--racer-progress'))
+    fireEvent.keyDown(window, { code: 'ArrowRight' })
+    act(() => {
+      vi.advanceTimersByTime(400)
+    })
+    fireEvent.keyUp(window, { code: 'ArrowRight' })
+    const walkEnd = Number.parseFloat(racer.style.getPropertyValue('--racer-progress'))
+
+    const runStart = Number.parseFloat(racer.style.getPropertyValue('--racer-progress'))
     fireEvent.keyDown(window, { code: 'Space' })
     act(() => {
       vi.advanceTimersByTime(400)
     })
     fireEvent.keyUp(window, { code: 'Space' })
-    const walkEnd = Number.parseFloat(racer.style.getPropertyValue('--racer-progress'))
-
-    const runStart = Number.parseFloat(racer.style.getPropertyValue('--racer-progress'))
-    fireEvent.keyDown(window, { code: 'ShiftLeft' })
-    act(() => {
-      vi.advanceTimersByTime(400)
-    })
-    fireEvent.keyUp(window, { code: 'ShiftLeft' })
     const runEnd = Number.parseFloat(racer.style.getPropertyValue('--racer-progress'))
 
     expect(runEnd - runStart).toBeGreaterThan((walkEnd - walkStart) * 1.9)

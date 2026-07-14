@@ -82,8 +82,8 @@ const STATE_COPY = {
   },
   playing: {
     eyebrow: 'Live round',
-    title: 'Walk, run, aim, fire once.',
-    body: 'Space walks, Left shift runs, mouse aims, Mouse 1 fires. Crosshairs dim after the shot is spent.',
+    title: 'Walk, sprint, aim, fire once.',
+    body: 'Right arrow walks, Space sprints, mouse aims, Mouse 1 fires. Crosshairs dim after the shot is spent.',
     action: 'Waiting for finish',
     next: 'playing'
   },
@@ -296,6 +296,8 @@ function App() {
   const initialHumanLaneIds = Object.values(initialAssignments)
   const initialControlledRacerId = initialAssignments[PLAYERS[0]]
   const [state, setState] = useState('menu')
+  const [heldKeys, setHeldKeys] = useState({ walk: false, run: false })
+  const [fireHeld, setFireHeld] = useState(false)
   const [privacy, setPrivacy] = useState('public')
   const [roundCount, setRoundCount] = useState(5)
   const [joinName, setJoinName] = useState(PLAYERS[0])
@@ -424,6 +426,7 @@ function App() {
     ? eliminatedHumans.map(racer => racer.controller.name)
     : []
   const controlledRacerEliminated = shotRacerIds.includes(controlledRacerId)
+  const controlsActive = state === 'playing' && !controlledRacerEliminated
   const matchComplete = currentRound >= roundCount
   const allHumanRacersEliminated =
     humansAssigned.length > 0 &&
@@ -936,6 +939,9 @@ function App() {
   useEffect(() => {
     const syncMovement = () => {
       const { run, walk } = pressedKeys.current
+      setHeldKeys(current =>
+        current.walk === walk && current.run === run ? current : { walk, run }
+      )
       if (run) {
         setMovementMode('running')
         return
@@ -947,32 +953,40 @@ function App() {
       setMovementMode('stopped')
     }
 
+    const isMovementKey = (event) =>
+      event.code === 'Space' || event.code === 'ArrowRight'
+    // Movement keys must never hijack typing: leave name fields alone
+    // entirely (no preventDefault) so spaces still land in inputs.
+    const isTypingTarget = (event) =>
+      ['INPUT', 'TEXTAREA'].includes(event.target?.tagName)
+
     const handleKeyDown = event => {
-      if (event.code !== 'Space' && event.code !== 'ShiftLeft') {
+      if (!isMovementKey(event) || isTypingTarget(event)) {
         return
       }
-      event.preventDefault()
+      if (['countdown', 'playing'].includes(state)) {
+        event.preventDefault()
+      }
       if (state !== 'playing' || controlledRacerEliminated) {
         return
       }
-      if (event.code === 'Space') {
+      if (event.code === 'ArrowRight') {
         pressedKeys.current.walk = true
       }
-      if (event.code === 'ShiftLeft') {
+      if (event.code === 'Space') {
         pressedKeys.current.run = true
       }
       syncMovement()
     }
 
     const handleKeyUp = event => {
-      if (event.code !== 'Space' && event.code !== 'ShiftLeft') {
+      if (!isMovementKey(event) || isTypingTarget(event)) {
         return
       }
-      event.preventDefault()
-      if (event.code === 'Space') {
+      if (event.code === 'ArrowRight') {
         pressedKeys.current.walk = false
       }
-      if (event.code === 'ShiftLeft') {
+      if (event.code === 'Space') {
         pressedKeys.current.run = false
       }
       syncMovement()
@@ -980,6 +994,7 @@ function App() {
 
     const clearMovement = () => {
       pressedKeys.current = { run: false, walk: false }
+      setHeldKeys({ walk: false, run: false })
       setMovementMode('stopped')
     }
 
@@ -994,6 +1009,21 @@ function App() {
       document.removeEventListener('visibilitychange', clearMovement)
     }
   }, [controlledRacerEliminated, state])
+
+  // Release the on-screen fire button when the physical button releases; the
+  // timeout backstops a mouseup that lands outside the window.
+  useEffect(() => {
+    if (!fireHeld) {
+      return undefined
+    }
+    const release = () => setFireHeld(false)
+    window.addEventListener('mouseup', release)
+    const timeoutId = window.setTimeout(release, 400)
+    return () => {
+      window.removeEventListener('mouseup', release)
+      window.clearTimeout(timeoutId)
+    }
+  }, [fireHeld])
 
   useEffect(() => {
     if (
@@ -1876,6 +1906,7 @@ function App() {
     if (state !== 'playing' || !localHasBullet) {
       return
     }
+    setFireHeld(true)
     playSound('shot')
     const nextAim = getAimFromPointer(event)
     const targetRacer = roundRacers.find(racer => racer.id === nextAim.laneId)
@@ -2457,10 +2488,53 @@ function App() {
             })}
           </div>
           <div className='playfield-controls' aria-label='Controls'>
-            <span>Space to walk.</span>
-            <span>Left shift to run.</span>
-            <span>Mouse to aim and shoot.</span>
-            <span>You only get one bullet.</span>
+            <span
+              className={[
+                'control-key',
+                controlsActive ? '' : 'locked',
+                controlsActive && heldKeys.walk ? 'held' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              data-testid='control-walk'
+            >
+              <kbd aria-label='Right arrow key'>→</kbd>
+              <span className='control-label'>Walk</span>
+            </span>
+            <span
+              className={[
+                'control-key',
+                controlsActive ? '' : 'locked',
+                controlsActive && heldKeys.run ? 'held' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              data-testid='control-sprint'
+            >
+              <kbd aria-label='Space bar'>Space</kbd>
+              <span className='control-label'>Sprint</span>
+            </span>
+            <span
+              className={[
+                'control-key',
+                controlsActive ? '' : 'locked',
+                controlsActive && !localHasBullet ? 'spent' : '',
+                controlsActive && fireHeld ? 'held' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              data-testid='control-fire'
+            >
+              <kbd className='kbd-mouse' aria-label='Left mouse button'>
+                <span className='kbd-mouse-button' aria-hidden='true' />
+              </kbd>
+              <span className='control-label'>
+                Aim · Fire
+                {localHasBullet ? (
+                  <span className='control-bullet' aria-hidden='true' />
+                ) : null}
+              </span>
+            </span>
           </div>
         </div>
       </section>

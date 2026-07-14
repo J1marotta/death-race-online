@@ -286,6 +286,22 @@ CSS handles that well. It also makes testing easier because the test suite can q
 
 Canvas may still be useful later if animation complexity grows, if performance becomes a problem, or if the art direction becomes more elaborate. But switching to canvas should be a response to pressure, not a reflex.
 
+## How The Animal Racer CSS Works
+
+Every racer is three spans and zero images. The whole zoo — 8 species in 5 palettes, 40 distinct looks — is roughly 150 lines of CSS built from four tricks.
+
+**The box is the body.** The base `.racer` element is a 22×25 bordered box whose background is the fur color. That box is also the hitbox. The `.racer-head` span is a rounded face patch, `.racer-body` is a belly patch, and `.racer-shadow` is the ground shadow. Nothing about a species changes the box, which is how the spec's "same hitbox for every variant" rule survives: a bunny with tall ears occupies exactly the same clickable area as a frog.
+
+**The box-shadow clone trick.** A `box-shadow` with no blur is a pixel-perfect copy of the element's shape, offset by the shadow's distance. One 2×3 pixel plus `box-shadow: 5px 0 0 #111` draws both eyes from a single pseudo-element. The same trick duplicates the bear's round ears, the bunny's tall ears, the mouse's big ears, the pig's floppy ears, and the frog's eye bumps — every symmetric feature costs one element and one shadow, never two elements.
+
+**Clip-path for the pointy bits.** Triangular features — cat and fox ears, the chick's beak and tail feathers — are `clip-path: polygon(...)` cuts on small rectangles. A single polygon like `polygon(0 100%, 20% 0, 40% 100%, 60% 100%, 80% 0, 100% 100%)` cuts both cat ears out of one strip.
+
+**Species are pseudo-element slots.** Each `shape-N` class fills up to three slots on the shared anatomy: `.shape-N::before` is the headgear (ears, eye bumps, tuft), `.shape-N::after` is usually the tail (hanging off the left, since racers run right), and `.racer-head::after` carries the face feature (bear muzzle, pig snout, mouse nose, chick beak, frog grin). Palettes are just three custom properties — `--suit` for fur, `--head` for face and belly, `--trim` for accents — swapped by the `archetype-*` class, so any species renders in any palette with no extra rules.
+
+Two non-obvious constraints shaped this. First, the `shape-N` class names never changed even though the silhouettes did, because `npcBehavior.js` seeds each NPC's pacing personality from its `shapeClass` string — renaming the classes would have silently reshuffled every NPC's behavior. Second, everything composes with the existing states because it is all one element tree: the dead rotation, desaturation, hit flash, and step-bob animations apply to the same box the features hang off, so corpses keep their ears.
+
+Lesson: pseudo-elements and unblurred box-shadows are a free sprite sheet. Before reaching for image assets or canvas, check how far "one box, three vars, and a few shadows" can go.
+
 ## The Most Important Technical Decisions
 
 ### 1. Real Rooms, Not Fake UI

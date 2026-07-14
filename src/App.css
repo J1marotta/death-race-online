@@ -510,16 +510,113 @@ code {
 .playfield-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 14px;
+  gap: 10px 26px;
   justify-content: center;
-  min-height: 34px;
-  padding: 7px 10px;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 10px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 6px;
   background: var(--panel);
   color: var(--text-h);
   font: 800 11px/1.1 var(--mono);
   text-transform: uppercase;
+}
+
+/* Physical-looking control keys: raised by a hard drop shadow, and pressing
+   the real key sinks them by the same distance so the travel reads as real. */
+.control-key {
+  display: inline-flex;
+  gap: 9px;
+  align-items: center;
+  transition: opacity 150ms;
+}
+
+.control-key.locked {
+  opacity: 0.4;
+}
+
+.control-key kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 36px;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid #3a4256;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #232a3a, #171c28);
+  color: var(--text-h);
+  font: 800 12px/1 var(--mono);
+  box-shadow:
+    0 3px 0 #0b0e14,
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform: translateY(0);
+  transition: transform 70ms, box-shadow 70ms, border-color 120ms, background 120ms;
+}
+
+.control-key.held kbd {
+  transform: translateY(3px);
+  border-color: var(--accent);
+  background: linear-gradient(180deg, #3b2023, #2a1518);
+  color: #fecaca;
+  box-shadow:
+    0 0 0 #0b0e14,
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 10px rgba(225, 61, 53, 0.35);
+}
+
+.control-key.spent kbd {
+  border-color: #4b5563;
+  background: #161a22;
+  color: #9ca3af;
+}
+
+.control-label {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--text-h);
+}
+
+.control-key.spent .control-label {
+  color: var(--text);
+}
+
+.control-key kbd.kbd-mouse {
+  position: relative;
+  min-width: 22px;
+  width: 22px;
+  height: 27px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 10px 10px 11px 11px;
+}
+
+.kbd-mouse-button {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 8px;
+  height: 10px;
+  border-radius: 7px 2px 2px 2px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.control-key.held .kbd-mouse-button {
+  background: var(--accent);
+}
+
+.control-key.spent .kbd-mouse-button {
+  background: rgba(156, 163, 175, 0.25);
+}
+
+.control-bullet {
+  width: 6px;
+  height: 12px;
+  border: 1px solid #111;
+  border-radius: 1px 1px 4px 4px;
+  background: #facc15;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.28);
 }
 
 .lane {

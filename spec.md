@@ -59,14 +59,17 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 
 ## Player Controls
 
-- `Space`: walk.
-- `Left Shift`: run.
+- `Right Arrow`: walk.
+- `Space`: sprint.
 - No movement key pressed: stop.
 - Mouse: aim.
 - Mouse 1: fire.
 
-Running has no stamina, cooldown, noise meter, or extra UI. The risk is behavioral: running makes intent easier to read and may draw shots.
-Control reminders are visible below the playfield during the race.
+Sprinting has no stamina, cooldown, noise meter, or extra UI. The risk is behavioral: sprinting makes intent easier to read and may draw shots.
+
+The bar below the playfield renders the controls as physical-looking `<kbd>` buttons: they highlight and visually depress while the real key is held, the mouse element's left button lights up on fire and greys out once the bullet is spent (with the bullet pip removed), and the whole bar dims whenever the player cannot act (countdown, eliminated, or outside live play). The buttons are indicators only — they are not clickable.
+
+Movement keys never hijack typing: while an input field has focus they are ignored entirely, and default browser behavior (spaces in name fields) is preserved.
 
 ## Shooting And Aiming
 

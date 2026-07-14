@@ -92,4 +92,12 @@ describe('WHY.html interactive page', () => {
     box.click()
     expect(box.className).toContain('open')
   })
+
+  it('renders the animal racer CSS section with live sprites', () => {
+    const window = loadWhyPage()
+    expect(window.document.getElementById('animal-css')).toBeTruthy()
+    expect(window.document.querySelector('.wa.cat')).toBeTruthy()
+    expect(window.document.querySelector('.wa.bunny')).toBeTruthy()
+    expect(window.document.querySelector('.wa.frog')).toBeTruthy()
+  })
 })

@@ -780,3 +780,9 @@ Last updated: 2026-07-14
 - Upgraded "The Corpse That Came Back To The Start Line" from prose to a full teaching entry: a t0-t5 failure timeline showing the in-flight snapshot racing the round reset, both fixes as code panels (the stale-round version check and the self-healing death bookkeeping), and a note on why the fixes are layered rather than alternatives.
 - Upgraded "The Match That Refused To End" the same way: the two stacked causes broken out, the phase-truce and roundCount-adoption fixes as code panels, and a description of how the regression test proves both at once.
 - Verified with `npm test` (127 passing, includes the WHY.html smoke tests); `npm run lint`.
+
+### task 74 : Fit The Menu Side Panel Without Scrolling
+
+- Removed the menu intro paragraph (redundant with the join/host cards), shortened both card descriptions to one line, tightened menu-card padding and gaps, reduced input/button heights from 46px to 40px, and dropped the state-card heading from 30px to 26px.
+- Verified with headless Edge screenshots at 1280x900 and 1280x720: the name field, gold join card, and host card all fit inside the side panel with no internal scrollbar at both heights.
+- Verified with `npm test` (127 passing); `npm run lint`; `npm run build`.

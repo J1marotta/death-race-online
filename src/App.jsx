@@ -62,7 +62,9 @@ const STATE_COPY = {
   menu: {
     eyebrow: 'Death race online',
     title: 'Hidden-identity racing with one shot each.',
-    body: 'Create a room, fill the grid to 20 racers, and start reading movement tells before anyone reads yours.',
+    // No body on the menu: the join/host cards explain themselves, and the
+    // side panel must fit without scrolling.
+    body: '',
     action: 'Create lobby',
     next: 'lobby'
   },
@@ -2203,7 +2205,7 @@ function App() {
       </div>
       <div className='menu-card join-card' aria-label='Join a game'>
         <span className='menu-card-title'>Join a game</span>
-        <p>Got a room code from a friend? Enter it here.</p>
+        <p>Enter a friend's room code.</p>
         <div className='join-row'>
           <input
             aria-label='Room code'
@@ -2238,7 +2240,7 @@ function App() {
       </div>
       <div className='menu-card' aria-label='Host a game'>
         <span className='menu-card-title'>Host a game</span>
-        <p>Create a lobby and share the room code with friends.</p>
+        <p>Create a lobby and share the code.</p>
         <button
           type='button'
           aria-busy={createLobbyPending}
@@ -2312,7 +2314,7 @@ function App() {
                   {state === 'lobby' ? `Lobby ${activeRoomCode}` : activeStateCopy.eyebrow}
                 </p>
                 <h2 id='state-title'>{activeStateCopy.title}</h2>
-                <p>{activeStateCopy.body}</p>
+                {activeStateCopy.body ? <p>{activeStateCopy.body}</p> : null}
               </>
             ) : null}
             {roomError ? (

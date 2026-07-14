@@ -182,7 +182,7 @@ code {
 
 .state-card h2 {
   color: var(--text-h);
-  font-size: 30px;
+  font-size: 26px;
 }
 
 .state-card p:not(.eyebrow) {
@@ -235,7 +235,7 @@ code {
 .player-name-group input,
 .player-name-edit input {
   min-width: 0;
-  min-height: 46px;
+  min-height: 40px;
   padding: 0 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -244,17 +244,21 @@ code {
   font: 800 15px/1 var(--sans);
 }
 
-.join-row button,
-.menu-actions .actions button {
-  min-height: 46px;
+.join-row button {
+  min-height: 40px;
   padding-inline: 16px;
   font-size: 14px;
 }
 
+.menu-actions {
+  display: grid;
+  gap: 10px;
+}
+
 .menu-card {
   display: grid;
-  gap: 8px;
-  padding: 14px;
+  gap: 7px;
+  padding: 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.025);
@@ -272,7 +276,7 @@ code {
 }
 
 .menu-card button {
-  min-height: 46px;
+  min-height: 40px;
   font-size: 14px;
 }
 

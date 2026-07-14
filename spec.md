@@ -16,6 +16,7 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 - Players join through a shareable room code/link.
 - Room codes are dashless single words (for example `DR7Q2K`) so they read cleanly and are easy to type or say out loud.
 - The title screen leads with a highlighted "Join a game" card (room code field plus join action) above the "Host a game" card, because guests are the common case.
+- The menu side panel fits inside its card without scrolling: no intro paragraph (the cards explain themselves) and compact card spacing.
 - Lobby control labels use sentence case, not uppercase.
 - Every connected player adopts the host's round count from the room snapshot so match completion agrees on every client.
 - The host enters their display name, creates a lobby, and receives the room code to share.

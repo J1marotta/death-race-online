@@ -2103,7 +2103,7 @@ function App() {
           {isCurrentHost ? (
             <button
               type='button'
-              className={hostCanStart ? 'host-start' : 'host-start-green'}
+              className={hostCanStart ? 'host-start-green' : 'host-start'}
               onClick={() => void startGameFromLobby()}
               disabled={!hostCanStart}
             >

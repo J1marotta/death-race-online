@@ -38,6 +38,8 @@ describe('WHY.html interactive page', () => {
     const raw = window.document.getElementById('costRaw')
     expect(raw.textContent).toBe('57,600') // 8 players * 20Hz * 60s * 6min
     expect(window.document.getElementById('costBilled').textContent).toBe('2,880')
+    // Event-driven cadence: 8 players * 2.5Hz * 60s * 6min / 20 = 360
+    expect(window.document.getElementById('costCadence').textContent).toBe('360 billed')
     const players = window.document.getElementById('costPlayers')
     players.value = '20'
     players.dispatchEvent(new window.Event('input'))

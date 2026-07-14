@@ -18,11 +18,11 @@ import {
   submitPlayerInput,
   updateRoom,
 } from './multiplayer/api'
-import { canStartRoom } from './multiplayer/roomState'
+import { canStartRoom, WIN_POINTS } from './multiplayer/roomState'
+import { evaluateInputSend } from './multiplayer/inputCadence'
 import { createNpcProfile, getNpcStep, hashString } from './npcBehavior'
 
 const PLAYERS = ['James', 'Mia', 'Noah', 'Ava']
-const LATE_JOINERS = ['Riley']
 const ARCHETYPES = ['Driver', 'Runner', 'Mask', 'Coat', 'Cap']
 const HUMAN_COLORS = ['red', 'blue', 'green', 'yellow']
 const CHARACTER_SHAPE_COUNT = 8
@@ -164,9 +164,6 @@ const MOVEMENT_SPEEDS_BY_MODE = {
   walking: WALK_SPEED,
   running: RUN_SPEED
 }
-// Scoring mirrors the server (roomState.js): the win must outweigh a kill so
-// racing stays the primary objective, and only human kills pay out.
-const WIN_POINTS = 3
 const KO_MARKER_MS = 1100
 const KILL_FEED_TTL_MS = 4200
 const SHAKE_VICTIM_MS = 500
@@ -420,7 +417,7 @@ function App() {
     shotRacerIds.includes(racer.id)
   )
   const spectators = lobbyInProgress
-    ? [...LATE_JOINERS, ...eliminatedHumans.map(racer => racer.controller.name)]
+    ? eliminatedHumans.map(racer => racer.controller.name)
     : []
   const controlledRacerEliminated = shotRacerIds.includes(controlledRacerId)
   const matchComplete = currentRound >= roundCount
@@ -1473,19 +1470,20 @@ function App() {
     return () => window.clearInterval(intervalId)
   }, [activePlayerName, activeRoomCode, handleRoomClosed, hasRoomSnapshot, roomClosed, state])
 
+  // Aim is deliberately absent from the periodic snapshot: nothing reads a
+  // remote player's aim between shots, and including it would turn every
+  // mousemove into a billable WebSocket message. The shot itself carries aim.
   useEffect(() => {
     const controlledLane = LANES.find((lane) => lane.id === controlledRacerId)
     latestInputSnapshotRef.current = {
       playerName: activePlayerName,
       movementMode,
-      aim,
       laneId: controlledRacerId,
       progress: Math.min((controlledLane?.progress ?? 0) + controlledProgress, NPC_MAX_PROGRESS),
       firing: !localHasBullet,
     }
   }, [
     activePlayerName,
-    aim,
     controlledRacerId,
     controlledProgress,
     localHasBullet,
@@ -1497,27 +1495,27 @@ function App() {
       return undefined
     }
 
-    let lastSentPayload = ''
+    let lastSent = { payload: '', signature: '', sentAt: 0 }
     let lastHttpSentAt = 0
     const sendLatestInput = () => {
       const snapshot = latestInputSnapshotRef.current
       if (!snapshot) {
         return
       }
-      const payload = JSON.stringify(snapshot)
-      if (payload === lastSentPayload) {
+      const now = Date.now()
+      const decision = evaluateInputSend(lastSent, snapshot, now)
+      if (!decision) {
         return
       }
       if (sendLiveMessage({ type: 'input', ...snapshot })) {
-        lastSentPayload = payload
+        lastSent = { ...decision, sentAt: now }
         return
       }
-      const now = Date.now()
       if (now - lastHttpSentAt < INPUT_SYNC_INTERVAL_MS) {
         return
       }
       lastHttpSentAt = now
-      lastSentPayload = payload
+      lastSent = { ...decision, sentAt: now }
       void syncRoom('input', snapshot)
     }
 
@@ -1887,7 +1885,12 @@ function App() {
       ...current,
       [localPlayerName]: false
     }))
+    // The firing input spreads the latest snapshot so laneId and progress
+    // survive: setPlayerInputState replaces the whole server-side entry, and
+    // an input without them would wipe this player's lane claim — letting a
+    // return shot in the next 50ms be misattributed as an NPC kill.
     const firingInput = {
+      ...(latestInputSnapshotRef.current ?? {}),
       playerName: activePlayerName,
       movementMode,
       aim: nextAim,
@@ -2364,14 +2367,7 @@ function App() {
                   : getLiveProgress(lane)
               return (
                 <div
-                  className={[
-                    'lane',
-                    movementLocked ? 'locked' : '',
-                    isControlled ? '' : '',
-                    isEliminated ? '' : '',
-                    isHuman && isRevealed ? '' : '',
-                    isWinner ? '' : ''
-                  ]
+                  className={['lane', movementLocked ? 'locked' : '']
                     .filter(Boolean)
                     .join(' ')}
                   key={lane.id}

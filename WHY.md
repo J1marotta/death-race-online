@@ -208,7 +208,7 @@ The screen runs at 60fps. The network does not, and never needs to.
 
 - Local movement advances on a requestAnimationFrame delta-time loop, so your own racer moves at your display's refresh rate.
 - Remote racers are dead-reckoned: each frame the client extrapolates from their last synced progress and movement mode (the speed constants are shared), easing toward the target instead of snapping once per sync. Small corrections ease; large ones snap through.
-- Clients send input at 20Hz over the WebSocket, deduped when nothing changed. The HTTP fallback stays rate-limited to once per second.
+- Input sends are event-driven, not fixed-rate: movement-mode, lane, and firing changes send immediately, but while nothing changes except progress, only a correction every 400ms goes out — dead reckoning fills the gap exactly because both sides share the speed constants. The final stretch (progress 85+) runs at the full 20Hz check rate so the server adjudicates the finish from fresh data. Aim never rides the periodic snapshot; it travels only with the shot. The HTTP fallback stays rate-limited to once per second.
 - The Durable Object keeps the room in memory during play and rebroadcasts inputs as compact deltas on a 50ms ticker that stops itself when traffic goes quiet, so the object can hibernate and storage is only written for durable changes.
 - The sockets use Cloudflare's WebSocket hibernation API, so idle rooms cost nothing and connections survive object eviction.
 
@@ -447,6 +447,14 @@ The fix separates "where is this racer on the track" from "this racer is dead": 
 
 Lesson: a wrong value that is *usually close* to the right value can hide for a long time. The bug only became visible once we went looking at kills that landed mid-track.
 
+### The Shot That Erased Your Lane Claim
+
+The firing input sent only `playerName`, `movementMode`, `aim`, and `firing`. Server-side, `setPlayerInputState` replaces a player's whole input entry, so firing overwrote your `laneId` with null and your `progress` with 0. For the ~50ms until your next periodic input, the server had no idea which lane you controlled: a return shot into your lane in that window would have been attributed as an NPC kill, and a finish in that window could not be adjudicated for you.
+
+The fix spreads the latest full snapshot into the firing input so the lane claim survives, with a regression test that inspects the actual request payload.
+
+Lesson: when the server replaces state wholesale, every sender must send the whole truth. Partial updates against replace-semantics are silent data loss.
+
 ### Mouse Aim And Click-To-Kill
 
 There were control bugs where the mouse felt offset, movement felt stuck, and clicking too broadly could kill. These are dangerous because a hidden-identity game needs players to trust the controls.
@@ -520,6 +528,29 @@ The Pages deploy serves the static Vite build. The Worker deploy updates the Dur
 
 When code changes only the frontend, deploy Pages. When code changes `workers/rooms.js`, deploy the Worker too.
 
+## How The Pricing Works
+
+Cloudflare bills this project on a handful of separate meters. Knowing which meter a feature touches is what turns "optimize the backend" from a vibe into a checklist.
+
+- **Pages (the frontend).** Static hosting. At this scale it is effectively free: deploys and bandwidth for a small game are not a cost factor.
+- **Worker and Durable Object requests.** Every HTTP room action is one billable request, on the order of $0.15 per million. Incoming Durable Object WebSocket messages are the special case: they bill at a 20:1 ratio, so 20 messages count as one request. Outgoing broadcasts, protocol pings, and `setWebSocketAutoResponse` replies are free — fan-out costs nothing.
+- **Duration.** The dominant cost at scale: wall-clock time the Durable Object is active in memory, on the order of $12.50 per million GB-seconds. This is why hibernatable WebSockets matter — an idle room with open sockets costs zero duration — and why the input ticker stops itself after a second of quiet.
+- **Storage.** Each persisted change bills write units (on the order of $1 per million; reads are cheaper), and setting an alarm counts as a write. The room lives in memory during play and only persists durable changes — lobby actions, phase changes, shots — never per input or per read.
+- **Alarms.** Each alarm wake is a request plus a little duration. The cleanup alarm is the room's safety net, not a hot path.
+- **Workers Logs.** Included volume, then per-million events. Automatic invocation logs are off because 20Hz input invocations would swamp the limits; the worker emits a handful of lifecycle events instead.
+
+How each meter is handled, in one table:
+
+| Meter | What would burn it | What the game does |
+| --- | --- | --- |
+| Requests | Fixed-rate 20Hz input from every client | Event-driven sends: immediate on mode/lane/firing changes, 400ms progress corrections otherwise, full rate only in the final stretch; aim never rides the periodic snapshot |
+| Duration | Objects staying hot for idle rooms | WebSocket hibernation plus a self-stopping input ticker |
+| Storage | Persisting per input or per read | Memory-first room; storage writes only for durable changes |
+| Alarms | Polling-style wakeups | One cleanup alarm horizon (~46s) that also enforces the 30-minute idle TTL |
+| Logs | Per-invocation logging at 20Hz | Lifecycle events only |
+
+The prices above are order-of-magnitude from the Workers paid plan; check Cloudflare's current pricing page before relying on exact numbers. The ratios (20:1 messages, free egress, duration dominance) are the part worth remembering.
+
 ## What The WebSockets Actually Cost
 
 An 8-player playtest showed ~60k worker hits, which looked alarming. It is not, once you know how Cloudflare counts:
@@ -528,6 +559,8 @@ An 8-player playtest showed ~60k worker hits, which looked alarming. It is not, 
 - Outgoing broadcasts are free, so the 20Hz delta fan-out to every socket costs nothing.
 - Protocol pings and `setWebSocketAutoResponse` replies are free.
 - Duration, not requests, is the dominant Durable Object cost at scale. Hibernatable sockets and the self-stopping input ticker keep idle rooms at zero duration.
+
+That playtest predates the event-driven input cadence. The same session today sends far less: a racer holding the run key changes nothing but progress, so they emit ~2.5 corrections per second instead of 20 snapshots — roughly an eighth of the mid-race message volume — and a player standing still moving their mouse sends nothing at all, because aim no longer rides the periodic snapshot.
 
 Observability follows the same cost discipline: Workers Logs is enabled, but automatic invocation logs are off, because logging every 20Hz input invocation would produce ~576k log events per hour for one busy room. The worker instead emits a handful of structured lifecycle events — room created/destroyed, sockets opened/closed, ticker started/stopped, rounds adjudicated — which is what you actually query when something goes wrong.
 

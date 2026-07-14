@@ -1,9 +1,10 @@
 const MAX_PLAYERS = 20
 const FINISH_PROGRESS = 93
 // A round win outweighs a kill so racing stays the primary objective; only
-// hits on real players score — NPC kills are worth nothing.
-const WIN_POINTS = 3
-const KILL_POINTS = 1
+// hits on real players score — NPC kills are worth nothing. Exported so the
+// client shows the same numbers the server awards.
+export const WIN_POINTS = 3
+export const KILL_POINTS = 1
 
 function createScoreState(players, currentScores = {}) {
   return Object.fromEntries(

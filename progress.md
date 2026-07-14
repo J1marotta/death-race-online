@@ -729,3 +729,14 @@ Last updated: 2026-07-14
 - Verified visually with headless Edge screenshots of the rendered page and functionally via the smoke test.
 - Cross-linked the docs: `WHY.md` now points to `WHY.html` (and requires keeping it in sync), and the README docs list includes both.
 - Verified with `npm test`; `npm run lint`; `npm run build`.
+
+### task 69 : Code Once-Over, Cost Cuts, And Pricing Docs
+
+- Fixed a real netcode bug found during review: the firing input sent only playerName/movementMode/aim/firing, and because `setPlayerInputState` replaces the whole server-side entry, firing wiped the shooter's laneId and progress for up to 50ms — a window where a return shot would be misattributed as an NPC kill and a finish could not be adjudicated. The firing input now spreads the latest full snapshot, with a payload-inspecting regression test.
+- Cut billable WebSocket volume with an event-driven input cadence (`src/multiplayer/inputCadence.js`): movement-mode/lane/firing changes send immediately, progress-only drift sends a 400ms correction (dead reckoning fills the gap), and the final stretch (progress 85+) runs at full 20Hz so finishes stay fair. Mid-race running traffic drops ~8x.
+- Removed aim from the periodic input snapshot: nothing reads a remote player's aim between shots, and including it made every mousemove a billable message even while standing still. Aim now travels only with the shot input.
+- Cleaned prototype residue: removed the fake `LATE_JOINERS` Riley spectator, deleted four no-op entries in the lane className array, and moved WIN_POINTS/KILL_POINTS into `roomState.js` exports so client display and server scoring share one source.
+- Deflaked the frozen-corpse test: NPC pacing is seeded per room code, so lane 19 could legally idle through the 4s window; the test now shoots whichever NPC moved the furthest. Verified with five consecutive clean full-suite runs.
+- Reviewed and deliberately skipped: batching lobby storage writes and deduplicating alarm reschedules (pennies at this scale, added risk), ticker changes (it already self-stops; the real traffic driver was aim), and remote snap-distance tuning (speculative).
+- Docs: added a "How The Pricing Works" section to WHY.md and WHY.html (meters, ratios, and the mapping from each meter to what the game does), updated the netcode sections and the WHY.html cost calculator with the event-driven cadence, added "The Shot That Erased Your Lane Claim" to the bug museum, and updated the spec's input-cadence and firing-input rules.
+- Verified with `npm test` (118 passing, run five times); `npm run lint`; `npm run build`.

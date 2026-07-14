@@ -343,22 +343,34 @@ describe('game controls', () => {
 
   it('keeps eliminated racers frozen where the shot landed', async () => {
     const playfield = await startPlayingWithFakeTimers()
-    const racer19 = screen.getByTestId('racer-19')
-    const startProgress = Number.parseFloat(
-      racer19.style.getPropertyValue('--racer-progress'),
+    const readProgress = (racer) =>
+      Number.parseFloat(racer.style.getPropertyValue('--racer-progress'))
+    const npcRacers = screen
+      .getAllByTestId(/^racer-/)
+      .filter((racer) => racer.className.includes('npc-bobbing'))
+    const startProgressByRacer = new Map(
+      npcRacers.map((racer) => [racer, readProgress(racer)]),
     )
 
     act(() => {
       vi.advanceTimersByTime(4000)
     })
-    const hitProgress = Number.parseFloat(
-      racer19.style.getPropertyValue('--racer-progress'),
-    )
-    expect(hitProgress).toBeGreaterThan(startProgress)
+    // NPC pacing is seeded per room code, so any single lane may legally idle
+    // through this window — shoot whichever NPC has moved the furthest.
+    const target = npcRacers
+      .map((racer) => ({
+        racer,
+        laneId: Number(racer.dataset.testid.replace('racer-', '')),
+        hitProgress: readProgress(racer),
+        moved: readProgress(racer) - startProgressByRacer.get(racer),
+      }))
+      .sort((a, b) => b.moved - a.moved)[0]
+    expect(target.moved).toBeGreaterThan(0)
+    const { racer: targetRacer, laneId, hitProgress } = target
 
     fireEvent.mouseDown(playfield, {
       clientX: (hitProgress / 100) * 1000,
-      clientY: 925,
+      clientY: (laneId - 0.5) * 50,
     })
     // Flush the deferred render after a long fake-timer advance before
     // letting the round keep running.
@@ -374,10 +386,8 @@ describe('game controls', () => {
       await Promise.resolve()
     })
 
-    const frozenProgress = Number.parseFloat(
-      racer19.style.getPropertyValue('--racer-progress'),
-    )
-    expect(racer19.className).toContain('dead')
+    const frozenProgress = readProgress(targetRacer)
+    expect(targetRacer.className).toContain('dead')
     expect(frozenProgress).toBeCloseTo(hitProgress, 1)
   })
 
@@ -483,6 +493,29 @@ describe('game controls', () => {
     const scoreboard = await screen.findByLabelText('Scoreboard')
 
     expect(within(scoreboard).getAllByText(/\d+ kills/)).toHaveLength(2)
+  })
+
+  it('keeps the lane claim on the firing input and aim off periodic inputs', async () => {
+    const playfield = await startPlaying()
+
+    fireEvent.mouseDown(playfield, { clientX: 900, clientY: 925 })
+
+    await waitFor(() => {
+      const inputBodies = fetch.mock.calls
+        .map(([, options]) => (options?.body ? JSON.parse(options.body) : null))
+        .filter((body) => body?.action === 'input')
+      const firingInput = inputBodies.find((body) => body.firing === true)
+      expect(firingInput).toBeTruthy()
+      // Firing must not wipe the server-side lane claim used for winner
+      // adjudication and kill attribution.
+      expect(firingInput.laneId).toBeGreaterThan(0)
+      expect(Number.isFinite(firingInput.progress)).toBe(true)
+      expect(firingInput.aim).toBeTruthy()
+      // Periodic inputs skip aim so mouse movement is not billable traffic.
+      const periodicInputs = inputBodies.filter((body) => body.firing !== true)
+      expect(periodicInputs.length).toBeGreaterThan(0)
+      expect(periodicInputs.every((body) => body.aim === undefined)).toBe(true)
+    })
   })
 
   it('keeps the juice effects gated behind reduced-motion support', () => {

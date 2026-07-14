@@ -567,6 +567,7 @@
   <a href="#bug-museum">The Bug Museum</a>
   <a href="#tests">The Test Safety Net</a>
   <a href="#deployment">Deployment Shape</a>
+  <a href="#pricing">How Pricing Works</a>
   <a href="#costs">What WebSockets Cost</a>
   <a href="#prototype">Still Prototype-Shaped</a>
   <a href="#thinking">How Engineers Think</a>
@@ -767,7 +768,7 @@ if (Number.isFinite(displayed) && Math.abs(target - displayed) <= REMOTE_SNAP_DI
 // ...large ones snap through (the if condition fails and value = target)</code></pre>
   </details>
 
-  <p>The rest of the pipeline keeps the network honest and cheap: clients send input at 20Hz over the WebSocket (deduped when nothing changed), the Durable Object rebroadcasts compact deltas on a 50ms ticker that stops itself when traffic goes quiet, and the sockets use Cloudflare's hibernation API so idle rooms cost nothing.</p>
+  <p>The rest of the pipeline keeps the network honest and cheap: input sends are <strong>event-driven</strong>, not fixed-rate. Movement-mode, lane, and firing changes send immediately; while nothing changes except progress, only a correction every 400ms goes out — dead reckoning fills the gap exactly because both sides share the speed constants. The final stretch (progress 85+) runs at the full 20Hz check rate so the server adjudicates the finish from fresh data, and aim never rides the periodic snapshot (it travels only with the shot). The Durable Object rebroadcasts compact deltas on a 50ms ticker that stops itself when traffic goes quiet, and the sockets use Cloudflare's hibernation API so idle rooms cost nothing.</p>
   <div class="lesson">Smoothness is a rendering trick layered on honest, lower-rate network state. Physical round-trip time to the room still exists; dead reckoning is what hides it.</div>
 </section>
 
@@ -1017,6 +1018,14 @@ const getLiveProgress = useCallback(racer => {
   </div>
 
   <div class="bug-card">
+    <span class="bug-tag sev">correctness</span><span class="bug-tag area">netcode</span>
+    <h3>The Shot That Erased Your Lane Claim</h3>
+    <p>The firing input sent only <code class="inline">playerName</code>, <code class="inline">movementMode</code>, <code class="inline">aim</code>, and <code class="inline">firing</code>. Server-side, <code class="inline">setPlayerInputState</code> replaces a player's whole input entry — so firing overwrote your <code class="inline">laneId</code> with null and your <code class="inline">progress</code> with 0. For the ~50ms until your next periodic input, the server had no idea which lane you controlled: a return shot into your lane in that window would have been attributed as an NPC kill, and a finish could not be adjudicated for you.</p>
+    <p>The fix spreads the latest full snapshot into the firing input so the lane claim survives, with a regression test that inspects the actual request payload.</p>
+    <div class="lesson">When the server replaces state wholesale, every sender must send the whole truth. Partial updates against replace-semantics are silent data loss.</div>
+  </div>
+
+  <div class="bug-card">
     <span class="bug-tag sev">trust</span><span class="bug-tag area">input</span>
     <h3>Mouse Aim And Click-To-Kill</h3>
     <p>There were control bugs where the mouse felt offset, movement felt stuck, and clicking too broadly could kill. Dangerous, because a hidden-identity game needs players to trust the controls. The fixes: calculate aim from playfield geometry, match the crosshair to the mouse, only eliminate a racer when the shot lands within the ±3.5% hit window, and add regression tests for all of it.</p>
@@ -1067,6 +1076,21 @@ npm run deploy:rooms      // Worker (room backend)</code></pre>
   <div class="lesson">"It works locally" is a useful checkpoint, not the finish line. The game did not work for friends until the deployed Pages app, deployed Worker, CORS, production API base, and room flow all lined up.</div>
 </section>
 
+<section id="pricing">
+  <h2>How The Pricing Works</h2>
+  <p>Cloudflare bills this project on a handful of separate meters. Knowing which meter a feature touches is what turns "optimize the backend" from a vibe into a checklist.</p>
+  <table>
+    <tr><th>Meter</th><th>How it bills</th><th>What would burn it</th><th>What the game does</th></tr>
+    <tr><td><strong>Pages</strong></td><td>Static hosting — effectively free at this scale</td><td>—</td><td>Frontend deploys are not a cost factor</td></tr>
+    <tr><td><strong>Requests</strong></td><td>~$0.15 per million; incoming DO WebSocket messages bill at <strong>20:1</strong>; outgoing broadcasts, pings, and auto-responses are <strong>free</strong></td><td>Fixed-rate 20Hz input from every client</td><td>Event-driven sends: immediate on mode/lane/firing changes, 400ms progress corrections otherwise, full rate only in the final stretch; aim never rides the periodic snapshot</td></tr>
+    <tr><td><strong>Duration</strong></td><td>~$12.50 per million GB-seconds while the object is active in memory — the dominant cost at scale</td><td>Objects staying hot for idle rooms</td><td>WebSocket hibernation plus a self-stopping input ticker</td></tr>
+    <tr><td><strong>Storage</strong></td><td>Write units ~$1 per million (reads cheaper); setting an alarm counts as a write</td><td>Persisting per input or per read</td><td>Memory-first room; storage writes only for durable changes (lobby actions, phases, shots)</td></tr>
+    <tr><td><strong>Alarms</strong></td><td>Each wake is a request plus a little duration</td><td>Polling-style wakeups</td><td>One cleanup alarm horizon (~46s) that also enforces the 30-minute idle TTL</td></tr>
+    <tr><td><strong>Workers Logs</strong></td><td>Included volume, then per-million events</td><td>Per-invocation logging at 20Hz</td><td>Invocation logs off; a handful of lifecycle events only</td></tr>
+  </table>
+  <p style="font-size:14px">Prices are order-of-magnitude from the Workers paid plan; check Cloudflare's current pricing page before relying on exact numbers. The <em>ratios</em> — 20:1 messages, free egress, duration dominance — are the part worth remembering.</p>
+</section>
+
 <section id="costs">
   <h2>What The WebSockets Actually Cost</h2>
   <p>An 8-player playtest showed ~60k worker hits, which looked alarming. It is not, once you know how Cloudflare counts: analytics show <em>raw</em> message counts, but billing applies a <strong>20:1 ratio</strong> to incoming Durable Object WebSocket messages. Outgoing broadcasts, protocol pings, and auto-responses are free. Duration — not requests — is the dominant cost at scale, and hibernation plus the self-stopping input ticker keep idle rooms at zero duration.</p>
@@ -1081,9 +1105,10 @@ npm run deploy:rooms      // Worker (room backend)</code></pre>
     <div class="cost-grid">
       <div class="cost-cell"><span>Raw messages (what analytics shows)</span><strong id="costRaw">—</strong></div>
       <div class="cost-cell"><span>Billed requests (÷20)</span><strong id="costBilled">—</strong></div>
+      <div class="cost-cell"><span>With event-driven cadence (~2.5Hz avg)</span><strong id="costCadence">—</strong></div>
       <div class="cost-cell hot"><span>Approx. request cost @ $0.15/M</span><strong id="costDollars">—</strong></div>
     </div>
-    <p style="font-size:13px; margin-bottom:0">The scary number is the raw count. The billable number is 20× smaller, and the real cost lever (duration) is already handled by hibernation.</p>
+    <p style="font-size:13px; margin-bottom:0">The scary number is the raw count. The billable number is 20× smaller, the event-driven input cadence cuts mid-race volume ~8× further, and the real cost lever (duration) is already handled by hibernation.</p>
   </div>
 
   <p>Observability follows the same discipline: Workers Logs is enabled, but automatic invocation logs are off — logging every 20Hz input invocation would produce ~576k log events per hour for one busy room. The worker instead emits a handful of structured lifecycle events (room created/destroyed, sockets opened/closed, ticker started/stopped, rounds adjudicated), which is what you actually query when something goes wrong.</p>
@@ -1337,9 +1362,13 @@ npm run deploy:rooms      // Worker (room backend)</code></pre>
     document.getElementById('costMinsOut').textContent = mins
     const raw = players * hz * 60 * mins
     const billed = Math.ceil(raw / 20)
+    // Event-driven cadence: a racer holding run emits ~2.5 corrections/sec
+    // instead of hz snapshots, so billed volume shrinks proportionally.
+    const cadenceBilled = Math.ceil((players * 2.5 * 60 * mins) / 20)
     const dollars = (billed / 1_000_000) * 0.15
     document.getElementById('costRaw').textContent = format(raw)
     document.getElementById('costBilled').textContent = format(billed)
+    document.getElementById('costCadence').textContent = format(cadenceBilled) + ' billed'
     document.getElementById('costDollars').textContent =
       dollars < 0.01 ? '$' + dollars.toFixed(5) : '$' + dollars.toFixed(3)
   }

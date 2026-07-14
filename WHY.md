@@ -473,6 +473,14 @@ Two layered fixes. First, snapshots from a round older than the client's current
 
 Lesson: in a distributed system, messages arrive from the past. Any state reset needs a version check on incoming data, or the past will overwrite the present.
 
+### The Round That Froze On Go
+
+Round 3 of 5: the countdown hit "go" and nothing happened, for anyone, forever. The host's client sends the `playing` action when the countdown completes, guarded by a fire-once flag so it does not spam the server. The flag was set *before* the request resolved — so when that one request failed (a network blip, a transient error), the flag stayed set, nothing ever retried, and since only the host may advance the phase, every client in the room was stranded on "go".
+
+The fix is two lines: clear the flag when the request fails, and let the 100ms countdown ticker retry until the phase actually turns.
+
+Lesson: a fire-once flag is a promise to eventually fire. Set it optimistically and a single failure turns "fire once" into "fire never" — clear it on failure, or set it only on success.
+
 ### The Match That Refused To End
 
 Winning the final round showed the final scores for a heartbeat, then dumped the player back to the scoreboard. Two causes stacked. The server has no `gameOver` phase — it parks on `roundOver`/`scoreboard` — so the next heartbeat snapshot yanked the locally-final client right back into the round loop. And joiners never adopted the host's round count from the snapshot, so a guest in a 3-round match thought five rounds remained and never saw a final-scores action at all.

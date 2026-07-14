@@ -79,7 +79,8 @@ Run `npm run dev`, open the local Vite URL, and check:
 - The control bar stays visible below the playfield in every state.
 - Shot racers stay visible as bodies and eliminated humans become spectators.
 - A round ends only when a non-eliminated racer reaches the finish.
-- NPCs read as a crowd: mostly walking with sprint bursts, comfortably slower than a committed human.
+- NPCs read as a crowd: they hold at the line for ~1.5s after `go`, then mostly walk with short sprint bursts, comfortably slower than a committed human.
+- The round never freezes on `go` — if the phase does not turn immediately, it recovers within moments.
 - Human winners get 3 points; killing a real player earns the shooter 1 point; NPC kills and NPC winners earn nothing.
 - Round over shows the winner reveal and the scoreboard together; the host's only action is Next round (or Show final scores after the last round).
 - The final-scores screen stays put — later room syncs must not yank it back to the scoreboard.

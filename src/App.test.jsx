@@ -11,7 +11,7 @@ import { join } from 'node:path'
 import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
-import { createNpcProfile, getNpcStep } from './npcBehavior'
+import { createNpcProfile, getNpcStep, SPRINT_BURST_TICKS } from './npcBehavior'
 
 const appStyles = readFileSync(join(process.cwd(), 'src', 'App.css'), 'utf8')
 
@@ -751,6 +751,92 @@ describe('game controls', () => {
     expect(screen.getByLabelText('Host a game')).toBeTruthy()
   })
 
+  it('retries the playing request when it fails so go cannot freeze', async () => {
+    let currentPhase = 'lobby'
+    let playingAttempts = 0
+    // Fixed per countdown, like the real server — regenerating it per
+    // response would restart the countdown clock on every snapshot.
+    let countdownStartedAt = new Date(Date.now()).toISOString()
+    global.fetch = vi.fn(async (input, options = {}) => {
+      const requestUrl = typeof input === 'string' ? input : input.url
+      const roomCode = requestUrl.split('/').pop()
+      const body = options.body ? JSON.parse(options.body) : {}
+      if (body.action === 'countdown') {
+        currentPhase = 'countdown'
+        countdownStartedAt = new Date(Date.now()).toISOString()
+      }
+      if (body.action === 'playing') {
+        playingAttempts += 1
+        if (playingAttempts === 1) {
+          // The failure that used to strand every client on "go".
+          return new Response(JSON.stringify({ error: 'Room request failed' }), {
+            status: 500,
+            headers: { 'content-type': 'application/json' },
+          })
+        }
+        currentPhase = 'playing'
+      }
+      return new Response(
+        JSON.stringify({
+          room: {
+            roomCode,
+            phase: currentPhase,
+            hostId: 'james',
+            round: 1,
+            roundCount: 5,
+            players: [
+              { name: 'James', id: 'james', role: 'host', connected: true, ready: true },
+            ],
+            spectators: [],
+            inputs: {},
+            roundState: {
+              round: 1,
+              shotRacerIds: [],
+              shots: [],
+              winner: null,
+              scores: { James: 0 },
+              kills: { James: 0 },
+              history: [],
+              countdownStartedAt,
+            },
+          },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      )
+    })
+
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Start game' })).toBeTruthy(),
+    )
+    vi.useFakeTimers()
+    fireEvent.click(screen.getByRole('button', { name: 'Start game' }))
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    await act(async () => {
+      vi.advanceTimersByTime(2200)
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    // First playing request failed; the countdown ticker must retry.
+    await act(async () => {
+      vi.advanceTimersByTime(400)
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    await act(async () => {
+      vi.advanceTimersByTime(200)
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(playingAttempts).toBeGreaterThanOrEqual(2)
+    expect(screen.getByText('Playing')).toBeTruthy()
+  })
+
   it('keeps the juice effects gated behind reduced-motion support', () => {
     expect(appStyles).toMatch(/@keyframes ko-bounce/)
     expect(appStyles).toMatch(/@keyframes shake-victim/)
@@ -863,6 +949,11 @@ describe('game controls', () => {
     expect(new Set(npcRacers.map((racer) => racer.style.getPropertyValue('--bob-delay'))).size)
       .toBeGreaterThan(5)
 
+    // NPCs hold at the line for ~1.5s (+stagger) after go, so sample
+    // movement once the crowd is actually racing.
+    act(() => {
+      vi.advanceTimersByTime(3200)
+    })
     const startingProgress = new Map(
       npcRacers.map((racer) => [
         racer.dataset.testid,
@@ -880,6 +971,68 @@ describe('game controls', () => {
 
     expect(movedRacers.length).toBeGreaterThan(0)
     expect(movedRacers.length).toBeLessThan(npcRacers.length)
+  })
+
+  it('keeps NPCs idle at the start line for about 1.5 seconds', async () => {
+    await startPlayingWithFakeTimers()
+    const npcRacers = screen
+      .getAllByTestId(/^racer-/)
+      .filter((racer) => racer.className.includes('npc-bobbing'))
+    const startingProgress = new Map(
+      npcRacers.map((racer) => [
+        racer.dataset.testid,
+        racer.style.getPropertyValue('--racer-progress'),
+      ]),
+    )
+
+    act(() => {
+      vi.advanceTimersByTime(1200)
+    })
+    const movedTooEarly = npcRacers.filter(
+      (racer) =>
+        racer.style.getPropertyValue('--racer-progress') !==
+        startingProgress.get(racer.dataset.testid),
+    )
+    expect(movedTooEarly).toHaveLength(0)
+
+    act(() => {
+      vi.advanceTimersByTime(2800)
+    })
+    const movedAfterIdle = npcRacers.filter(
+      (racer) =>
+        racer.style.getPropertyValue('--racer-progress') !==
+        startingProgress.get(racer.dataset.testid),
+    )
+    expect(movedAfterIdle.length).toBeGreaterThan(0)
+  })
+
+  it('never lets an NPC sprint longer than the burst cap', () => {
+    // Worst case: a pattern that always wants to run.
+    const pattern = ['run', 'run', 'run', 'run', 'run', 'run', 'run']
+    for (let laneId = 1; laneId <= 8; laneId += 1) {
+      const profile = createNpcProfile(
+        {
+          id: laneId,
+          progress: 7 + laneId,
+          depth: Math.floor(laneId / 5),
+          shapeClass: `shape-${laneId % 8}`,
+        },
+        pattern,
+      )
+      const racer = { id: laneId, npc: profile }
+      let streak = 0
+      let maxStreak = 0
+      for (let tick = 0; tick < 500; tick += 1) {
+        if (getNpcStep(racer, tick, 'burst-cap-room') === 'run') {
+          streak += 1
+          maxStreak = Math.max(maxStreak, streak)
+        } else {
+          streak = 0
+        }
+      }
+      expect(maxStreak).toBeLessThanOrEqual(SPRINT_BURST_TICKS)
+      expect(maxStreak).toBeGreaterThan(0)
+    }
   })
 
   it('keeps the finish line behind larger racers without forcing a taller page', () => {

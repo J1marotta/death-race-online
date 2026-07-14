@@ -137,6 +137,9 @@ const COUNTDOWN_STEP_MS = 500
 const WALK_SPEED = 0.162
 const RUN_SPEED = WALK_SPEED * 2
 const TICK_MS = 80
+// NPCs hold at the line after go — a crowd reacts, it doesn't launch. Each
+// NPC adds its own small seeded stagger on top.
+const NPC_START_IDLE_TICKS = Math.round(1500 / TICK_MS)
 const FINISH_PROGRESS = 93
 const HIT_WINDOW_PERCENT = 3.5
 const NPC_MAX_PROGRESS = 99
@@ -1067,6 +1070,11 @@ function App() {
                 if (shotRacerIds.includes(racer.id)) {
                   return [racer.id, progressByLane[racer.id] ?? racer.progress]
                 }
+                const startIdleTicks =
+                  NPC_START_IDLE_TICKS + (racer.npc.startStaggerTicks ?? 0)
+                if (nextTick <= startIdleTicks) {
+                  return [racer.id, progressByLane[racer.id] ?? racer.progress]
+                }
                 const step = getNpcStep(racer, nextTick, npcSeedParts)
                 const cadence = racer.npc.moveCadenceTicks ?? 1
                 const shouldAdvance =
@@ -1917,7 +1925,13 @@ function App() {
       setCountdownIndex(nextIndex)
       if (elapsedSteps >= COUNTDOWN_STEPS.length && isCurrentHost && !playingRequested.current) {
         playingRequested.current = true
-        void syncRoom('playing', { playerName: activePlayerName })
+        // A failed request must not strand every client on "go": clear the
+        // flag so the 100ms countdown ticker retries until the phase turns.
+        void syncRoom('playing', { playerName: activePlayerName }).then((room) => {
+          if (!room) {
+            playingRequested.current = false
+          }
+        })
       }
     }
 

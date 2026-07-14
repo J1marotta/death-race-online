@@ -1167,6 +1167,24 @@ if (revivedLaneIds.length) {
   </div>
 
   <div class="bug-card">
+    <span class="bug-tag sev">correctness</span><span class="bug-tag area">lifecycle</span>
+    <h3>The Round That Froze On Go</h3>
+    <p>Round 3 of 5: the countdown hit "go" and nothing happened, for anyone, forever. The host's client sends the <code class="inline">playing</code> action when the countdown completes, guarded by a fire-once flag so it does not spam the server — but the flag was set <em>before</em> the request resolved. When that one request failed, the flag stayed set, nothing retried, and since only the host may advance the phase, every client in the room was stranded on "go".</p>
+    <details class="code-panel">
+      <summary>The fix — retry until the phase turns <small>src/App.jsx — countdown effect</small></summary>
+      <pre><code class="js">playingRequested.current = true
+// A failed request must not strand every client on "go": clear the
+// flag so the 100ms countdown ticker retries until the phase turns.
+void syncRoom('playing', { playerName: activePlayerName }).then((room) => {
+  if (!room) {
+    playingRequested.current = false
+  }
+})</code></pre>
+    </details>
+    <div class="lesson">A fire-once flag is a promise to eventually fire. Set it optimistically and a single failure turns "fire once" into "fire never" — clear it on failure, or set it only on success.</div>
+  </div>
+
+  <div class="bug-card">
     <span class="bug-tag sev">correctness</span><span class="bug-tag area">state sync</span>
     <h3>The Match That Refused To End</h3>
     <p>Winning the final round showed the final scores for a heartbeat, then dumped the player back to the scoreboard. Two independent causes stacked:</p>

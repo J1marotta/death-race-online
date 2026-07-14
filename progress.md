@@ -786,3 +786,13 @@ Last updated: 2026-07-14
 - Removed the menu intro paragraph (redundant with the join/host cards), shortened both card descriptions to one line, tightened menu-card padding and gaps, reduced input/button heights from 46px to 40px, and dropped the state-card heading from 30px to 26px.
 - Verified with headless Edge screenshots at 1280x900 and 1280x720: the name field, gold join card, and host card all fit inside the side panel with no internal scrollbar at both heights.
 - Verified with `npm test` (127 passing); `npm run lint`; `npm run build`.
+
+### task 75 : Slow The Crowd Further And Fix The Frozen Countdown
+
+- Found why the previous 40% pattern nerf barely registered: two seeded roll overrides in getNpcStep forced run on top of the patterns — 28% of long blocks (up to ~3.4 seconds of continuous forced sprint) plus 12% of short blocks — keeping effective sprint share near 59%.
+- Raised the burst-roll thresholds (long 72 -> 85, short 88 -> 92) and added a sprint duty cycle: any run demand only passes during a seeded 6-tick slice of each 16-tick window, so no NPC ever sprints longer than ~0.5 seconds in a row. Effective sprint share lands under ~20% and average pace at roughly half a sprinting player.
+- NPCs now hold at the start line for ~1.5 seconds after go (19 ticks plus a seeded 0-5 tick per-NPC stagger) — a crowd reacts, it doesn't launch.
+- Fixed the round that froze on go (seen in playtest, round 3/5): the host set the fire-once playingRequested flag before the request resolved, so one failed playing request stranded every client on the countdown forever. The flag now clears on failure and the 100ms countdown ticker retries until the phase turns.
+- Regression tests: NPCs idle for the full start hold and move afterwards, no NPC exceeds the sprint burst cap even with an all-run pattern, and a failed playing request retries into the playing phase. The bobbing-stagger test now samples movement after the start hold.
+- Documented "The Round That Froze On Go" in the WHY.md and WHY.html bug museums, and updated the spec NPC behavior and round flow plus the README QA checklist.
+- Verified with `npm test` (130 passing, run four times); `npm run lint`; `npm run build`.

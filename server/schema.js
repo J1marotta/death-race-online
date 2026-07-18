@@ -39,6 +39,7 @@ export const DeathRaceState = schema({
   winnerLaneId: 'number',
   winnerName: 'string',
   winnerType: 'string',
+  speedMultiplier: 'number',
   hostPlayerId: 'string',
   players: { map: PlayerState, default: new MapSchema() },
   racers: { map: RacerState, default: new MapSchema() },

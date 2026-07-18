@@ -511,6 +511,47 @@ describe('Colyseus DeathRaceRoom scaffold', () => {
     expect(room.state.round).toBe(3)
   })
 
+  it('keeps late joiners spectating until the next round without blocking it', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST', roundCount: 3 })
+    const host = client('session-host')
+    room.onJoin(host, { playerName: 'James' })
+    room.authorizedPlayer(host).ready = true
+    room.startCountdown(room.authorizedPlayer(host))
+    room.advanceSimulation(0, room.state.countdownEndsAt)
+    const late = client('session-late')
+    room.onJoin(late, { playerName: 'Ava' })
+
+    expect(room.authorizedPlayer(late).role).toBe('spectator')
+    expect(room.runtimeByPlayerId.has(room.authorizedPlayer(late).id)).toBe(false)
+    room.state.phase = 'roundOver'
+    expect(room.startNextRound(room.authorizedPlayer(host)).ok).toBe(true)
+    expect(room.authorizedPlayer(late).role).toBe('player')
+    expect(room.runtimeByPlayerId.has(room.authorizedPlayer(late).id)).toBe(true)
+    expect(room.privateStateFor(late).laneId).toBeGreaterThan(0)
+  })
+
+  it('fast-forwards NPCs four times when every human is eliminated before the final round', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST', roundCount: 3 })
+    const host = client('session-host')
+    room.onJoin(host, { playerName: 'James' })
+    room.authorizedPlayer(host).ready = true
+    room.startCountdown(room.authorizedPlayer(host))
+    room.advanceSimulation(0, room.state.countdownEndsAt)
+    const human = room.runtimeByPlayerId.get(room.authorizedPlayer(host).id)
+    human.eliminated = true
+    const npc = [...room.runtimeByPlayerId.values()].find(runtime => runtime.controllerType === 'npc')
+    npc.behaviorMode = 'walking'
+    npc.modeEndsAt = room.state.countdownEndsAt + 10000
+    const before = npc.progress
+
+    room.advanceSimulation(100, room.state.countdownEndsAt + 100)
+
+    expect(room.state.speedMultiplier).toBe(4)
+    expect(npc.progress - before).toBeGreaterThan(1)
+  })
+
   it('does not start while a player is inside the reconnection grace window', () => {
     const room = new DeathRaceRoom()
     room.onCreate({ roomCode: 'DRTEST' })

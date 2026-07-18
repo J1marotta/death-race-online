@@ -71,6 +71,7 @@ export class DeathRaceRoom extends Room {
       winnerLaneId: 0,
       winnerName: '',
       winnerType: '',
+      speedMultiplier: 1,
       hostPlayerId: '',
     })
     this.setSimulationInterval?.(deltaMs => this.advanceSimulation(deltaMs), SERVER_TICK_MS)
@@ -86,11 +87,12 @@ export class DeathRaceRoom extends Room {
     if (nameTaken) {
       throw new Error('Player name is not available')
     }
+    const joinsActiveRound = this.state.phase !== 'lobby'
     const player = new PlayerState({
       id: playerId,
       name: playerName,
-      role: isHost ? 'host' : 'player',
-      ready: false,
+      role: isHost ? 'host' : joinsActiveRound ? 'spectator' : 'player',
+      ready: joinsActiveRound,
       connected: true,
       score: 0,
       kills: 0,
@@ -303,6 +305,7 @@ export class DeathRaceRoom extends Room {
     this.state.winnerLaneId = 0
     this.state.winnerName = ''
     this.state.winnerType = ''
+    this.state.speedMultiplier = 1
     this.state.phase = 'countdown'
     return { ok: true }
   }
@@ -341,6 +344,12 @@ export class DeathRaceRoom extends Room {
     if (this.state.round >= this.state.roundCount) {
       this.state.phase = 'gameOver'
       return { ok: true, complete: true }
+    }
+    for (const current of this.state.players.values()) {
+      if (current.connected) {
+        current.ready = true
+        if (current.role === 'spectator') current.role = 'player'
+      }
     }
     this.state.round += 1
     this.state.phase = 'lobby'
@@ -400,9 +409,15 @@ export class DeathRaceRoom extends Room {
     }
     if (this.state.phase !== 'playing') return
 
+    const humansAlive = [...this.runtimeByPlayerId.values()].some(
+      runtime => runtime.controllerType === 'human' && !runtime.eliminated,
+    )
+    this.state.speedMultiplier = !humansAlive && this.state.round < this.state.roundCount ? 4 : 1
+
     for (const runtime of this.runtimeByPlayerId.values()) {
       if (runtime.controllerType === 'npc') {
-        advanceNpcRuntime(runtime, nowMs)
+        const npcNow = runtime.lastUpdatedAt + (nowMs - runtime.lastUpdatedAt) * this.state.speedMultiplier
+        advanceNpcRuntime(runtime, npcNow)
       } else {
         advancePlayerRuntime(runtime, deltaMs, nowMs)
       }

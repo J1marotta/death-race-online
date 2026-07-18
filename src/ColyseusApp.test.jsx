@@ -73,4 +73,20 @@ describe('feature-flagged Colyseus React client', () => {
     expect(transport.nextRound).toHaveBeenCalledOnce()
     expect(screen.getByText('James wins')).toBeTruthy()
   })
+
+  it('keeps a late-joining spectator from sending gameplay input', () => {
+    const transport = new FakeTransport()
+    render(<ColyseusApp transport={transport} />)
+    const spectatorView = {
+      ...lobby,
+      phase: 'playing',
+      players: [{ ...lobby.players[0], role: 'spectator' }],
+      racers: Array.from({ length: 20 }, (_, index) => ({ laneId: index + 1, progress: 0, eliminated: false })),
+    }
+    act(() => transport.emit('meta', { ...spectatorView, racers: [] }))
+    act(() => transport.emit('view', spectatorView))
+    fireEvent.keyDown(window, { code: 'ArrowRight' })
+    expect(transport.move).not.toHaveBeenCalled()
+    expect(screen.getByText('Spectating')).toBeTruthy()
+  })
 })

@@ -12,8 +12,10 @@ function AuthoritativeRace({ transport, initialView }) {
   const [aim, setAim] = useState({ laneId: 1, x: 0 })
   const playfieldRef = useRef(null)
   useEffect(() => transport.subscribe('view', setRaceView), [transport])
+  const localPlayer = raceView.players.find(player => player.id === raceView.localPlayerId)
   useEffect(() => {
     const update = event => {
+      if (localPlayer?.role === 'spectator') return
       if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return
       if (event.code === 'ArrowRight') transport.move('walking')
       if (event.code === 'Space') { event.preventDefault(); transport.move('running') }
@@ -24,8 +26,7 @@ function AuthoritativeRace({ transport, initialView }) {
     window.addEventListener('keydown', update)
     window.addEventListener('keyup', stop)
     return () => { window.removeEventListener('keydown', update); window.removeEventListener('keyup', stop) }
-  }, [transport])
-  const localPlayer = raceView.players.find(player => player.id === raceView.localPlayerId)
+  }, [localPlayer?.role, transport])
   const pointFromEvent = event => {
     const bounds = playfieldRef.current.getBoundingClientRect()
     return {
@@ -34,7 +35,7 @@ function AuthoritativeRace({ transport, initialView }) {
     }
   }
   const shoot = event => {
-    if (!localPlayer?.hasBullet) return
+    if (!localPlayer?.hasBullet || localPlayer.role === 'spectator') return
     const nextAim = pointFromEvent(event)
     setAim(nextAim)
     transport.shoot(nextAim.x, ((nextAim.laneId - 0.5) / 20) * 100)
@@ -48,7 +49,7 @@ function AuthoritativeRace({ transport, initialView }) {
         {aim.laneId === racer.laneId && <div className={`migration-crosshair ${localPlayer?.hasBullet ? '' : 'spent'}`} style={{ left: `${aim.x}%` }}>+</div>}
       </div>)}
     </section>
-    <div className='migration-controls'><span><kbd>→</kbd> Walk</span><span><kbd>Space</kbd> Sprint</span><span><kbd>Mouse 1</kbd> Aim and shoot</span><strong>{localPlayer?.hasBullet ? '1 bullet' : 'Bullet spent'}</strong></div>
+    <div className={`migration-controls ${localPlayer?.role === 'spectator' ? 'spectating' : ''}`}><span><kbd>→</kbd> Walk</span><span><kbd>Space</kbd> Sprint</span><span><kbd>Mouse 1</kbd> Aim and shoot</span><strong>{localPlayer?.role === 'spectator' ? 'Spectating' : localPlayer?.hasBullet ? '1 bullet' : 'Bullet spent'}</strong></div>
   </>
 }
 

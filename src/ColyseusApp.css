@@ -31,6 +31,7 @@
 .migration-controls { align-items: center; justify-content: center; margin-top: 8px; font-size: 12px; }
 .migration-controls span, .migration-controls strong { padding: 7px 9px; border: 1px solid var(--border); }
 .migration-controls kbd { color: var(--text-h); }
+.migration-controls.spectating { opacity: .55; }
 .migration-results { width: min(680px, 100%); }
 .migration-scoreboard { margin: 14px 0; border: 1px solid var(--border); }
 .migration-scoreboard div { grid-template-columns: 1fr auto 44px; }

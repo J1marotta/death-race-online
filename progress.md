@@ -1007,3 +1007,12 @@ Last updated: 2026-07-14
 - Added disposal checks across 30 rooms, proving private session, ordering, and runtime maps are cleared and room codes are reusable.
 - Added a local capacity run of ten simultaneous 20-player rooms over 200 server ticks. It completed in 21 ms on this machine with heap growth below the conservative 128 MB test ceiling.
 - Fly CLI installation eventually completed through Winget, but no Fly access token is configured. Task 10 and the remote portions of Task 11 remain open pending user authentication, remote build, deployed health checks, and live latency tests.
+
+### task 97 : Restore Late-Join And Human-Elimination Parity
+
+- Made players joining an active round explicit spectators: they receive lobby identity and public race state but no private lane, runtime, movement, or shot authority.
+- Promoted connected spectators into the next round automatically, assigning a fresh private lane without making the between-round host flow wait for a Ready control that is no longer visible.
+- Added the requested 4x authoritative NPC fast-forward when every human racer is eliminated and more rounds remain; the final round keeps normal speed.
+- Published the speed multiplier in synchronized state and made the flagged client show a dimmed `Spectating` control bar instead of a misleading active bullet.
+- Added server and React tests for late joining, next-round promotion, private lane assignment, gameplay-input suppression, and 4x NPC progress.
+- Fly authentication is still the external deployment gate; the migration goal remains active.

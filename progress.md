@@ -1108,3 +1108,14 @@ Last updated: 2026-07-14
 - Added a brief `Go!` label derived from the authoritative countdown deadline after the synchronized 3, 2, 1 sequence.
 - Added regressions for walk-to-sprint-to-stop and walk-to-sprint-back-to-walk key chords.
 - Added the input-state-machine lesson to `why.html` in the same commit.
+
+### task 108 : Prove A Complete Hosted Match
+
+- Expanded the Fly.io smoke harness from a connection check into a complete three-round private match against the public WebSocket endpoint.
+- Proved guest reconnection preserves authenticated identity before the match begins.
+- Fired an authoritative shot at the guest's private lane, verified elimination, and confirmed the host earned exactly one kill point.
+- Ran all three rounds to human victories, advanced through the between-round flow, and verified the final game-over score is ten points.
+- Made every command use the live authoritative round number so the harness detects stale-round protocol errors after round one.
+- Made both clients leave and verified the old room code cannot be joined after disposal.
+- Kept deterministic latency, jitter, duplication, reordering, and packet-loss regressions alongside the hosted match proof.
+- Added the end-to-end test-story lesson to `why.html` in the same commit.

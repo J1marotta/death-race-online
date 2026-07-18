@@ -4,24 +4,13 @@ This file tracks remaining implementation work only. Design decisions live in `s
 
 ## Delivery Estimate
 
-The remaining Fly.io and Colyseus migration is estimated at **7-13 agent-hours** for remote network regression, acceptance, cutover, and cleanup. Tasks 01-10 are complete. Expect roughly **5-9 hours of elapsed work** because live browser acceptance and cutover must remain sequential and rollbackable.
+The remaining Fly.io and Colyseus migration is estimated at **2-4 agent-hours** for production cutover and cleanup. Tasks 01-11 are complete. Expect roughly **2-4 hours of elapsed work** because live browser acceptance and cutover must remain sequential and rollbackable.
 
 The first complete migration should therefore be treated as roughly **4-7 focused agent working days**, including time for at least one failed deployment or integration pass. This assumes agents are writing the code and a human is available only for Fly.io account access, billing limits, secrets, and final live acceptance testing.
 
 Juice work is estimated separately at **10-18 agent-hours**. The remaining independent NPC timing work is estimated at **4-7 agent-hours**, or less if it is implemented directly in the new authoritative Colyseus simulation instead of being fixed twice.
 
 ## Migration To Fly.io And Colyseus
-
-### Task 11: Multiplayer Regression And Network Simulation
-
-Estimate: **5-8 agent-hours**.
-
-- Add an automated multi-client harness that can create a lobby, join several players, ready everyone, race, shoot, finish, advance rounds, and disconnect.
-- Run tests with simulated latency, jitter, duplication, packet loss, and reordered messages.
-- Verify that hidden lane assignments never leak through synchronized public state, logs, errors, or browser storage.
-- Verify CPU and memory behavior with multiple simultaneous 20-player rooms.
-- Confirm cleanup leaves no active room timers or retained player sessions after disposal.
-- Run the complete frontend, server, protocol, simulation, lint, and build suites.
 
 ### Task 12: Cut Over And Remove Cloudflare Realtime
 

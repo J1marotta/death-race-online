@@ -128,5 +128,6 @@ describe('WHY.html interactive page', () => {
     expect(diary.textContent).toContain('A Reveal Is A Permission Change')
     expect(diary.textContent).toContain('Connected Does Not Mean Present')
     expect(diary.textContent).toContain('Controls Are State')
+    expect(diary.textContent).toContain('Test The Match, Not Just The Messages')
   })
 })

@@ -20,10 +20,22 @@ const send = (room, type, payload, sequence) => room.send('command', {
   protocolVersion: PROTOCOL_VERSION,
   type,
   roomId: room.roomId,
-  roundId: 1,
+  roundId: room.state.round,
   sequence,
   payload,
 })
+
+const playerNamed = (room, name) => [...room.state.players.values()]
+  .find(player => player.name === name)
+
+const playRound = async (host, round, sequence) => {
+  await waitFor(() => host.state.round === round && host.state.phase === 'playing', 10000)
+  send(host, CLIENT_MESSAGE_TYPES.INPUT, { movementMode: 'running' }, sequence)
+  await waitFor(() => host.state.phase === 'roundOver', 35000)
+  if (host.state.winnerName !== 'Smoke Host' || host.state.winnerType !== 'human') {
+    throw new Error(`Round ${round} winner was ${host.state.winnerName || 'unknown'}`)
+  }
+}
 
 try {
   const hostClient = new Client(endpoint)
@@ -36,6 +48,8 @@ try {
   rooms.push(guest)
   host.onMessage('snapshot', () => {})
   guest.onMessage('snapshot', () => {})
+  host.onMessage('event', () => {})
+  guest.onMessage('event', () => {})
   await waitFor(() => host.state.players?.size === 2 && guest.state.players?.size === 2)
   const guestPlayerId = [...guest.state.players.values()]
     .find(player => player.connectionId === guest.sessionId)?.id
@@ -63,16 +77,54 @@ try {
   await waitFor(() => hostPrivate && guestPrivate && host.state.racers?.size === 20)
   if (hostPrivate.laneId === guestPrivate.laneId) throw new Error('Private lanes collided')
   await waitFor(() => host.state.phase === 'playing')
-  send(host, CLIENT_MESSAGE_TYPES.INPUT, { movementMode: 'walking', progress: 100 }, 3)
-  await waitFor(() => guest.state.racers.get(String(hostPrivate.laneId))?.progress > 0)
+  const guestRacer = () => host.state.racers.get(String(guestPrivate.laneId))
+  send(host, CLIENT_MESSAGE_TYPES.SHOT, {
+    aimX: guestRacer().progress,
+    aimY: ((guestPrivate.laneId - 0.5) / 20) * 100,
+  }, 3)
+  await waitFor(() => guestRacer()?.eliminated && playerNamed(host, 'Smoke Host')?.score === 1)
+
+  await playRound(host, 1, 4)
+  if (playerNamed(host, 'Smoke Host')?.score !== 4) {
+    throw new Error('Round-one kill and win scoring did not accumulate')
+  }
+
+  send(host, CLIENT_MESSAGE_TYPES.NEXT_ROUND, {}, 5)
+  await playRound(host, 2, 6)
+  send(host, CLIENT_MESSAGE_TYPES.NEXT_ROUND, {}, 7)
+  await playRound(host, 3, 8)
+  send(host, CLIENT_MESSAGE_TYPES.NEXT_ROUND, {}, 9)
+  await waitFor(() => host.state.phase === 'gameOver')
+
+  const finalScore = playerNamed(host, 'Smoke Host')?.score
+  if (finalScore !== 10) throw new Error(`Expected final score 10, received ${finalScore}`)
+
+  const players = host.state.players.size
+  await guest.leave(true)
+  await host.leave(true)
+  rooms.length = 0
+  await new Promise(resolve => setTimeout(resolve, 500))
+  let disposed = false
+  try {
+    const probe = await new Client(endpoint).joinById(roomCode, { playerName: 'Disposal Probe' })
+    await probe.leave(true)
+  } catch {
+    disposed = true
+  }
+  if (!disposed) throw new Error('Room remained joinable after every player left')
+
   console.log(JSON.stringify({
     ok: true,
     endpoint,
     roomCode,
-    players: host.state.players.size,
+    players,
     racers: host.state.racers.size,
-    phase: host.state.phase,
+    rounds: 3,
+    phase: 'gameOver',
     reconnect: 'passed',
+    shot: 'passed',
+    finalScore,
+    disposed: 'passed',
   }))
 } finally {
   for (const room of rooms.reverse()) {

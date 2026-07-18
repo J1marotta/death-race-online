@@ -1530,6 +1530,12 @@ crosshairIdByPlayerId.set(playerId, crosshairId)</code></pre>
   <p>The final countdown label follows the same principle of deriving presentation from authority. Every browser computes 3, 2, 1, and a brief Go from the server's <code class="inline">countdownEndsAt</code> timestamp; there is no independent client countdown that can drift into a frozen round.</p>
   <div class="lesson">For chords and overlapping inputs, model what is held and derive intent. Events tell you what changed; state tells you what the player means now.</div>
 
+  <h3>Test The Match, Not Just The Messages</h3>
+  <p>The first hosted smoke test proved that two browsers could connect, reconnect, ready up, and move one racer. Those were useful facts, but they did not prove that Death Race worked. A broken finish threshold, stale round number, missing score transition, or room that never disposed could all hide behind that green result.</p>
+  <p>The Fly smoke now tells a complete three-round story. A guest reconnects as the same authenticated player; the host shoots that guest and earns one point; the host crosses the authoritative finish three times for nine more points; each Next round command uses the server's current round number; the match reaches game over with ten points; then both clients leave and the old code becomes unjoinable.</p>
+  <p>This found an important weakness in the harness itself: its command helper had hardcoded <code class="inline">roundId: 1</code>. That was invisible while the test stopped in round one. Extending the scenario forced the test client to obey the same stale-round rules as a real browser.</p>
+  <div class="lesson">A protocol test proves individual rules. An end-to-end test proves that the rules compose into the experience a player was promised. Keep both, because neither can replace the other.</div>
+
   <h3>Deployment Is Part Of The Test Surface</h3>
   <p>The current migration path is live behind a stable preview alias while the existing Cloudflare-backed game remains untouched. A 1280×720 browser acceptance pass proved all 20 racers fit with no document scrolling, the sound control remains outside the track, and the public page talks to the Fly WebSocket endpoint. The immutable deployment URL gives each step a precise artifact; the alias gives playtesters one address to remember.</p>
   <div class="lesson">A feature is not deployed because the build command succeeded. Exercise the hosted frontend against the hosted server and inspect the actual laptop viewport.</div>

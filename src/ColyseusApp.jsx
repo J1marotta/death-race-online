@@ -60,12 +60,34 @@ function AuthoritativeRace({ transport, initialView, playShot, interactive = tru
   const [raceView, setRaceView] = useState(initialView)
   const [aim, setAim] = useState({ laneId: 1, x: 0 })
   const [pressedKeys, setPressedKeys] = useState({ walking: false, running: false })
+  const [screenEffect, setScreenEffect] = useState(null)
   const playfieldRef = useRef(null)
   const lastAimSentAt = useRef(0)
   const heldKeysRef = useRef(new Set())
   const lastMovementRef = useRef('stopped')
   useEffect(() => transport.subscribe('view', setRaceView), [transport])
   const localPlayer = raceView.players.find(player => player.id === raceView.localPlayerId)
+  useEffect(() => {
+    if (!interactive) return undefined
+    let clearEffect
+    const unsubscribe = transport.subscribe('event', envelope => {
+      const shot = envelope?.payload
+      if (!shot?.hit) return
+      const kind = shot.laneId === raceView.localLaneId
+        ? 'victim'
+        : shot.shooterName === localPlayer?.name
+          ? 'shooter'
+          : null
+      if (!kind) return
+      window.clearTimeout(clearEffect)
+      setScreenEffect({ kind, eventId: shot.eventId })
+      clearEffect = window.setTimeout(() => setScreenEffect(null), kind === 'victim' ? 520 : 260)
+    })
+    return () => {
+      window.clearTimeout(clearEffect)
+      unsubscribe()
+    }
+  }, [interactive, localPlayer?.name, raceView.localLaneId, transport])
   useEffect(() => {
     const heldKeys = heldKeysRef.current
     const isTyping = target => target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement
@@ -143,7 +165,8 @@ function AuthoritativeRace({ transport, initialView, playShot, interactive = tru
   )
   const recentShots = raceView.shots.slice(-4).reverse()
   return <>
-    <section className={`migration-track ${raceView.localEliminated ? 'local-eliminated' : ''}`} ref={playfieldRef} onMouseMove={updateAim} onClick={shoot} aria-label='Race track'>
+    <section className={`migration-track ${raceView.localEliminated ? 'local-eliminated' : ''} ${screenEffect ? `effect-${screenEffect.kind}` : ''}`} ref={playfieldRef} onMouseMove={updateAim} onClick={shoot} aria-label='Race track'>
+      {screenEffect && <div className={`migration-hit-flash ${screenEffect.kind}`} data-event-id={screenEffect.eventId} aria-hidden='true' />}
       {(raceView.phase === 'countdown' || raceView.phase === 'playing') && <Countdown endsAt={raceView.countdownEndsAt} />}
       <div className='migration-finish' />
       {raceView.racers.map(racer => <div className='migration-lane' key={racer.laneId} data-lane={racer.laneId}>

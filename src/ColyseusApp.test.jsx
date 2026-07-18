@@ -35,6 +35,7 @@ function installAudioContextMock(oscillators) {
   vi.stubGlobal('AudioContext', vi.fn(function AudioContextMock() {
     return {
       currentTime: 0,
+      sampleRate: 44100,
       destination: {},
       resume: vi.fn().mockResolvedValue(undefined),
       close: vi.fn().mockResolvedValue(undefined),
@@ -44,6 +45,9 @@ function installAudioContextMock(oscillators) {
         oscillators.push(oscillator)
         return oscillator
       },
+      createBuffer: (_channels, length) => ({ getChannelData: () => new Float32Array(length) }),
+      createBufferSource: () => ({ connect: vi.fn(), start: vi.fn(), stop: vi.fn(), buffer: null }),
+      createBiquadFilter: () => ({ connect: vi.fn(), frequency: parameter(), type: '' }),
     }
   }))
 }
@@ -163,6 +167,9 @@ describe('feature-flagged Colyseus React client', () => {
     expect(screen.getByLabelText('Kill feed').textContent).toContain('James▸NPC 3')
     expect(document.querySelector('.migration-sprint').style.getPropertyValue('--stamina')).toBe('0.4')
     expect(document.querySelector('.migration-sprint').className).toContain('exhausted')
+    act(() => transport.emit('event', { payload: playing.shots[0] }))
+    expect(document.querySelector('.migration-track').className).toContain('effect-shooter')
+    expect(document.querySelector('.migration-hit-flash.shooter').dataset.eventId).toBe('shot-1')
   })
 
   it('shows authoritative results and lets only the host advance', () => {
@@ -192,12 +199,14 @@ describe('feature-flagged Colyseus React client', () => {
     const playing = { ...lobby, phase: 'playing', racers: [], players: [{ ...lobby.players[0], ready: true }] }
 
     act(() => transport.emit('view', playing))
-    expect(oscillators).toHaveLength(2)
+    expect(oscillators).toHaveLength(6)
+    expect(oscillators.slice(0, 4).every(oscillator => oscillator.type === 'sine')).toBe(true)
+    expect(oscillators[4].type).toBe('triangle')
     expect(screen.getByRole('button', { name: 'Mute sound' }).closest('.migration-track')).toBeNull()
     act(() => transport.emit('view', { ...playing, phase: 'roundOver' }))
-    expect(oscillators.slice(0, 2).every(oscillator => oscillator.stop.mock.calls.length === 1)).toBe(true)
+    expect(oscillators.slice(0, 6).every(oscillator => oscillator.stop.mock.calls.length === 1)).toBe(true)
     act(() => transport.emit('view', { ...playing, round: 2 }))
-    expect(oscillators).toHaveLength(4)
+    expect(oscillators).toHaveLength(12)
   })
 
   it('keeps a late-joining spectator from sending gameplay input', () => {

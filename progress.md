@@ -1119,3 +1119,13 @@ Last updated: 2026-07-14
 - Made both clients leave and verified the old room code cannot be joined after disposal.
 - Kept deterministic latency, jitter, duplication, reordering, and packet-loss regressions alongside the hosted match proof.
 - Added the end-to-end test-story lesson to `why.html` in the same commit.
+
+### task 109 : Restore Authoritative Shot Impact And Music Character
+
+- Replaced the migration's placeholder sawtooth shot chirp with the specified filtered-noise crack and low sine thump.
+- Replaced the square-wave gameplay drone with quiet sine-pad seventh chords, a triangle melody voice, and a bass voice that change together during play.
+- Kept immediate shot audio local for responsiveness while making shooter and victim screen feedback wait for the authoritative hit event.
+- Added a short white flash and restrained shake for the shooter, plus a longer red flash and stronger shake for the victim.
+- Disabled all new flash and shake animation under reduced-motion preferences.
+- Added React and audio-graph regressions for authoritative event ownership, effect roles, instrument types, and restartable later-round music.
+- Added the immediate-versus-authoritative feedback lesson to `why.html` in the same commit.

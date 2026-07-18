@@ -1536,6 +1536,12 @@ crosshairIdByPlayerId.set(playerId, crosshairId)</code></pre>
   <p>This found an important weakness in the harness itself: its command helper had hardcoded <code class="inline">roundId: 1</code>. That was invisible while the test stopped in round one. Extending the scenario forced the test client to obey the same stale-round rules as a real browser.</p>
   <div class="lesson">A protocol test proves individual rules. An end-to-end test proves that the rules compose into the experience a player was promised. Keep both, because neither can replace the other.</div>
 
+  <h3>Fast Feedback Can Still Respect Authority</h3>
+  <p>A gun should sound immediate, but a hit should be true. Waiting for a WebSocket round trip before making any sound makes the controls feel sticky; shaking a victim before the server adjudicates the shot lets latency or a rejected command show something that never happened.</p>
+  <p>The migration now splits those responsibilities. A valid local click immediately synthesizes the noise crack and bass thump. The white shooter flash, red victim flash, and their differently weighted shakes wait for the server's unique shot event. The event identifies the affected lane and shooter, so each browser derives its own appropriate feedback without publishing private lane ownership.</p>
+  <p>The same pass replaced a temporary square-wave drone with the intended musical vocabulary: low sine-pad seventh chords, one gentle triangle melody voice, and a quiet bass that move through a small progression. The graph is still rebuilt every round, because a nicer oscillator is no less subject to Web Audio's one-start lifetime.</p>
+  <div class="lesson">Make intent feel immediate; make consequences authoritative. The boundary is not “client effects versus server effects,” but which facts each effect claims are already true.</div>
+
   <h3>Deployment Is Part Of The Test Surface</h3>
   <p>The current migration path is live behind a stable preview alias while the existing Cloudflare-backed game remains untouched. A 1280×720 browser acceptance pass proved all 20 racers fit with no document scrolling, the sound control remains outside the track, and the public page talks to the Fly WebSocket endpoint. The immutable deployment URL gives each step a precise artifact; the alias gives playtesters one address to remember.</p>
   <div class="lesson">A feature is not deployed because the build command succeeded. Exercise the hosted frontend against the hosted server and inspect the actual laptop viewport.</div>

@@ -2,6 +2,18 @@
 
 Browser-playable hidden-identity racing/shooting game.
 
+## Colyseus Migration (Inactive)
+
+The playable game still uses the existing Cloudflare Worker and Durable Object backend. A side-by-side Colyseus migration server now lives in `server/`; it is not connected to the frontend or production deployment yet.
+
+Run both local processes while working on the migration:
+
+```powershell
+npm run dev:migration
+```
+
+Run only migration tests with `npm run test:colyseus`. See `server/README.md` for the safety boundary and current capabilities. Keep the Cloudflare path intact until the new server passes full multiplayer parity and live Fly.io acceptance tests.
+
 ## Commands
 
 ```powershell

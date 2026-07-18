@@ -1415,9 +1415,19 @@ describe('game controls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create lobby' }))
 
     const realPlayers = await screen.findByLabelText('Real players')
+    const startButton = screen.getByRole('button', { name: 'Start game' })
     expect(realPlayers).toBeTruthy()
+    expect(
+      startButton.compareDocumentPosition(realPlayers) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
     expect(within(realPlayers).getByLabelText('Your player name').value).toBe('James')
     expect(within(realPlayers).getByText('Mia')).toBeTruthy()
+    expect(appStyles).toMatch(
+      /\.state-card\.lobby-state\s*{[^}]*overflow:\s*hidden/,
+    )
+    expect(appStyles).toMatch(
+      /\.lobby-state \.player-list\s*{[^}]*overflow-y:\s*auto/,
+    )
   })
 
   it('does not show the transport sync state in the status strip', async () => {

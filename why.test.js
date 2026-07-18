@@ -100,4 +100,18 @@ describe('WHY.html interactive page', () => {
     expect(window.document.querySelector('.wa.bunny')).toBeTruthy()
     expect(window.document.querySelector('.wa.frog')).toBeTruthy()
   })
+
+  it('documents the authoritative server migration and juice constraints', () => {
+    const window = loadWhyPage()
+    const review = window.document.getElementById('network-review')
+    const migration = window.document.getElementById('migration')
+    const plan = window.document.getElementById('migration-plan')
+    const juice = window.document.getElementById('next-juice')
+
+    expect(review.textContent).toContain('transport is not authority')
+    expect(migration.textContent).toContain('Colyseus DeathRaceRoom')
+    expect(plan.textContent).toContain('45-75 agent-hours')
+    expect(juice.textContent).toContain('Hidden-Identity Constraint')
+    expect(juice.textContent).toContain('Laptop Constraint')
+  })
 })

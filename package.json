@@ -9,12 +9,20 @@
     "test": "vitest run --environment jsdom",
     "lint": "oxlint",
     "preview": "vite preview",
+    "dev:migration": "node server/dev.js",
+    "dev:colyseus": "node --watch server/index.js",
+    "start:colyseus": "node server/index.js",
+    "test:colyseus": "vitest run --environment node server src/multiplayer/protocol.test.js",
     "preview:cloudflare": "npm run build && wrangler pages dev dist",
     "deploy:cloudflare": "npm run build && wrangler pages deploy dist",
     "dev:rooms": "wrangler dev workers/rooms.js",
     "deploy:rooms": "wrangler deploy --config wrangler.worker.jsonc"
   },
   "dependencies": {
+    "@colyseus/core": "^0.17.42",
+    "@colyseus/schema": "^4.0.27",
+    "@colyseus/ws-transport": "^0.17.13",
+    "express": "^5.2.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },

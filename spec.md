@@ -17,6 +17,7 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 - Room codes are dashless single words (for example `DR7Q2K`) so they read cleanly and are easy to type or say out loud.
 - The title screen leads with a highlighted "Join a game" card (room code field plus join action) above the "Host a game" card, because guests are the common case.
 - The menu side panel fits inside its card without scrolling: no intro paragraph (the cards explain themselves) and compact card spacing.
+- Laptop-height space is a primary constraint: core menu and lobby actions must remain visible without scrolling, and growing content such as a full player roster should scroll only within its own bounded region.
 - Lobby control labels use sentence case, not uppercase.
 - Every connected player adopts the host's round count from the room snapshot so match completion agrees on every client.
 - The host enters their display name, creates a lobby, and receives the room code to share.
@@ -125,6 +126,9 @@ Movement keys never hijack typing: while an input field has focus they are ignor
 - No NPC sprints longer than ~160ms at a time: every sprint demand passes through a seeded duty cycle that downgrades the rest of its window to a walk, so sprints read as darts, not races.
 - A committed human comfortably outruns the pack, but NPCs still finish and can win a round when every human stalls.
 - Each NPC has a seeded pacing personality (burst-heavy or walk-heavy mixes) so the pack does not race identically.
+- Each NPC needs its own independent behavior timer for idle, walk, run, stop, and long-stop phases.
+- NPCs must not share a visible pack-level rhythm where all NPCs move, pause, and move again together.
+- NPC running and stopping should feel erratic enough that NPCs do not look like they are all perfectly racing to win.
 - NPCs should imitate human hesitation and intent.
 - NPCs never shoot.
 - NPCs must be capable of crossing the visible finish line and winning.

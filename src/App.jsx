@@ -2111,6 +2111,41 @@ function App() {
 
   const renderLobby = () => (
     <div className='lobby-panel' aria-label='Lobby controls'>
+      {state === 'lobby' ? (
+        <div className='lobby-action-grid'>
+          <button
+            type='button'
+            className='host-start'
+            disabled={Boolean(currentRoomPlayer?.ready)}
+            onClick={() => {
+              playSound('ready')
+              void syncRoom('ready', {
+                playerName: activePlayerName,
+                ready: true,
+              })
+            }}
+          >
+            {currentRoomPlayer?.ready ? 'Ready' : 'Ready up'}
+          </button>
+          {isCurrentHost ? (
+            <button
+              type='button'
+              className={hostCanStart ? 'host-start-green' : 'host-start'}
+              onClick={() => void startGameFromLobby()}
+              disabled={!hostCanStart}
+            >
+              {hostCanStart ? 'Start game' : 'Waiting for ready'}
+            </button>
+          ) : (
+            <div className='assignment-summary' aria-label='Host start status'>
+              <span>Host start</span>
+              <strong>Waiting for host</strong>
+              <p>{roomReady ? 'The room is ready.' : 'Everyone needs to ready up.'}</p>
+            </div>
+          )}
+        </div>
+      ) : null}
+
       {roomSnapshot ? (
         <div className='player-list' aria-label='Real players'>
           <div className='list-heading'>
@@ -2146,42 +2181,6 @@ function App() {
                 <small>{getPlayerStatusLabel(player)}</small>
               </div>
             ))}
-        </div>
-      ) : null}
-
-      {state === 'lobby' ? (
-        <div className='lobby-action-grid'>
-          <button
-            type='button'
-            className='host-start'
-            disabled={Boolean(currentRoomPlayer?.ready)}
-            onClick={() => {
-              playSound('ready')
-              void syncRoom('ready', {
-                playerName: activePlayerName,
-                ready: true,
-              })
-            }}
-          >
-            {currentRoomPlayer?.ready ? 'Ready' : 'Ready up'}
-          </button>
-          {isCurrentHost ? (
-            <button
-              type='button'
-              className={hostCanStart ? 'host-start-green' : 'host-start'}
-              onClick={() => void startGameFromLobby()}
-              disabled={!hostCanStart}
-            >
-              {hostCanStart ? 'Start game' : 'Waiting for ready'}
-            </button>
-          ) : (
-            <div className='assignment-summary' aria-label='Host start status'>
-              <span>Host start</span>
-              <strong>Waiting for host</strong>
-              <p>{roomReady ? 'The room is ready.' : 'Everyone needs to ready up.'}</p>
-            </div>
-          )}
-          
         </div>
       ) : null}
 
@@ -2365,7 +2364,7 @@ function App() {
         aria-label='Game area'
       >
         {!gameplayFocused ? (
-          <div className='state-card'>
+          <div className={`state-card ${state === 'lobby' ? 'lobby-state' : ''}`}>
             {state !== 'lobby' ? (
               <>
                 <p className='eyebrow'>

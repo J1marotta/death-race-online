@@ -447,7 +447,9 @@ Lesson: multiplayer is not only about connecting people. It is also about cleani
 
 The NPCs were disappearing, reappearing, and racing too aggressively. That broke the hidden-identity promise because they felt obviously artificial.
 
-The fix was to make NPCs stick to lanes, calm their winning behavior, and later match their movement speed to player speed when walk/run speed increased.
+Some fixes helped: NPCs now stick to lanes, move at player-like speeds, use varied shapes, and bob visually while alive. But one important bug remains: NPC behavior decisions are still driven by one shared client clock. That means seeded offsets can create some variation, but the pack can still visibly move, pause, and move again together.
+
+The real fix is per-NPC behavior state. Each NPC needs its own current mode, mode end time, last update time, and personality biases. A global render loop is fine, but the decision to idle, walk, run, or stop must come from each NPC's own timer, not from one shared `npcTick`.
 
 Lesson: simulation bugs are design bugs. If NPCs behave strangely, players stop reading social tells and start reading implementation flaws.
 

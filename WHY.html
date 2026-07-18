@@ -605,6 +605,10 @@
   <a href="#deployment">Deployment Shape</a>
   <a href="#pricing">How Pricing Works</a>
   <a href="#costs">What WebSockets Cost</a>
+  <a href="#network-review">The Honest Network Review</a>
+  <a href="#migration">Why Fly.io And Colyseus</a>
+  <a href="#migration-plan">The Migration Plan</a>
+  <a href="#next-juice">The Next Layer Of Juice</a>
   <a href="#prototype">Still Prototype-Shaped</a>
   <a href="#thinking">How Engineers Think</a>
   <a href="#lessons">Lessons To Carry Forward</a>
@@ -1354,6 +1358,134 @@ npm run deploy:rooms      // Worker (room backend)</code></pre>
   <div class="lesson">Measure before optimizing, and know which meter you are reading. The scary number was a raw analytics count; the billable number was 20× smaller and the real cost lever was already handled.</div>
 </section>
 
+<section id="network-review">
+  <h2>The Honest Network Review</h2>
+  <p>The first networking milestone was real and valuable: two friends could enter the same room code, see the same lobby, ready up, race, shoot, and advance rounds. That replaced a fake local prototype with an actual shared game. But reaching that milestone also exposed a deeper truth: <strong>transport is not authority</strong>. A WebSocket can deliver a message quickly while still delivering a lie.</p>
+
+  <div class="tabs" data-tabs>
+    <div class="tab-row">
+      <button class="active" data-tab="0">What Cloudflare gave us</button>
+      <button data-tab="1">Where it became awkward</button>
+      <button data-tab="2">What migration will not fix</button>
+    </div>
+    <div class="tab-panel active">
+      <div class="file-grid">
+        <div class="file-card"><code>One room, one owner</code><p>A room code maps naturally to one Durable Object. That removed cross-process locking and gave the lobby one official clipboard.</p></div>
+        <div class="file-card"><code>Global routing</code><p>Friends could reach the game without us operating a conventional server or load balancer.</p></div>
+        <div class="file-card"><code>Hibernatable sockets</code><p>Idle sockets can stay connected while the object leaves memory, reducing duration charges when a room goes quiet.</p></div>
+        <div class="file-card"><code>Fast prototype deployment</code><p>Pages, Workers, storage, alarms, and WebSockets were available under one account and one deployment tool.</p></div>
+      </div>
+    </div>
+    <div class="tab-panel">
+      <div class="file-grid">
+        <div class="file-card"><code>Memory is conditional</code><p>Hibernation can recreate the object. High-frequency input kept only in memory is therefore not durable game truth.</p></div>
+        <div class="file-card"><code>Timers fight hibernation</code><p>A realtime simulation wants a stable clock. A serverless actor wants to sleep whenever possible. Both goals are reasonable, but they pull in opposite directions.</p></div>
+        <div class="file-card"><code>Runtime-specific plumbing</code><p>Alarms, socket attachments, compatibility dates, storage semantics, and Worker deployment concerns became part of ordinary game logic.</p></div>
+        <div class="file-card"><code>Harder local reasoning</code><p>The browser, Worker router, Durable Object lifecycle, persisted room, in-memory inputs, and fallback polling all have to agree before one racer looks smooth.</p></div>
+      </div>
+    </div>
+    <div class="tab-panel">
+      <div class="file-grid">
+        <div class="file-card"><code>Identity</code><p>Moving hosts does not magically authenticate players. We still need unguessable sessions bound to connections.</p></div>
+        <div class="file-card"><code>Cheating</code><p>Colyseus cannot help if the server continues accepting a client-authored position, target, or winner.</p></div>
+        <div class="file-card"><code>Game rules</code><p>Race movement, stamina, shots, scoring, NPC behavior, and finish adjudication still need explicit deterministic rules.</p></div>
+        <div class="file-card"><code>Testing discipline</code><p>A new framework can reduce plumbing, but only adversarial and multi-client tests prove that the room is fair.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <h3>The Trust Problem Hidden Inside A Friendly Prototype</h3>
+  <p>Today, a player is largely identified by a display name supplied by the browser. The socket URL contains that name, messages can carry another name, and several HTTP actions trust the name in their body. Host checks then ask whether that supplied name hashes to the host ID. In a friendly test this feels like identity. On a network it is closer to wearing someone else's handwritten name tag.</p>
+
+  <table>
+    <tr><th>Current claim</th><th>Why it is unsafe</th><th>Target rule</th></tr>
+    <tr><td>"I am James"</td><td>The browser supplies the name</td><td>The server issues a random session token and binds it to the connection</td></tr>
+    <tr><td>"I control lane 7"</td><td>The browser supplies the lane</td><td>The server privately assigns the lane and never publishes the full assignment map</td></tr>
+    <tr><td>"My progress is 100"</td><td>The browser supplies progress</td><td>The browser sends movement intent; the server advances position</td></tr>
+    <tr><td>"I hit lane 12"</td><td>The browser decides whether the shot hit</td><td>The browser sends aim; the server resolves geometry against official positions</td></tr>
+    <tr><td>"This NPC won"</td><td>The host reports client-simulated NPC results</td><td>The server simulates NPCs and adjudicates every winner</td></tr>
+  </table>
+
+  <h3>The Reliability Problem</h3>
+  <p>The current client falls back to polling when its WebSocket closes, but it does not schedule a socket reconnection. A momentary Wi-Fi interruption can quietly turn into ten-second updates for the rest of the match. Inputs also lack a strict round-and-sequence envelope at the point they are applied, so stale or reordered traffic is harder to reject with confidence.</p>
+  <p>The replacement protocol needs four boring fields that prevent exciting bugs: <code class="inline">protocolVersion</code>, <code class="inline">roundId</code>, <code class="inline">sequence</code>, and a server timestamp. The server should acknowledge durable events with unique event IDs so a reconnect cannot replay a gunshot, kill, winner celebration, or score animation.</p>
+
+  <div class="lesson">The most dangerous multiplayer bugs are grammatically valid messages sent by the wrong person, in the wrong round, at the wrong time. Validate identity, authority, phase, ordering, and bounds before changing state.</div>
+</section>
+
+<section id="migration">
+  <h2>Why Fly.io And Colyseus Fit The Next Version</h2>
+  <p>The target is not "leave Cloudflare because Cloudflare is bad." Cloudflare Pages remains an excellent home for the static React frontend. The target is to put realtime simulation somewhere that behaves like a game server: one long-lived process with an ordinary clock, explicit connection lifecycle, in-memory rooms, and no incentive to hibernate in the middle of a race.</p>
+
+  <div class="arch" aria-label="Target architecture">
+    <div class="arch-box"><strong>Cloudflare Pages</strong><small>serves the React/Vite frontend</small><div class="arch-detail">Static files are cheap, globally cached, and already deployed successfully. There is no benefit in moving this part merely for architectural symmetry.</div></div>
+    <div class="arch-arrow">↓ secure WebSocket</div>
+    <div class="arch-box"><strong>Fly.io Machine</strong><small>runs one Node and Colyseus process</small><div class="arch-detail">The machine stays alive while matches are active. A small single-region server is enough for friend-scale play and gives us conventional logs, processes, timers, health checks, and graceful shutdown.</div></div>
+    <div class="arch-arrow">↓ room lifecycle</div>
+    <div class="arch-box"><strong>Colyseus DeathRaceRoom</strong><small>owns sessions, simulation, events, and synchronized state</small><div class="arch-detail">Each room receives player intentions, advances humans and NPCs on a fixed step, resolves shots and winners, and sends only the public or player-private state each connection is allowed to know.</div></div>
+    <div class="arch-arrow">↓ optional durable records</div>
+    <div class="arch-box"><strong>Small persistence layer</strong><small>only if match history or accounts arrive later</small><div class="arch-detail">Live rooms do not need a database write for every movement tick. Persist final match records or account data only when the product actually needs them.</div></div>
+  </div>
+
+  <h3>Why Colyseus Instead Of More Custom Socket Code?</h3>
+  <p>We have already hand-built rooms, joins, leaves, snapshots, compact deltas, socket lifecycle, fallback polling, cleanup, and tests around all of them. Those are exactly the responsibilities Colyseus is designed to standardize. It gives each connection a session identity, models isolated rooms, disposes empty rooms, rate-limits messages, and synchronizes changed state at a configurable patch rate.</p>
+  <p>The valuable boundary is this: the client sends a request such as <code class="inline">walk</code>, <code class="inline">sprint</code>, or <code class="inline">fire at x/y</code>. Only the room mutates official state. Colyseus can encode and distribute those mutations efficiently, but our room code still decides whether each request is legal.</p>
+
+  <h3>Why Fly.io Instead Of Another Serverless Host?</h3>
+  <p>A tiny Fly machine is conceptually simple: while matches exist, one Node process exists. That lets the server run a fixed-step clock, retain room inputs, and handle reconnect grace periods without translating everything into storage writes or alarm semantics. It also gives us a predictable small-machine cost rather than billing shaped around every message and active object duration.</p>
+  <p>There is a tradeoff. A conventional process can restart, deploys can interrupt rooms, and scaling beyond one machine eventually requires room-aware routing or presence infrastructure. For this project, those are honest future problems. We should solve the current friend-scale game clearly before optimizing for an audience we do not have.</p>
+
+  <div class="note">Colyseus documentation describes server-owned state with property-level synchronization, and Fly documents per-second machine billing plus autostart/autostop controls. Exact prices and platform behavior can change, so deployment work must verify current official documentation and set billing alerts rather than copying old numbers from this guide.</div>
+  <p><a href="https://docs.colyseus.io/state">Colyseus state synchronization</a> · <a href="https://docs.colyseus.io/room">Colyseus rooms</a> · <a href="https://fly.io/docs/about/pricing/">Fly.io pricing</a></p>
+</section>
+
+<section id="migration-plan">
+  <h2>The Migration Plan: Change The Engine Without Crashing The Car</h2>
+  <p>A big-bang rewrite would make every failure ambiguous. Was the lobby wrong, the protocol wrong, prediction wrong, Fly misconfigured, or Colyseus misunderstood? The safer sequence keeps the current game playable while replacing one source of truth at a time.</p>
+
+  <table>
+    <tr><th>Phase</th><th>Purpose</th><th>Proof before moving on</th><th>Agent estimate</th></tr>
+    <tr><td>1. Contract</td><td>Version messages and define public, private, and server-only state</td><td>Malformed, stale, duplicate, and incompatible messages fail tests</td><td>2-3h</td></tr>
+    <tr><td>2. Server shell</td><td>Create the Colyseus room beside the Worker</td><td>Create, join, leave, full-room, and disposal tests pass</td><td>3-5h</td></tr>
+    <tr><td>3. Sessions and lobby</td><td>Remove names as authority and migrate room flow</td><td>Impersonation and host-action tests fail before the fix and pass after it</td><td>8-12h</td></tr>
+    <tr><td>4. Simulation</td><td>Move movement, stamina, shots, NPCs, and winners server-side</td><td>Teleport, fabricated-hit, duplicate-shot, and NPC independence tests pass</td><td>15-25h</td></tr>
+    <tr><td>5. Client adapter</td><td>Prediction, interpolation, reconnect, ordering, and React integration</td><td>Latency and dropped-socket tests recover without corrupting rounds</td><td>7-12h</td></tr>
+    <tr><td>6. Fly and cutover</td><td>Deploy, exercise real browsers, retain rollback, then remove Worker realtime</td><td>A complete remote multi-round match passes before old code is deleted</td><td>10-18h</td></tr>
+  </table>
+
+  <p>The total estimate is <strong>45-75 agent-hours</strong>. Several agents can work on protocol tests, simulation rules, deployment scaffolding, and client adapters in parallel, but integration has a critical path. A realistic elapsed estimate is <strong>28-45 hours</strong>, or roughly <strong>4-7 focused agent working days</strong>, including at least one failed integration or deployment pass.</p>
+
+  <h3>Why Failing Tests Are Part Of The Estimate</h3>
+  <p>For each migration task, the agent should first write the test that demonstrates the missing guarantee. The host-impersonation test should succeed at attacking the old design, then fail against the new session model. The teleport test should prove that sending progress cannot move the server racer. The duplicate-shot test should prove that replaying a packet cannot spend two bullets or award two kills.</p>
+  <p>This is not ceremony. A migration changes enough code that a passing old suite can become misleading: it may only prove that the old architecture still behaves like itself. New tests describe the guarantees we are moving for.</p>
+
+  <div class="lesson">Migrate behavior, not files. Keep a runnable game at every boundary, prove one authority rule at a time, and delete the old transport only after the new path survives a real multi-browser match.</div>
+</section>
+
+<section id="next-juice">
+  <h2>The Next Layer Of Juice</h2>
+  <p>Juice is the tiny sensory evidence that tells a player, "yes, the game understood you." It is not decoration pasted over uncertain rules. The shot tracer is satisfying because it follows an accepted shot. The winner burst is satisfying because the room has locked one winner. Networking and juice meet at exactly this point: <strong>effects need authoritative event IDs, but they should render locally without producing more network traffic.</strong></p>
+
+  <div class="file-grid">
+    <div class="file-card"><code>Start anticipation · 2-3h</code><p>Escalating tones, crouched racers, a small camera push, and a shared dust release on Go. Every client derives it from the same countdown timestamp.</p></div>
+    <div class="file-card"><code>Shooting feedback · 2-4h</code><p>Immediate muzzle flash and recoil, followed by an authoritative tracer impact, casing spark, and near-miss sound. No pre-shot target highlighting.</p></div>
+    <div class="file-card"><code>Finish celebration · 2-4h</code><p>A short hit-stop, checkered burst, winner bounce, crowd swell, and restrained camera punch triggered once by the winner event ID.</p></div>
+    <div class="file-card"><code>Round reveal · 2-3h</code><p>Reveal human racers sequentially, then animate kills and points into the scoreboard while keeping Next round visible on a laptop.</p></div>
+    <div class="file-card"><code>Track atmosphere · 2-4h</code><p>Subtle lane motion, varied dust, footsteps, exhausted breathing, finish-line flutter, and music intensity in the final third.</p></div>
+  </div>
+
+  <h3>The Hidden-Identity Constraint</h3>
+  <p>A normal racing game can make the local player glow, leave a unique trail, or receive richer animation. Death Race cannot do that publicly without damaging its central mystery. Humans and NPCs must produce the same visible movement cues for the same official movement mode. Local-only feedback may be richer on the controlling player's own screen, but spectators must not be able to identify a human from an exclusive dust puff, cadence, sound, or animation.</p>
+
+  <h3>The Laptop Constraint</h3>
+  <p>More effects must not mean more interface. The game should continue to fit twenty lanes and core lobby actions on a laptop without page or sidebar scrolling. Particles belong inside stable playfield bounds; winner and score transitions must not push buttons below the fold; controls should become denser before they become scrollable.</p>
+
+  <h3>The Accessibility And Replay Constraint</h3>
+  <p>Every shake, hit-stop, and bouncing marker needs a reduced-motion form. Every sound respects mute. Every network-driven effect needs deduplication so reconnecting or receiving a repeated snapshot cannot replay a gunshot, KO, point award, or celebration. Every timer must clean itself up between rounds.</p>
+
+  <p>The juice backlog is estimated at <strong>10-18 agent-hours</strong>, separate from migration. Start and finish effects should wait until the authoritative event protocol exists; track atmosphere can proceed independently because it is client-only.</p>
+</section>
+
 <section id="prototype">
   <h2>What Is Still Prototype-Shaped</h2>
   <p>The game is real enough for friends to join and play, but it is not hardened like a competitive production game. Important caveats:</p>
@@ -1401,14 +1533,14 @@ npm run deploy:rooms      // Worker (room backend)</code></pre>
 
 <section id="mental-model">
   <h2>The Best Mental Model</h2>
-  <p>Death Race is a party game with a race track, a room clipboard, and a radio.</p>
+  <p>Death Race is a party game with a race track, a referee, and a radio.</p>
   <ul>
     <li>The <strong>track</strong> is what players see.</li>
-    <li>The <strong>clipboard</strong> is the Durable Object holding the official room state.</li>
-    <li>The <strong>radio</strong> is the WebSocket telling everyone when the clipboard changes.</li>
+    <li>The <strong>referee</strong> is the authoritative room simulation. Today it is split between clients and a Durable Object; the migration puts it in one Colyseus room.</li>
+    <li>The <strong>radio</strong> is the WebSocket carrying intentions toward the referee and official events back to everyone.</li>
   </ul>
-  <p>When the game feels good, players should forget the clipboard and radio exist. They should only feel the tension of twenty racers, one secret identity, one bullet, and a finish line that suddenly feels much too far away.</p>
-  <p>That is why the architecture matters. Not because Cloudflare is shiny. Not because WebSockets are exciting. <strong>Because the technology gets out of the way just enough for the suspicion to breathe.</strong></p>
+  <p>When the game feels good, players should forget the referee and radio exist. They should only feel the tension of twenty racers, one secret identity, one bullet, and a finish line that suddenly feels much too far away.</p>
+  <p>That is why the architecture matters. Not because Cloudflare, Fly.io, or Colyseus is fashionable. Not because WebSockets are exciting. <strong>Because the technology should make the rules feel inevitable and then disappear behind the suspicion.</strong></p>
 </section>
 </main>
 </div>

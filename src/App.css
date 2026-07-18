@@ -195,6 +195,24 @@ code {
   gap: 10px;
 }
 
+.state-card.lobby-state {
+  justify-content: flex-start;
+  overflow: hidden;
+}
+
+.lobby-state .lobby-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.lobby-state .player-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .room-card,
 .control-group,
 .player-list {
@@ -1577,5 +1595,13 @@ code {
 
   .state-card {
     min-height: auto;
+  }
+
+  .state-card.lobby-state {
+    overflow: visible;
+  }
+
+  .lobby-state .player-list {
+    overflow-y: visible;
   }
 }

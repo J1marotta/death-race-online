@@ -833,3 +833,41 @@ Last updated: 2026-07-14
 - Simulated result: the crowd loiters ~40% of steps (26% stop + 15% idle), pace drops from 2.85 to 2.22 progress/s (~38% of a committed player), finish ~42s vs the player's ~16s. Deliberately walks back toward the old "idled forever" territory — safe now because stamina-era players also stop, so stillness reads as strategy, not set dressing.
 - Documented the follow-up in the "Crowd That Outran The Winded" museum entries (WHY.md, WHY.html) and updated the spec NPC behavior numbers.
 - Verified with `npm test` (134 passing, the crowd-pace amble band holds); `npm run lint`.
+
+### task 80 : Document Remaining NPC Shared-Clock Bug
+
+- Added `npc_logic.md` explaining the current NPC movement path, why seeded offsets and cadence still do not create independent NPC behavior, and how to replace the shared `npcTick` model.
+- Updated `todo.md` with the remaining work to implement per-NPC behavior timers.
+- Updated `spec.md` to state that NPCs need independent idle/walk/run/stop timers and must not share a visible pack rhythm.
+- Updated `WHY.md` to clarify that the NPC timing bug remains and that the previous changes were seeded shared-clock variations rather than true independent NPC state.
+
+### task 81 : Keep Lobby Actions Visible On Laptop Screens
+
+- Moved Ready/Start ahead of the real-player roster so the primary lobby flow never requires scrolling back to the top.
+- Stopped the whole lobby sidebar from scrolling and bounded overflow to the growing player roster instead.
+- Preserved normal document flow below the desktop breakpoint, where the sidebar becomes a stacked mobile layout.
+- Recorded laptop-height efficiency as an ongoing design requirement in `spec.md`.
+- Added regression coverage for lobby control ordering and overflow ownership.
+
+### task 82 : Explain The Fly.io And Colyseus Migration
+
+- Expanded `WHY.html` with a detailed, interactive review of what Cloudflare Durable Objects gave the project, where the model became awkward, and which authority problems a platform migration cannot solve automatically.
+- Documented the current identity, client-authority, reconnection, ordering, hibernation, and trust-model weaknesses in plain language.
+- Added the target Cloudflare Pages + Fly.io + Colyseus architecture, including the reasons for keeping static frontend hosting separate from the realtime game server.
+- Added a staged migration plan with failing-first tests, proof gates, agent-hour estimates, rollback guidance, and a clear distinction between total effort and parallel elapsed time.
+- Added the next juice backlog with authoritative event, hidden-identity, laptop-space, mute, reduced-motion, and event-deduplication constraints.
+- Updated the closing mental model from a Durable Object clipboard to an authoritative referee so it remains valid before and after migration.
+- Added regression coverage for the new guide sections.
+- Verified the guide test file, lint, and production build. The in-app visual preview was unavailable for the final screenshot check.
+
+### task 83 : Begin The Colyseus Migration Beside Production
+
+- Kept the current React-to-Cloudflare Worker and Durable Object path intact and active by default.
+- Added a versioned protocol contract with explicit room IDs, round IDs, sequences, server timestamps, event IDs, payload validation, and stale/duplicate ordering checks.
+- Defined movement as intent only in the new protocol; client-authored progress and claimed shot victims are not part of the migration contract.
+- Added an isolated `server/` tree with a Colyseus process, health endpoint, synchronized lobby schema, 20-player limit, message-rate limit, automatic disposal, and connection-session player keys.
+- Added focused tests for protocol validation, ordering, room creation, host assignment, session-keyed players, leave behavior, server startup, and health.
+- Added `dev:migration`, `dev:colyseus`, `start:colyseus`, and `test:colyseus` commands without changing existing development or deployment commands.
+- Removed a proposed `concurrently` helper after its dependency tree reported a critical advisory; replaced it with a small repository-owned Node launcher and restored `npm audit` to zero vulnerabilities.
+- Documented the migration server's inactive status and cutover safety boundary in `server/README.md` and the root README.
+- Completed migration Tasks 01 and 02; Task 03, authenticated resumable sessions, is next.

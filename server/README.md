@@ -32,6 +32,8 @@ The migration server currently provides:
 - automatic empty-room disposal
 - protocol validation and ordering helpers in `src/multiplayer/protocol.js`
 
+The browser-side migration also has an inactive, tested Colyseus transport in `src/multiplayer/colyseusTransport.js`. React does not select it yet.
+
 It does not yet provide round progression or a frontend transport, so it is not a playable game. Do not point production at it until the migration tasks in `todo.md` reach cutover.
 
 ## Commands

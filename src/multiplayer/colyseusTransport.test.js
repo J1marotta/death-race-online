@@ -1,0 +1,99 @@
+import { describe, expect, it, vi } from 'vitest'
+import { ColyseusTransport, MAX_RECONNECT_ATTEMPTS } from './colyseusTransport.js'
+import { CLIENT_MESSAGE_TYPES, PROTOCOL_VERSION } from './protocol.js'
+
+const fakeRoom = (roomId = 'DRTEST') => {
+  const handlers = { messages: new Map() }
+  return {
+    roomId,
+    reconnectionToken: 'resume-token',
+    send: vi.fn(),
+    leave: vi.fn().mockResolvedValue(undefined),
+    onStateChange: vi.fn(callback => { handlers.state = callback }),
+    onMessage: vi.fn((type, callback) => handlers.messages.set(type, callback)),
+    onLeave: vi.fn(callback => { handlers.leave = callback }),
+    handlers,
+  }
+}
+
+describe('Colyseus client transport', () => {
+  it('creates and joins rooms through a stable adapter', async () => {
+    const created = fakeRoom()
+    const joined = fakeRoom()
+    const client = {
+      create: vi.fn().mockResolvedValue(created),
+      joinById: vi.fn().mockResolvedValue(joined),
+    }
+    const transport = new ColyseusTransport({ client })
+    await transport.create({ roomCode: 'DRTEST', playerName: 'James', privacy: 'private', roundCount: 7 })
+    expect(client.create).toHaveBeenCalledWith('death-race', expect.objectContaining({ roomCode: 'DRTEST' }))
+    await transport.join({ roomCode: 'DRTEST', playerName: 'Mia' })
+    expect(client.joinById).toHaveBeenCalledWith('DRTEST', { playerName: 'Mia' })
+  })
+
+  it('adds protocol, room, round, and monotonic sequence envelopes', async () => {
+    const room = fakeRoom()
+    const transport = new ColyseusTransport({ client: { create: vi.fn().mockResolvedValue(room) } })
+    await transport.create({ roomCode: 'DRTEST', playerName: 'James' })
+    room.handlers.state({ toJSON: () => ({ round: 3 }) })
+    transport.move('walking')
+    transport.shoot(25, 40)
+    expect(room.send.mock.calls[0][1]).toMatchObject({
+      protocolVersion: PROTOCOL_VERSION,
+      type: CLIENT_MESSAGE_TYPES.INPUT,
+      roomId: 'DRTEST',
+      roundId: 3,
+      sequence: 1,
+    })
+    expect(room.send.mock.calls[1][1]).toMatchObject({ type: CLIENT_MESSAGE_TYPES.SHOT, sequence: 2 })
+  })
+
+  it('forwards snapshots and private state without polling', async () => {
+    const room = fakeRoom()
+    const transport = new ColyseusTransport({ client: { create: vi.fn().mockResolvedValue(room) } })
+    const snapshots = []
+    const privateStates = []
+    transport.subscribe('snapshot', value => snapshots.push(value))
+    transport.subscribe('private-state', value => privateStates.push(value))
+    await transport.create({ roomCode: 'DRTEST', playerName: 'James' })
+    room.handlers.state({ toJSON: () => ({ phase: 'playing', round: 2 }) })
+    room.handlers.messages.get('private-state')({ laneId: 7 })
+    expect(snapshots).toEqual([{ phase: 'playing', round: 2 }])
+    expect(privateStates).toEqual([{ laneId: 7 }])
+  })
+
+  it('reconnects with capped exponential delays and jitter', async () => {
+    const original = fakeRoom()
+    const resumed = fakeRoom()
+    const reconnect = vi.fn()
+      .mockRejectedValueOnce(new Error('one'))
+      .mockRejectedValueOnce(new Error('two'))
+      .mockResolvedValue(resumed)
+    const delays = []
+    const transport = new ColyseusTransport({
+      client: { create: vi.fn().mockResolvedValue(original), reconnect },
+      random: () => 0.5,
+      schedule: (callback, delay) => { delays.push(delay); callback() },
+    })
+    await transport.create({ roomCode: 'DRTEST', playerName: 'James' })
+    original.handlers.leave(1006)
+    await vi.waitFor(() => expect(reconnect).toHaveBeenCalledTimes(3))
+    expect(delays).toEqual([500, 1000])
+  })
+
+  it('stops after the retry cap and reports disconnection', async () => {
+    const statuses = []
+    const errors = []
+    const transport = new ColyseusTransport({
+      client: { reconnect: vi.fn().mockRejectedValue(new Error('offline')) },
+      schedule: callback => callback(),
+      random: () => 0.5,
+    })
+    transport.subscribe('status', status => statuses.push(status))
+    transport.subscribe('error', error => errors.push(error))
+    await transport.reconnect('expired')
+    expect(statuses).toEqual(['reconnecting', 'disconnected'])
+    expect(errors.at(-1).code).toBe('reconnect-failed')
+    expect(transport.client.reconnect).toHaveBeenCalledTimes(MAX_RECONNECT_ATTEMPTS)
+  })
+})

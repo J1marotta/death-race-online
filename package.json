@@ -22,6 +22,7 @@
     "@colyseus/core": "^0.17.42",
     "@colyseus/schema": "^4.0.27",
     "@colyseus/ws-transport": "^0.17.13",
+    "colyseus.js": "^0.16.22",
     "express": "^5.2.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"

@@ -939,3 +939,13 @@ Last updated: 2026-07-14
 - Added resume tests for full snapshots, private-state isolation, live-phase restoration, token rotation, token expiry, guest replacement, host closure, and ordering rejection.
 - Assigned exponential retry and jitter to Task 09 because socket retry lifecycle belongs to the client transport adapter, not the room simulation.
 - Completed migration Task 08. Task 09, the Colyseus client transport and UI integration, is next.
+
+### task 90 : Add The Inactive Colyseus Client Transport Foundation
+
+- Added the official `colyseus.js` browser client with a zero-vulnerability dependency audit.
+- Added an isolated transport adapter for room creation, code-based joining, lobby commands, movement intent, shot intent, next round, leave, snapshots, private lane state, canonical events, errors, and connection status.
+- Centralized protocol envelopes so every command carries the current protocol version, room ID, round ID, and monotonically increasing sequence number.
+- Added capped exponential reconnect with jitter and rotating-token resume support, reporting reconnecting, connected, disconnected, and terminal retry errors through subscriptions.
+- Added dependency injection for sockets, timers, and randomness so transport behavior is deterministic in tests.
+- Added five adapter tests covering create/join, command ordering, push snapshots without polling, successful delayed resume, and retry-cap failure.
+- Kept the adapter unreferenced by React and production configuration. Task 09 remains open until the UI consumes authoritative state behind the migration flag and its integration tests pass.

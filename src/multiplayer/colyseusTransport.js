@@ -1,4 +1,4 @@
-import { Client } from 'colyseus.js'
+import { Client } from '@colyseus/sdk'
 import {
   CLIENT_MESSAGE_TYPES,
   PROTOCOL_VERSION,
@@ -76,10 +76,15 @@ export class ColyseusTransport {
       this.emit('snapshot', envelope.payload)
       this.emit('view', projectAuthoritativeState(envelope.payload, this.privateState))
     })
+    room.onMessage(SERVER_MESSAGE_TYPES.SESSION, payload => {
+      this.privateState = { ...this.privateState, playerId: payload.playerId }
+      this.emit('session', payload)
+      if (this.latestState) this.emit('view', projectAuthoritativeState(this.latestState, this.privateState))
+    })
     room.onMessage(SERVER_MESSAGE_TYPES.PRIVATE_STATE, payload => {
-      this.privateState = payload
-      this.emit('private-state', payload)
-      if (this.latestState) this.emit('view', projectAuthoritativeState(this.latestState, payload))
+      this.privateState = { ...this.privateState, ...payload }
+      this.emit('private-state', this.privateState)
+      if (this.latestState) this.emit('view', projectAuthoritativeState(this.latestState, this.privateState))
     })
     room.onMessage(SERVER_MESSAGE_TYPES.EVENT, envelope => this.emit('event', envelope))
     room.onMessage(SERVER_MESSAGE_TYPES.ERROR, envelope => this.emit('error', envelope))

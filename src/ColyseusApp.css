@@ -1,0 +1,38 @@
+.migration-shell { width: min(1200px, calc(100vw - 32px)); min-height: 100svh; margin: 0 auto; padding: 18px 0; }
+.migration-shell header p { margin: 0; color: var(--accent); font: 700 12px/1 var(--mono); text-transform: uppercase; }
+.migration-shell h1 { margin: 5px 0 0; color: var(--text-h); font-size: 34px; letter-spacing: 0; }
+.migration-connect { display: grid; gap: 14px; width: min(520px, 100%); margin-top: 32px; padding: 20px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
+.migration-tabs, .migration-options, .migration-actions, .migration-topbar, .migration-summary, .migration-controls { display: flex; gap: 10px; }
+.migration-tabs button { flex: 1; }
+.migration-tabs .active { border-color: var(--accent); color: var(--text-h); }
+.migration-connect label, .migration-actions label { display: grid; gap: 5px; flex: 1; font-size: 12px; }
+.migration-connect input, .migration-connect select, .migration-actions input { width: 100%; min-height: 42px; border: 1px solid var(--border); border-radius: 5px; padding: 0 10px; background: #101217; color: var(--text-h); font: inherit; }
+.migration-primary { border-color: var(--accent); background: var(--accent); color: white; font-weight: 800; }
+.migration-error { margin: 0; color: #ff8b85; }
+.migration-topbar { align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.migration-summary { align-items: center; }
+.migration-summary span { padding: 8px 10px; border: 1px solid var(--border); border-radius: 5px; }
+.migration-lobby { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, .7fr); gap: 16px; }
+.migration-actions { align-items: end; padding: 14px; border: 1px solid var(--border); background: var(--panel); }
+.migration-roster { max-height: 62svh; overflow: auto; border: 1px solid var(--border); }
+.migration-roster div, .migration-scoreboard div { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.migration-track { position: relative; height: min(72svh, 720px); overflow: hidden; border: 1px solid var(--border); border-radius: 6px; background: #252a31; cursor: crosshair; }
+.migration-lane { position: relative; height: 5%; border-bottom: 1px solid rgba(255,255,255,.08); }
+.migration-racer { position: absolute; z-index: 2; top: 13%; width: 22px; height: 74%; translate: -50% 0; background: #f7f0df; transition: left 80ms linear; }
+.migration-racer.shape-1 { clip-path: polygon(50% 0,100% 100%,0 100%); }
+.migration-racer.shape-2 { border-radius: 50%; }
+.migration-racer.shape-3 { clip-path: polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%); }
+.migration-racer.shape-4 { rotate: 45deg; scale: .72; }
+.migration-racer.eliminated { rotate: 90deg; opacity: .45; }
+.migration-finish { position: absolute; z-index: 1; inset: 0 6% 0 auto; width: 12px; background: repeating-conic-gradient(#fff 0 25%, #111 0 50%) 0/12px 12px; }
+.migration-crosshair { position: absolute; z-index: 3; top: 50%; translate: -50% -50%; color: #ff6158; font: 900 24px/1 var(--mono); pointer-events: none; }
+.migration-crosshair.spent { color: #999; opacity: .5; }
+.migration-countdown { position: absolute; z-index: 5; inset: 0; display: grid; place-items: center; background: rgba(16,18,23,.35); color: white; font-size: 42px; font-weight: 900; }
+.migration-controls { align-items: center; justify-content: center; margin-top: 8px; font-size: 12px; }
+.migration-controls span, .migration-controls strong { padding: 7px 9px; border: 1px solid var(--border); }
+.migration-controls kbd { color: var(--text-h); }
+.migration-results { width: min(680px, 100%); }
+.migration-scoreboard { margin: 14px 0; border: 1px solid var(--border); }
+.migration-scoreboard div { grid-template-columns: 1fr auto 44px; }
+.migration-scoreboard b { color: var(--text-h); text-align: right; }
+@media (max-width: 720px) { .migration-lobby { grid-template-columns: 1fr; } .migration-actions, .migration-topbar, .migration-controls { flex-wrap: wrap; } .migration-track { height: 68svh; } }

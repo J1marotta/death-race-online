@@ -103,6 +103,7 @@ export class DeathRaceRoom extends Room {
     if (isHost) {
       this.state.hostPlayerId = playerId
     }
+    client.send?.(SERVER_MESSAGE_TYPES.SESSION, { playerId })
   }
 
   authorizedPlayer(client) {

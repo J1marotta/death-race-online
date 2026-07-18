@@ -969,3 +969,14 @@ Last updated: 2026-07-14
 - Made the transport publish projected views from push snapshots and private-state updates without polling.
 - Added tests for anonymous projection, local private-state merge, correction convergence, snap recovery, and bounded prediction.
 - Task 09 remains in progress; the next substep is the feature-flagged React integration and rendering tests.
+
+### task 93 : Add And Live-Test The Flagged Colyseus React Client
+
+- Added a real `VITE_NETWORK_BACKEND=colyseus` React surface while keeping the existing Cloudflare `App` as the default build and rollback path.
+- Implemented create/join with loading and errors, editable display name, ready state, host start gating, player roster, authoritative countdown/racers/shots, keyboard movement intent, mouse aim/fire, one-bullet display, winner scoreboard, and host next-round flow.
+- Kept the lobby compact and removed lobby chrome during countdown/play. At a real 1280x720 browser viewport, all 20 racers, track, finish, and controls fit with `scrollHeight === innerHeight` and no page scrolling.
+- Replaced the mismatched legacy Colyseus 0.16 browser package with the official `@colyseus/sdk` 0.17 client matching the server. This fixed the first real handshake failure found by browser testing.
+- Added a private session identity message on join so the client can recognize host/self in the lobby without revealing its secret lane before countdown. Session identity and later lane assignment merge safely in either arrival order.
+- Completed a real local create -> ready -> start -> Go -> 20 server-driven racers -> shoot -> bullet-spent browser flow against the running Colyseus server.
+- Added React integration tests for create, lobby readiness, host gating, 20 authoritative racers, intent-only movement, result rendering, and next round.
+- Task 09 remains in progress until a two-client automated run verifies join, synchronized play, and room cleanup without HTTP polling.

@@ -989,3 +989,12 @@ Last updated: 2026-07-14
 - Added a regression proving two progress snapshots publish one metadata update, plus bounded cleanup so host room closure cannot hang the suite.
 - Confirmed the Colyseus React path performs no HTTP polling and the Cloudflare app remains available behind the default build selection.
 - Completed migration Task 09. Task 10, production Fly.io packaging and deployment, is next.
+
+### task 95 : Package Colyseus For Fly.io
+
+- Added a production Node 22 Alpine image that installs production dependencies only, copies only the server and shared protocol, drops to the unprivileged `node` user, and handles Fly's SIGTERM through the existing graceful shutdown path.
+- Added a Sydney Fly configuration with HTTPS/WebSocket proxying, `/health` checks, one `shared-cpu-1x` Machine, 256 MB RAM, no volume, and connection-based scale-to-zero.
+- Chose cold starts to minimize idle cost while active WebSocket connections keep a live machine busy.
+- Documented that Fly has no free tier and currently offers no billing alerts, plus the exact cost boundaries, deployment commands, frontend preview variables, and Cloudflare rollback procedure.
+- Added deployment configuration regression tests for production-only dependencies, non-root execution, health checks, region, memory, and scale-to-zero.
+- Docker Desktop is installed but its daemon was not running, so local image construction could not be verified. Both Fly's official Windows installer and Winget download stalled; Task 10 remains open until `flyctl` installation, account authentication, remote build, and health checks succeed.

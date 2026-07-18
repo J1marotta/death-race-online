@@ -638,11 +638,11 @@
   <p>Think of the game as three connected places:</p>
   <ol>
     <li><strong>The arcade cabinet:</strong> the React app in the browser.</li>
-    <li><strong>The race office:</strong> the Cloudflare Worker API.</li>
-    <li><strong>The official clipboard:</strong> one Durable Object per room code.</li>
+    <li><strong>The phone line:</strong> one authenticated Colyseus WebSocket.</li>
+    <li><strong>The race office:</strong> one authoritative <code class="inline">DeathRaceRoom</code> on Fly.io.</li>
   </ol>
-  <p>The browser draws the track, handles keyboard and mouse input, and shows the lobby. The Worker receives room actions like "create", "join", "ready", "start", "shot", and "next round". The Durable Object is the single source of truth for one lobby. If room <code class="inline">DRABCD</code> exists, that room has exactly one official room object coordinating it.</p>
-  <p>That matters because multiplayer games get weird when every browser invents its own truth. If one player thinks Mia is ready, another thinks she is not, and the host thinks the room started already, the game stops feeling like a game and starts feeling like a broken group chat. The Durable Object is the referee holding the clipboard.</p>
+  <p>The browser draws the track, handles keyboard and mouse intent, and plays local feedback. The Colyseus room owns identities, secret lanes, movement, NPCs, shots, scores, rounds, and cleanup. Browsers ask to walk or shoot; they never announce where they are or whether they hit.</p>
+  <p>That matters because multiplayer games get weird when every browser invents its own truth. If one player thinks Mia is ready, another thinks she is not, and the host thinks the room started already, the game stops feeling like a game and starts feeling like a broken group chat. The server room is the referee holding the clipboard.</p>
 </section>
 
 <section id="what-we-built">
@@ -653,7 +653,7 @@
     <li>Join from another browser with a username and see the real connected roster.</li>
     <li>Ready up; the game starts only when everyone is ready, and only the host can start it.</li>
     <li>Enter the same countdown and playing state on every client.</li>
-    <li>Send live movement snapshots at 20Hz and shoot once per round.</li>
+    <li>Send movement intent while the server advances the race at 20Hz and permits one shot per round.</li>
     <li>Earn 3 points for winning a round and 1 point for killing another human player.</li>
     <li>Share shot, kill, winner, scoreboard, and next-round state.</li>
     <li>See a closed-room state if the host leaves or the room expires.</li>
@@ -669,20 +669,20 @@
       <div class="arch-detail">The static build output of <code class="inline">npm run build</code>. It serves HTML, JS, and CSS — no game logic runs here. The build is cheap to deploy and cache globally, which is why the frontend and backend deploy separately.</div>
     </div>
     <div class="arch-arrow">↓</div>
-    <div class="arch-box"><strong>src/multiplayer/api.js</strong><small>wraps room API calls and WebSocket URLs</small>
-      <div class="arch-detail">The frontend's phone line. Every room action (create, join, ready, shot…) is one small function that POSTs an <code class="inline">action</code> payload. It also decides which backend to talk to: <code class="inline">/api/rooms</code> on localhost, the deployed Worker URL in production.</div>
+    <div class="arch-box"><strong>ColyseusTransport</strong><small>authenticates, orders commands, and reconnects</small>
+      <div class="arch-detail">The frontend's phone line. It sends versioned room, round, and sequence envelopes; merges public snapshots with connection-private state; and resumes an interrupted player through a rotating token.</div>
     </div>
     <div class="arch-arrow">↓</div>
-    <div class="arch-box"><strong>Cloudflare Worker: workers/rooms.js</strong><small>routes requests to the right room</small>
-      <div class="arch-detail">A thin router. Its whole job is <code class="inline">env.ROOM_LOBBY.idFromName(roomCode)</code> — mapping a human room code to exactly one Durable Object, then forwarding the request. Same code, same object, every time.</div>
+    <div class="arch-box"><strong>Fly.io + Colyseus</strong><small>hosts ordinary long-lived game rooms</small>
+      <div class="arch-detail">One small scale-to-zero Node process accepts WebSockets and creates isolated rooms. Colyseus supplies session identity, room lifecycle, state patches, and reconnect plumbing.</div>
     </div>
     <div class="arch-arrow">↓</div>
-    <div class="arch-box"><strong>Durable Object: RoomLobbyObject</strong><small>the referee holding the clipboard</small>
-      <div class="arch-detail">Keeps the live room in memory, persists durable changes to storage, validates host-only actions, batches input broadcasts on a 50ms ticker, adjudicates human finish-line wins, resolves kill attribution from live lane claims, and cleans up abandoned rooms with alarms.</div>
+    <div class="arch-box"><strong>DeathRaceRoom</strong><small>the authoritative referee</small>
+      <div class="arch-detail">Runs the fixed 20Hz simulation, keeps lane ownership secret, advances independent NPC timers, validates shots and finish crossings, awards points, closes abandoned rooms, and publishes only state each connection may know.</div>
     </div>
     <div class="arch-arrow">↓</div>
     <div class="arch-box"><strong>All connected browsers</strong><small>receive room snapshots</small>
-      <div class="arch-detail">Every client receives the same room snapshots over WebSocket (or HTTP polling as fallback) and renders the same lobby and game phase. Browsers are allowed to be lively and visual — but the room state lives on the server.</div>
+      <div class="arch-detail">Every client receives the same public snapshots over WebSocket plus its own private lane and stamina state. Browsers are allowed to be lively and visual, but the match lives on the server.</div>
     </div>
   </div>
   <p>The clean idea: <strong>the browser is allowed to be lively and visual, but the room state lives on the server.</strong></p>
@@ -692,16 +692,16 @@
   <h2>The Codebase Tour</h2>
   <p>The repo is small enough to understand without a map, but the map helps.</p>
   <div class="file-grid">
-    <div class="file-card"><code>src/App.jsx</code><p>The main game surface: menu → lobby → countdown → playing → round over → scoreboard → game over. Local input, aiming, shooting, juice effects, room sync, and the 20-lane playfield.</p></div>
-    <div class="file-card"><code>src/App.css</code><p>The visual world: the 1200px laptop layout, the cute pixel-animal racers (8 species built from CSS pseudo-elements, 5 pastel fur palettes), crosshairs, bodies, KO markers, screen shake, the kill feed, and the checkered finish line.</p></div>
-    <div class="file-card"><code>src/multiplayer/api.js</code><p>The frontend's phone line to the room backend, including the localhost/production API base decision.</p></div>
-    <div class="file-card"><code>src/multiplayer/roomState.js</code><p>Pure room-state rules shared by the app and the Worker: joins, readiness, shots, kill scoring, round transitions, destruction decisions. One set of rules, two consumers.</p></div>
-    <div class="file-card"><code>workers/rooms.js</code><p>The Worker and Durable Object room coordinator: HTTP actions, CORS, WebSockets, storage, broadcasts, host validation, heartbeats, cleanup alarms.</p></div>
-    <div class="file-card"><code>src/npcBehavior.js</code><p>Seeded NPC pacing personalities so the crowd you hide in moves like players do.</p></div>
-    <div class="file-card"><code>*.test.js(x)</code><p>UI regression tests, API wrapper tests, pure state-rule tests, and Worker behavior tests. Every scary bug became one.</p></div>
+    <div class="file-card"><code>src/ColyseusApp.jsx</code><p>The active menu, lobby, race, results, controls, private feedback, and 20-lane pixel-animal playfield.</p></div>
+    <div class="file-card"><code>src/multiplayer/colyseusTransport.js</code><p>The authenticated connection, ordered command envelope, reconnect loop, and public/private state projection.</p></div>
+    <div class="file-card"><code>server/DeathRaceRoom.js</code><p>The authoritative room lifecycle: players, host rules, rounds, shots, winners, privacy, reconnect, and disposal.</p></div>
+    <div class="file-card"><code>server/simulation.js</code><p>Fixed-rate movement, stamina, secret lane assignment, and finish adjudication.</p></div>
+    <div class="file-card"><code>server/npcSimulation.js</code><p>Independent seeded NPC move and idle deadlines, with no shared pack timer.</p></div>
+    <div class="file-card"><code>server/remoteSmoke.js</code><p>A complete hosted three-round match, including reconnect, a scored shot, final scoring, and disposal.</p></div>
+    <div class="file-card"><code>*.test.js(x)</code><p>Protocol, server, hostile-network, UI, audio, privacy, and lifecycle regressions. Every scary bug became one.</p></div>
     <div class="file-card"><code>spec.md / progress.md / todo.md / WHY.md</code><p>Design truth, build log, remaining work, and this story — kept separate so stale plans can't masquerade as current truth.</p></div>
   </div>
-  <div class="note">Why <code class="inline">roomState.js</code> matters most: when both the client tests and the Worker use the same room helper logic, the game has fewer places to lie to itself. The rules cannot drift into two slightly different versions.</div>
+  <div class="note">Why <code class="inline">DeathRaceRoom</code> matters most: every consequential game fact is accepted or derived in one server-owned room, while focused simulation modules keep those rules testable without a socket.</div>
 </section>
 
 <section id="lobby-flow">
@@ -823,7 +823,8 @@ if (Number.isFinite(displayed) && Math.abs(target - displayed) &lt;= REMOTE_SNAP
 </section>
 
 <section id="durable-object">
-  <h2>The Durable Object Idea</h2>
+  <h2>Migration History: The Durable Object Idea</h2>
+  <p class="note">This chapter records the first realtime architecture and the lessons it taught us. It is no longer the production path; the current architecture is the Colyseus diagram above.</p>
   <p>A normal serverless function is like a front desk worker who forgets every conversation after answering it. That is fine for simple requests, but awkward for a live game room.</p>
   <p>A Durable Object is different. It is more like assigning one room manager to one room code. Every request for <code class="inline">DR1JLQ</code> goes to the same coordinator. That coordinator can keep room state, schedule cleanup, and broadcast changes to connected sockets.</p>
   <details class="code-panel" open>
@@ -1548,9 +1549,14 @@ crosshairIdByPlayerId.set(playerId, crosshairId)</code></pre>
   <div class="lesson">A rollback is an executable path, not a feeling. Name the artifact, verify it independently, switch the smallest routing surface, and delete the old implementation only after production proof.</div>
 
   <h3>Deployment Is Part Of The Test Surface</h3>
-  <p>The current migration path is live behind a stable preview alias while the existing Cloudflare-backed game remains untouched. A 1280×720 browser acceptance pass proved all 20 racers fit with no document scrolling, the sound control remains outside the track, and the public page talks to the Fly WebSocket endpoint. The immutable deployment URL gives each step a precise artifact; the alias gives playtesters one address to remember.</p>
+  <p>The Colyseus path first lived behind a stable preview alias while the existing Cloudflare-backed game remained untouched. A 1280×720 browser acceptance pass proved all 20 racers fit with no document scrolling, the sound control remained outside the track, and the public page talked to the Fly WebSocket endpoint. After the hosted three-round proof passed, production switched to Colyseus; the old frontend remains only as an immutable deployment artifact.</p>
   <div class="lesson">A feature is not deployed because the build command succeeded. Exercise the hosted frontend against the hosted server and inspect the actual laptop viewport.</div>
   <p>The guide itself supplied a smaller version of the same lesson. The repo once had a tested 113 KB root guide and a stale 50 KB public copy, so green tests and successful deployment still served old teaching material. The fix was one canonical lowercase <code class="inline">why.html</code> Vite entry plus a regression that forbids the duplicate. The guide now uses <code class="inline">Cache-Control: no-cache</code>, while hashed game assets remain immutable.</p>
+
+  <h3>Delete The Retired Path After Production Proof</h3>
+  <p>Once the default Pages hostname served Colyseus and the public three-round match passed again, the old <code class="inline">App</code>, Worker, Durable Object binding, polling API, client-owned room rules, and their tests stopped being rollback code. The actual rollback was the immutable deployed artifact; keeping dead source would leave two contradictory answers to ordinary questions such as “where is a hit decided?”</p>
+  <p>Shared-looking helpers were checked by import ownership before deletion. The active server already had its own authoritative NPC simulation and secret assignment logic, so the old browser NPC timers and derived lane assignment could go. Cloudflare Pages configuration stayed because static hosting is still part of production.</p>
+  <div class="lesson">Rollback artifacts and duplicate source are different things. Preserve the known-good deploy, then remove unreachable implementations so future tests, docs, and engineers have one current truth.</div>
 </section>
 
 <section id="next-juice">

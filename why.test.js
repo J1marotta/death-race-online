@@ -131,5 +131,6 @@ describe('WHY.html interactive page', () => {
     expect(diary.textContent).toContain('Test The Match, Not Just The Messages')
     expect(diary.textContent).toContain('Fast Feedback Can Still Respect Authority')
     expect(diary.textContent).toContain('A Cutover Needs A Named Way Back')
+    expect(diary.textContent).toContain('Delete The Retired Path After Production Proof')
   })
 })

@@ -38,4 +38,4 @@ Production must not select this build until the remote health check and two-brow
 
 ## Rollback
 
-Cloudflare Pages and the Durable Object Worker remain deployable with `npm run deploy:cloudflare` and `npm run deploy:rooms`. Immutable Pages deployment URLs remain available even after the main domain is switched.
+Cloudflare Pages remains deployable with `npm run deploy:cloudflare`. The retired Durable Object Worker is not part of the active source or deployment path; immutable pre-cutover Pages artifacts remain available for historical rollback inspection.

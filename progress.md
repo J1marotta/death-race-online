@@ -1138,3 +1138,13 @@ Last updated: 2026-07-14
 - Recorded `https://40288567.death-race-online.pages.dev` as the immutable pre-cutover rollback build.
 - Kept the old React, Worker, Durable Object, and fallback code in the repository for this cutover commit; removal follows only after the new default production URL passes live acceptance.
 - Added the rollback-boundary lesson to `why.html` in the same commit.
+
+### task 111 : Remove The Retired Cloudflare Realtime Path
+
+- Removed the old React game surface, polling API, client-owned room state, input cadence, browser NPC/lane helpers, Durable Object Worker, Worker tests, and Worker binding configuration after production proof passed.
+- Removed obsolete Worker development and deployment scripts while retaining Cloudflare Pages as the static frontend host.
+- Kept the pre-cutover immutable Pages artifact as the executable historical rollback instead of preserving two contradictory source implementations.
+- Moved the small appearance hash into the active client after confirming the retired NPC helper had no authoritative server ownership.
+- Rewrote `WHY.md` around the current Colyseus/Fly architecture and changed the interactive guide's first-screen architecture, code tour, and deployment status to current truth.
+- Preserved the Durable Object material in `why.html` as explicitly labeled migration history.
+- Added the rollback-artifact-versus-dead-source lesson to `why.html` in the same commit.

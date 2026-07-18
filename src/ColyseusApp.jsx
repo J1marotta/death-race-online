@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ColyseusTransport } from './multiplayer/colyseusTransport.js'
 import { createLobbyCode } from './multiplayer/lobbyCode.js'
 import { useGameAudio } from './multiplayer/useGameAudio.js'
-import { hashString } from './npcBehavior.js'
 import './ColyseusApp.css'
 
 const emptyView = {
@@ -15,6 +14,15 @@ const emptyView = {
 const SPECIES = ['Cat', 'Bunny', 'Bear', 'Fox', 'Frog', 'Pig', 'Chick', 'Mouse']
 const PALETTES = ['peach', 'sky', 'mint', 'honey', 'berry']
 const CLIENT_IDLE_TIMEOUT_MS = 20 * 60 * 1000
+
+const hashString = value => {
+  let hash = 2166136261
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash >>> 0
+}
 
 function racerAppearance(roomCode, round, laneId) {
   const seed = hashString(`${roomCode}:${round}:appearance`)

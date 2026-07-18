@@ -9,15 +9,13 @@
     "test": "vitest run --environment jsdom",
     "lint": "oxlint",
     "preview": "vite preview",
-    "dev:migration": "node server/dev.js",
+    "dev:game": "node server/dev.js",
     "dev:colyseus": "node --watch server/index.js",
     "start:colyseus": "node server/index.js",
     "test:colyseus": "vitest run --environment node server src/multiplayer/protocol.test.js",
     "smoke:fly": "node server/remoteSmoke.js",
     "preview:cloudflare": "npm run build && wrangler pages dev dist",
-    "deploy:cloudflare": "npm run build && wrangler pages deploy dist",
-    "dev:rooms": "wrangler dev workers/rooms.js",
-    "deploy:rooms": "wrangler deploy --config wrangler.worker.jsonc"
+    "deploy:cloudflare": "npm run build && wrangler pages deploy dist"
   },
   "dependencies": {
     "@colyseus/core": "^0.17.42",

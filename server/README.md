@@ -34,12 +34,12 @@ The migration server currently provides:
 
 The browser transport lives in `src/multiplayer/colyseusTransport.js` and the active surface in `src/ColyseusApp.jsx`. A real two-client SDK harness covers reconnect, shooting, three complete rounds, final scoring, and room disposal against Fly.io.
 
-It does not yet provide round progression or a frontend transport, so it is not a playable game. Do not point production at it until the migration tasks in `todo.md` reach cutover.
+This is the live production game server. The browser transport, complete round progression, hosted acceptance harness, and disposal behavior are all active.
 
 ## Commands
 
 ```text
-npm run dev:migration   # Current Vite frontend plus the inactive Colyseus server
+npm run dev:game        # Vite frontend plus the local Colyseus server
 npm run dev:colyseus    # Colyseus server only, with file watching
 npm run start:colyseus  # Colyseus server only
 npm run test:colyseus   # Protocol and migration-server tests
@@ -47,9 +47,9 @@ npm run test:colyseus   # Protocol and migration-server tests
 
 The local server listens on port `2567` by default and exposes `GET /health`.
 
-## Safety Boundary
+## Proven Cutover Boundary
 
-The old Cloudflare path may be removed only after all of these are true:
+The old Cloudflare path was removed only after all of these became true:
 
 - movement, stamina, shooting, NPCs, scoring, and winners are server authoritative
 - reconnect and message ordering tests pass

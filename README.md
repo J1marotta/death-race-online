@@ -9,7 +9,7 @@ The playable frontend is hosted on Cloudflare Pages and connects directly to the
 Run the local frontend and Colyseus server together:
 
 ```powershell
-npm run dev:migration
+npm run dev:game
 ```
 
 Run server and protocol tests with `npm run test:colyseus`, and the complete hosted three-round match proof with `npm run smoke:fly`. See `server/README.md` for the authority and deployment boundaries.
@@ -63,7 +63,7 @@ $env:VITE_COLYSEUS_URL='wss://another-game-server.example'
 npm run build
 ```
 
-The pre-cutover Cloudflare-realtime build remains available for rollback at `https://40288567.death-race-online.pages.dev` until the obsolete Worker code is removed from the repository.
+The pre-cutover Cloudflare-realtime build remains available as an immutable historical rollback artifact at `https://40288567.death-race-online.pages.dev`; its obsolete source is no longer part of the active repository.
 
 ## Project Docs
 

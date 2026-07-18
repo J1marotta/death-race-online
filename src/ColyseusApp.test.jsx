@@ -27,8 +27,26 @@ const lobby = {
   racers: [], shots: [], winner: null,
 }
 
+function installAudioContextMock(oscillators) {
+  const parameter = () => ({ setValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() })
+  vi.stubGlobal('AudioContext', vi.fn(function AudioContextMock() {
+    return {
+      currentTime: 0,
+      destination: {},
+      resume: vi.fn().mockResolvedValue(undefined),
+      close: vi.fn().mockResolvedValue(undefined),
+      createGain: () => ({ gain: parameter(), connect: vi.fn() }),
+      createOscillator: () => {
+        const oscillator = { frequency: parameter(), connect: vi.fn(), start: vi.fn(), stop: vi.fn() }
+        oscillators.push(oscillator)
+        return oscillator
+      },
+    }
+  }))
+}
+
 describe('feature-flagged Colyseus React client', () => {
-  afterEach(cleanup)
+  afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 
   it('generates an easy-to-share lobby code for hosts', () => {
     expect(createLobbyCode(() => 0)).toBe('AAAAAA')
@@ -80,6 +98,9 @@ describe('feature-flagged Colyseus React client', () => {
     fireEvent.keyUp(window, { code: 'ArrowRight' })
     expect(transport.move.mock.calls).toEqual([['walking'], ['stopped']])
     expect(transport.move.mock.calls.flat()).not.toContain(expect.objectContaining({ progress: expect.anything() }))
+    expect(screen.getByRole('button', { name: 'Mute sound' }).closest('.migration-track')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Mute sound' }))
+    expect(screen.getByRole('button', { name: 'Unmute sound' })).toBeTruthy()
   })
 
   it('shows authoritative results and lets only the host advance', () => {
@@ -89,6 +110,22 @@ describe('feature-flagged Colyseus React client', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next round' }))
     expect(transport.nextRound).toHaveBeenCalledOnce()
     expect(screen.getByText('James wins')).toBeTruthy()
+  })
+
+  it('restarts gameplay music on later rounds and keeps mute outside the track', () => {
+    const oscillators = []
+    installAudioContextMock(oscillators)
+    const transport = new FakeTransport()
+    render(<ColyseusApp transport={transport} />)
+    const playing = { ...lobby, phase: 'playing', racers: [], players: [{ ...lobby.players[0], ready: true }] }
+
+    act(() => transport.emit('view', playing))
+    expect(oscillators).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Mute sound' }).closest('.migration-track')).toBeNull()
+    act(() => transport.emit('view', { ...playing, phase: 'roundOver' }))
+    expect(oscillators.slice(0, 2).every(oscillator => oscillator.stop.mock.calls.length === 1)).toBe(true)
+    act(() => transport.emit('view', { ...playing, round: 2 }))
+    expect(oscillators).toHaveLength(4)
   })
 
   it('keeps a late-joining spectator from sending gameplay input', () => {

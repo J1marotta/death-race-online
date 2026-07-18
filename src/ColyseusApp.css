@@ -12,6 +12,7 @@
 .migration-topbar { align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .migration-summary { align-items: center; }
 .migration-summary span { padding: 8px 10px; border: 1px solid var(--border); border-radius: 5px; }
+.migration-sound { min-width: 92px; }
 .migration-lobby { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, .7fr); gap: 16px; }
 .migration-actions { align-items: end; padding: 14px; border: 1px solid var(--border); background: var(--panel); }
 .migration-roster { max-height: 62svh; overflow: auto; border: 1px solid var(--border); }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ColyseusTransport } from './multiplayer/colyseusTransport.js'
 import { createLobbyCode } from './multiplayer/lobbyCode.js'
+import { useGameAudio } from './multiplayer/useGameAudio.js'
 import './ColyseusApp.css'
 
 const emptyView = {
@@ -18,7 +19,7 @@ function Countdown({ endsAt }) {
   return <div className='migration-countdown'>{remaining}</div>
 }
 
-function AuthoritativeRace({ transport, initialView }) {
+function AuthoritativeRace({ transport, initialView, playShot }) {
   const [raceView, setRaceView] = useState(initialView)
   const [aim, setAim] = useState({ laneId: 1, x: 0 })
   const playfieldRef = useRef(null)
@@ -49,6 +50,7 @@ function AuthoritativeRace({ transport, initialView }) {
     if (!localPlayer?.hasBullet || localPlayer.role === 'spectator') return
     const nextAim = pointFromEvent(event)
     setAim(nextAim)
+    playShot()
     transport.shoot(nextAim.x, ((nextAim.laneId - 0.5) / 20) * 100)
   }
   return <>
@@ -74,6 +76,7 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
   const [roundCount, setRoundCount] = useState(5)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const { muted, toggleMuted, playShot } = useGameAudio(view.phase)
 
   useEffect(() => {
     const offView = transport.subscribe('meta', setView)
@@ -130,6 +133,7 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
     <header className='migration-topbar'>
       <div><p>Death Race</p><h1>{playing ? `Round ${view.round}` : `Lobby ${view.roomCode}`}</h1></div>
       <div className='migration-summary'><span>{view.players.length} real players</span><span>Round {view.round} of {view.roundCount}</span></div>
+      <button className='migration-sound' type='button' onClick={toggleMuted} aria-label={muted ? 'Unmute sound' : 'Mute sound'}>{muted ? 'Sound off' : 'Sound on'}</button>
     </header>
     {!playing && view.phase === 'lobby' && <section className='migration-lobby'>
       <div className='migration-actions'>
@@ -139,7 +143,7 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
       </div>
       <div className='migration-roster'>{view.players.map(player => <div key={player.id}><strong>{player.name}</strong><span>{player.role === 'host' ? 'Host' : player.ready ? 'Ready' : 'Waiting'}</span></div>)}</div>
     </section>}
-    {playing && <AuthoritativeRace transport={transport} initialView={{ ...view, racers: [] }} />}
+    {playing && <AuthoritativeRace transport={transport} initialView={{ ...view, racers: [] }} playShot={playShot} />}
     {(view.phase === 'roundOver' || view.phase === 'gameOver') && <section className='migration-results'>
       <h2>{view.winner?.type === 'npc' ? `${view.winner.name} won` : `${view.winner?.name ?? 'Racer'} wins`}</h2>
       <div className='migration-scoreboard'>{[...view.players].sort((a, b) => b.score - a.score).map(player => <div key={player.id}><strong>{player.name}</strong><span>{player.kills} kills</span><b>{player.score}</b></div>)}</div>

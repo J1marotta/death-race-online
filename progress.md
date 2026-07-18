@@ -1042,3 +1042,11 @@ Last updated: 2026-07-14
 - Extended the public WebSocket smoke test to force an unexpected client disconnect, resume through the rotating reconnect token, and verify the same authenticated player returns connected.
 - Added a deterministic adverse-network regression with latency, jitter, duplication, reordering, and packet loss. The server accepts each monotonically newer command at most once and never trusts client timing or progress.
 - Task 11 remains open until this expanded suite passes against Fly and the flagged browser build completes its final laptop acceptance pass.
+
+### task 101 : Restore Persistent Gameplay Audio In The Colyseus Client
+
+- Added a client-only Web Audio engine to the flagged migration UI, keeping all music and shot feedback off the network and Fly bill.
+- Added low-volume gameplay music that starts from authoritative `playing` state, stops between rounds, and creates a fresh graph when a later round begins.
+- Added immediate local shot audio and a clear Sound on/Sound off control in the top bar outside the game area.
+- Reused one browser audio context, resumed it from real keyboard or pointer gestures, and cleaned up every oscillator and the context when the app unmounts.
+- Added a regression for the previous failure mode: music must stop after a round and restart in the next one, while mute remains visible outside the track.

@@ -35,11 +35,23 @@ function racerAppearance(roomCode, round, laneId) {
   }
 }
 
-function PixelRacer({ racer, roomCode, round, isLocal, localExhausted }) {
+function useReducedMotion() {
+  const [reduced, setReduced] = useState(() => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false)
+  useEffect(() => {
+    const media = window.matchMedia?.('(prefers-reduced-motion: reduce)')
+    if (!media) return undefined
+    const update = () => setReduced(media.matches)
+    media.addEventListener?.('change', update)
+    return () => media.removeEventListener?.('change', update)
+  }, [])
+  return reduced
+}
+
+function PixelRacer({ racer, roomCode, round, isLocal, localExhausted, anticipating, launching, winner, showReveal = true }) {
   const appearance = racerAppearance(roomCode, round, racer.laneId)
   const movementClass = racer.eliminated ? '' : racer.movementMode
   return <div
-    className={`migration-racer archetype-${appearance.palette} ${appearance.shapeClass} ${movementClass} ${racer.eliminated ? 'eliminated' : ''} ${isLocal && localExhausted ? 'winded' : ''}`}
+    className={`migration-racer archetype-${appearance.palette} ${appearance.shapeClass} ${movementClass} ${racer.eliminated ? 'eliminated' : ''} ${isLocal && localExhausted ? 'winded' : ''} ${anticipating ? 'anticipating' : ''} ${launching ? 'launching' : ''} ${winner ? 'winner' : ''}`}
     data-testid={`migration-racer-${racer.laneId}`}
     style={{ left: `${racer.progress}%` }}
     title={`${appearance.species} · ${appearance.palette}`}
@@ -49,30 +61,45 @@ function PixelRacer({ racer, roomCode, round, isLocal, localExhausted }) {
     <span className='racer-shadow' />
     <span className='racer-dust' aria-hidden='true' />
     <span className='racer-sweat' aria-hidden='true' />
-    {racer.revealedName && <strong className='migration-reveal-name'>{racer.revealedName}</strong>}
+    {showReveal && racer.revealedName && <strong className='migration-reveal-name'>{racer.revealedName}</strong>}
   </div>
 }
 
-function Countdown({ endsAt }) {
+function Countdown({ endsAt, onBeat }) {
   const [now, setNow] = useState(Date.now())
+  const lastBeat = useRef(null)
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 100)
     return () => window.clearInterval(timer)
   }, [])
-  if (Number.isFinite(endsAt) && now >= endsAt + 450) return null
   const remaining = Number.isFinite(endsAt) ? Math.ceil((endsAt - now) / 1000) : 3
-  return <div className='migration-countdown'>{remaining > 0 ? remaining : 'Go!'}</div>
+  const beat = remaining > 0 ? Math.min(3, remaining) : 0
+  const expired = Number.isFinite(endsAt) && now >= endsAt + 450
+  useEffect(() => {
+    if (expired) return
+    if (lastBeat.current === beat) return
+    lastBeat.current = beat
+    onBeat?.(beat)
+  }, [beat, expired, onBeat])
+  if (expired) return null
+  return <div className={`migration-countdown beat-${beat}`}>{beat > 0 ? beat : 'Go!'}</div>
 }
 
-function AuthoritativeRace({ transport, initialView, playShot, interactive = true }) {
+function AuthoritativeRace({ transport, initialView, audio, interactive = true }) {
   const [raceView, setRaceView] = useState(initialView)
   const [aim, setAim] = useState({ laneId: 1, x: 0 })
   const [pressedKeys, setPressedKeys] = useState({ walking: false, running: false })
   const [screenEffect, setScreenEffect] = useState(null)
+  const [localShotEffect, setLocalShotEffect] = useState(null)
+  const [serverShotEffect, setServerShotEffect] = useState(null)
+  const [revealCount, setRevealCount] = useState(interactive ? 20 : 0)
+  const reducedMotion = useReducedMotion()
   const playfieldRef = useRef(null)
   const lastAimSentAt = useRef(0)
   const heldKeysRef = useRef(new Set())
   const lastMovementRef = useRef('stopped')
+  const localShotSequence = useRef(0)
+  const processedEvents = useRef(new Set())
   useEffect(() => transport.subscribe('view', setRaceView), [transport])
   const localPlayer = raceView.players.find(player => player.id === raceView.localPlayerId)
   useEffect(() => {
@@ -80,7 +107,15 @@ function AuthoritativeRace({ transport, initialView, playShot, interactive = tru
     let clearEffect
     const unsubscribe = transport.subscribe('event', envelope => {
       const shot = envelope?.payload
-      if (!shot?.hit) return
+      if (!shot?.eventId || processedEvents.current.has(shot.eventId)) return
+      processedEvents.current.add(shot.eventId)
+      if (!shot.hit && shot.shooterName === localPlayer?.name) {
+        audio.playNearMiss()
+        setServerShotEffect({ kind: 'miss', eventId: shot.eventId, x: shot.impactX, laneId: shot.laneId })
+        clearEffect = window.setTimeout(() => setServerShotEffect(null), 320)
+        return
+      }
+      if (!shot.hit) return
       const kind = shot.laneId === raceView.localLaneId
         ? 'victim'
         : shot.shooterName === localPlayer?.name
@@ -89,13 +124,49 @@ function AuthoritativeRace({ transport, initialView, playShot, interactive = tru
       if (!kind) return
       window.clearTimeout(clearEffect)
       setScreenEffect({ kind, eventId: shot.eventId })
-      clearEffect = window.setTimeout(() => setScreenEffect(null), kind === 'victim' ? 520 : 260)
+      setServerShotEffect({ kind: 'hit', eventId: shot.eventId, x: shot.impactX, laneId: shot.laneId })
+      clearEffect = window.setTimeout(() => {
+        setScreenEffect(null)
+        setServerShotEffect(null)
+      }, kind === 'victim' ? 520 : 320)
     })
     return () => {
       window.clearTimeout(clearEffect)
       unsubscribe()
     }
-  }, [interactive, localPlayer?.name, raceView.localLaneId, transport])
+  }, [audio, interactive, localPlayer?.name, raceView.localLaneId, transport])
+  useEffect(() => {
+    if (interactive || !raceView.winner?.eventId) return undefined
+    const revealed = raceView.racers.filter(racer => racer.revealedName)
+    if (reducedMotion) {
+      setRevealCount(revealed.length)
+      return undefined
+    }
+    setRevealCount(0)
+    const timer = window.setInterval(() => {
+      setRevealCount(count => {
+        if (count >= revealed.length) {
+          window.clearInterval(timer)
+          return count
+        }
+        return count + 1
+      })
+    }, 130)
+    return () => window.clearInterval(timer)
+  }, [interactive, raceView.racers, raceView.winner?.eventId, reducedMotion])
+
+  const localRacer = raceView.racers.find(racer => racer.laneId === raceView.localLaneId)
+  useEffect(() => {
+    if (!interactive || raceView.phase !== 'playing') {
+      audio.updateAtmosphere({ movementMode: 'stopped', exhausted: false, progress: 0 })
+      return
+    }
+    audio.updateAtmosphere({
+      movementMode: localRacer?.movementMode ?? 'stopped',
+      exhausted: raceView.localExhausted,
+      progress: localRacer?.progress ?? 0,
+    })
+  }, [audio, interactive, localRacer?.movementMode, localRacer?.progress, raceView.localExhausted, raceView.phase])
   useEffect(() => {
     const heldKeys = heldKeysRef.current
     const isTyping = target => target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement
@@ -163,7 +234,10 @@ function AuthoritativeRace({ transport, initialView, playShot, interactive = tru
     if (!localPlayer?.hasBullet || localPlayer.role === 'spectator') return
     const nextAim = pointFromEvent(event)
     setAim(nextAim)
-    playShot()
+    localShotSequence.current += 1
+    setLocalShotEffect({ id: localShotSequence.current, x: nextAim.x, y: nextAim.y })
+    window.setTimeout(() => setLocalShotEffect(null), 180)
+    audio.playShot()
     transport.shoot(nextAim.x, nextAim.y)
   }
   const crosshairs = raceView.crosshairs.map(crosshair =>
@@ -172,17 +246,23 @@ function AuthoritativeRace({ transport, initialView, playShot, interactive = tru
       : crosshair,
   )
   const recentShots = raceView.shots.slice(-4).reverse()
+  const launchAge = Date.now() - raceView.countdownEndsAt
+  const launching = raceView.phase === 'playing' && launchAge >= 0 && launchAge < 700
+  const revealedRacers = raceView.racers.filter(racer => racer.revealedName)
   return <>
-    <section className={`migration-track ${raceView.localEliminated ? 'local-eliminated' : ''} ${screenEffect ? `effect-${screenEffect.kind}` : ''}`} ref={playfieldRef} onMouseMove={updateAim} onClick={shoot} aria-label='Race track'>
+    <section className={`migration-track phase-${raceView.phase} ${launching ? 'is-launching' : ''} ${raceView.winner?.eventId ? 'is-celebrating' : ''} ${raceView.localEliminated ? 'local-eliminated' : ''} ${screenEffect ? `effect-${screenEffect.kind}` : ''}`} data-winner-event={raceView.winner?.eventId || undefined} ref={playfieldRef} onMouseMove={updateAim} onClick={shoot} aria-label='Race track'>
       {screenEffect && <div className={`migration-hit-flash ${screenEffect.kind}`} data-event-id={screenEffect.eventId} aria-hidden='true' />}
-      {(raceView.phase === 'countdown' || raceView.phase === 'playing') && <Countdown endsAt={raceView.countdownEndsAt} />}
+      {(raceView.phase === 'countdown' || (raceView.phase === 'playing' && raceView.countdownEndsAt > 0)) && <Countdown endsAt={raceView.countdownEndsAt} onBeat={audio.playCountdownTone} />}
+      {localShotEffect && <div className='migration-local-shot' key={localShotEffect.id} style={{ left: `${localShotEffect.x}%`, top: `${localShotEffect.y}%` }} aria-hidden='true'><i /><b /></div>}
+      {serverShotEffect && <div className={`migration-impact ${serverShotEffect.kind}`} data-event-id={serverShotEffect.eventId} style={{ left: `${serverShotEffect.x}%`, top: `${((serverShotEffect.laneId - 0.5) / 20) * 100}%` }} aria-hidden='true' />}
+      {raceView.winner?.eventId && <div className='migration-finish-burst' aria-hidden='true'>{Array.from({ length: 12 }, (_, index) => <i key={index} style={{ '--particle': index }} />)}</div>}
       <div className='migration-finish' />
       {raceView.racers.map(racer => <div className='migration-lane' key={racer.laneId} data-lane={racer.laneId}>
-        <PixelRacer racer={racer} roomCode={raceView.roomCode} round={raceView.round} isLocal={racer.laneId === raceView.localLaneId} localExhausted={raceView.localExhausted} />
+        <PixelRacer racer={racer} roomCode={raceView.roomCode} round={raceView.round} isLocal={racer.laneId === raceView.localLaneId} localExhausted={raceView.localExhausted} anticipating={raceView.phase === 'countdown'} launching={launching} winner={racer.laneId === raceView.winner?.laneId} showReveal={interactive || !raceView.winner?.eventId || !racer.revealedName || revealedRacers.indexOf(racer) < revealCount} />
         {raceView.shots.filter(shot => shot.hit && shot.laneId === racer.laneId).slice(-1).map(shot => <div className='migration-ko' key={shot.eventId} style={{ left: `${shot.impactX}%` }}>KO! <small>{shot.shooterName}</small></div>)}
       </div>)}
       {interactive && crosshairs.map(crosshair => <div
-        className={`migration-crosshair color-${crosshair.colorIndex} ${crosshair.hasBullet ? '' : 'spent'}`}
+        className={`migration-crosshair color-${crosshair.colorIndex} ${crosshair.hasBullet ? '' : 'spent'} ${localShotEffect && crosshair.id === raceView.localCrosshairId ? 'recoil' : ''}`}
         key={crosshair.id}
         style={{ left: `${crosshair.aimX}%`, top: `${crosshair.aimY}%` }}
       ><span>+</span>{crosshair.hasBullet && <i aria-label='Loaded bullet' />}</div>)}
@@ -202,7 +282,10 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
   const [roundCount, setRoundCount] = useState(5)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const { muted, toggleMuted, playShot } = useGameAudio(view.phase)
+  const [roundBaseline, setRoundBaseline] = useState({ round: 0, players: {} })
+  const celebratedWinners = useRef(new Set())
+  const audio = useGameAudio(view.phase)
+  const { muted, toggleMuted } = audio
 
   useEffect(() => {
     const offView = transport.subscribe('meta', setView)
@@ -233,6 +316,21 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
       window.removeEventListener('keydown', resetIdleTimeout, true)
     }
   }, [transport, view.phase])
+
+  useEffect(() => {
+    if (view.phase !== 'countdown' || roundBaseline.round === view.round) return
+    setRoundBaseline({
+      round: view.round,
+      players: Object.fromEntries(view.players.map(player => [player.id, { score: player.score, kills: player.kills }])),
+    })
+  }, [roundBaseline.round, view.phase, view.players, view.round])
+
+  useEffect(() => {
+    const eventId = view.winner?.eventId
+    if (!eventId || celebratedWinners.current.has(eventId)) return
+    celebratedWinners.current.add(eventId)
+    audio.playFinish()
+  }, [audio, view.winner?.eventId])
 
   const localPlayer = view.players.find(player => player.id === view.localPlayerId)
   const isHost = view.localPlayerId && view.localPlayerId === view.hostPlayerId
@@ -302,13 +400,18 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
       </div>
       <div className='migration-roster'>{view.players.map(player => <div key={player.id}><strong>{player.name}</strong><span>{player.role === 'host' ? 'Host' : player.ready ? 'Ready' : 'Waiting'}</span></div>)}</div>
     </section>}
-    {playing && <AuthoritativeRace transport={transport} initialView={{ ...view, racers: [] }} playShot={playShot} />}
+    {playing && <AuthoritativeRace transport={transport} initialView={transport.currentView ?? { ...view, racers: [] }} audio={audio} />}
     {(view.phase === 'roundOver' || view.phase === 'gameOver') && <div className='migration-postround'>
-      <div className='migration-reveal-track'><AuthoritativeRace transport={transport} initialView={transport.currentView ?? view} playShot={playShot} interactive={false} /></div>
+      <div className='migration-reveal-track'><AuthoritativeRace transport={transport} initialView={transport.currentView ?? view} audio={audio} interactive={false} /></div>
       <section className='migration-results'>
         <p>{view.winner?.type === 'npc' ? 'NPC shame. Humans revealed.' : 'Human winner. Racers revealed.'}</p>
         <h2>{view.winner?.type === 'npc' ? `${view.winner.name} won` : `${view.winner?.name ?? 'Racer'} wins`}</h2>
-        <div className='migration-scoreboard'>{[...view.players].sort((a, b) => b.score - a.score).map(player => <div key={player.id}><strong>{player.name}</strong><span>{player.kills} kills</span><b>{player.score}</b></div>)}</div>
+        <div className='migration-scoreboard'>{[...view.players].sort((a, b) => b.score - a.score).map((player, index) => {
+          const baseline = roundBaseline.players[player.id] ?? { score: 0, kills: 0 }
+          const scoreDelta = Math.max(0, player.score - baseline.score)
+          const killDelta = Math.max(0, player.kills - baseline.kills)
+          return <div className={scoreDelta || killDelta ? 'earned' : ''} key={player.id} style={{ '--row': index }}><strong>{player.name}</strong><span>{player.kills} kills {killDelta > 0 && <i>+{killDelta}</i>}</span><b>{player.score} {scoreDelta > 0 && <i>+{scoreDelta}</i>}</b></div>
+        })}</div>
         {isHost && view.phase === 'roundOver' && <button className='migration-primary' onClick={() => transport.nextRound()}>{view.round >= view.roundCount ? 'Show final scores' : 'Next round'}</button>}
       </section>
     </div>}

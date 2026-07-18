@@ -16,6 +16,7 @@ export function projectAuthoritativeState(state, privateState = null) {
     winner: state?.winnerLaneId
       ? {
           laneId: state.winnerLaneId,
+          eventId: state.winnerEventId,
           name: state.winnerName,
           type: state.winnerType,
         }

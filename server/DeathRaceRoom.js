@@ -76,6 +76,7 @@ export class DeathRaceRoom extends Room {
       round: 1,
       countdownEndsAt: 0,
       winnerLaneId: 0,
+      winnerEventId: '',
       winnerName: '',
       winnerType: '',
       speedMultiplier: 1,
@@ -329,6 +330,7 @@ export class DeathRaceRoom extends Room {
     }
     this.state.countdownEndsAt = countdownEndsAt
     this.state.winnerLaneId = 0
+    this.state.winnerEventId = ''
     this.state.winnerName = ''
     this.state.winnerType = ''
     this.state.speedMultiplier = 1
@@ -489,6 +491,7 @@ export class DeathRaceRoom extends Room {
         racer.eliminated = runtime.eliminated
       }
       if (!runtime.eliminated && runtime.progress >= FINISH_PROGRESS) {
+        this.state.winnerEventId = this.createEventId()
         this.state.winnerLaneId = runtime.laneId
         this.state.winnerType = runtime.controllerType
         if (runtime.controllerType === 'human') {

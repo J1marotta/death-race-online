@@ -102,12 +102,18 @@ Movement keys never hijack typing: while an input field has focus they are ignor
 
 ## Juice And Feedback
 
+- The `3, 2, 1, go` sequence uses escalating generated tones, shared crouch anticipation, a restrained camera build, and a synchronized Go launch treatment derived from the server deadline.
 - Firing plays a punchy gunshot: a filtered noise crack layered over a low bass thump.
+- Firing immediately shows a local pixel muzzle flash, tracer, casing, and crosshair recoil; these claim only that the input occurred, while hit/miss consequences wait for the authoritative shot event.
+- A server-confirmed miss plays a short two-tone near-miss cue without highlighting a target before firing.
 - When a kill lands, a `KO! ← killer` marker bounces in the victim's lane for about a second, visible to every client.
 - The victim's own screen takes a big shake with a red flash; the shooter's screen takes a short, subtle shake with a white flash. Other players see only the lane KO.
 - The victim's sprite flashes briefly when the hit lands.
 - A kill feed in the playfield corner shows `killer ▸ victim` entries that fade after a few seconds; human victims are named, NPC victims show as `NPC <lane>`.
 - All shake and bounce animations are disabled under `prefers-reduced-motion`.
+- A winner receives one checkered burst, short finish punch, bounce, and crowd chord keyed by a unique server winner event ID so reconnects cannot replay it.
+- Human names reveal in a short sequence and earned score/kill deltas animate into the scoreboard without delaying the host's Next round action. Reduced motion and late result mounts show final state immediately.
+- The track carries subtle moving lane texture, varied dust, finish-flag flutter, local footsteps, exhausted breathing, and final-third music intensity. These effects are client-only and derive from authoritative movement/progress state.
 
 ## Elimination And Winning
 

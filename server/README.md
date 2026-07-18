@@ -25,6 +25,7 @@ The migration server currently provides:
 - server-owned walking, sprint stamina, elimination, progress, and finish detection
 - authoritative aim-based shooting with one server-owned bullet per player
 - canonical shot events, corpse protection, self-shot rules, and human kill scoring
+- unique authoritative winner event IDs for deduplicated client celebration
 - 20 total racers with server-filled NPC lanes
 - independent seeded NPC modes, decision deadlines, speed variation, pauses, and finish adjudication
 - complete resume snapshots followed by the reconnecting player's private lane state

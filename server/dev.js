@@ -1,8 +1,10 @@
 import { spawn } from 'node:child_process'
 
-const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm'
+const frontendCommand = process.platform === 'win32'
+  ? [process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', 'npm run dev']]
+  : ['npm', ['run', 'dev']]
 const children = [
-  spawn(npmCommand, ['run', 'dev'], { stdio: 'inherit' }),
+  spawn(frontendCommand[0], frontendCommand[1], { stdio: 'inherit' }),
   spawn(process.execPath, ['--watch', 'server/index.js'], { stdio: 'inherit' }),
 ]
 

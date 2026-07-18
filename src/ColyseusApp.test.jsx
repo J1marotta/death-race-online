@@ -30,7 +30,7 @@ const lobby = {
   racers: [], crosshairs: [], shots: [], winner: null,
 }
 
-function installAudioContextMock(oscillators) {
+function installAudioContextMock(oscillators, gains = []) {
   const parameter = () => ({ setValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() })
   vi.stubGlobal('AudioContext', vi.fn(function AudioContextMock() {
     return {
@@ -39,7 +39,11 @@ function installAudioContextMock(oscillators) {
       destination: {},
       resume: vi.fn().mockResolvedValue(undefined),
       close: vi.fn().mockResolvedValue(undefined),
-      createGain: () => ({ gain: parameter(), connect: vi.fn() }),
+      createGain: () => {
+        const gain = { gain: parameter(), connect: vi.fn() }
+        gains.push(gain)
+        return gain
+      },
       createOscillator: () => {
         const oscillator = { frequency: parameter(), connect: vi.fn(), start: vi.fn(), stop: vi.fn() }
         oscillators.push(oscillator)
@@ -172,6 +176,57 @@ describe('feature-flagged Colyseus React client', () => {
     expect(document.querySelector('.migration-hit-flash.shooter').dataset.eventId).toBe('shot-1')
   })
 
+  it('shows immediate local muzzle, tracer, casing, and recoil only for the shot window', async () => {
+    vi.useFakeTimers()
+    const oscillators = []
+    installAudioContextMock(oscillators)
+    const transport = new FakeTransport()
+    render(<ColyseusApp transport={transport} />)
+    const playing = {
+      ...lobby,
+      phase: 'playing',
+      localCrosshairId: 'cross-local',
+      players: [{ ...lobby.players[0], ready: true }],
+      racers: Array.from({ length: 20 }, (_, index) => ({ laneId: index + 1, progress: 20, movementMode: 'stopped', eliminated: false })),
+      crosshairs: [{ id: 'cross-local', aimX: 10, aimY: 20, colorIndex: 0, hasBullet: true }],
+    }
+    act(() => transport.emit('view', playing))
+    const track = screen.getByLabelText('Race track')
+    track.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100 })
+    fireEvent.click(track, { clientX: 25, clientY: 30 })
+    expect(document.querySelector('.migration-local-shot')).toBeTruthy()
+    expect(document.querySelector('.migration-local-shot i')).toBeTruthy()
+    expect(document.querySelector('.migration-local-shot b')).toBeTruthy()
+    expect(document.querySelector('.migration-crosshair.recoil')).toBeTruthy()
+    expect(transport.shoot).toHaveBeenCalledWith(25, 30)
+    await act(() => vi.advanceTimersByTimeAsync(180))
+    expect(document.querySelector('.migration-local-shot')).toBeNull()
+  })
+
+  it('derives countdown anticipation and Go launch from the authoritative deadline', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-19T00:00:00Z'))
+    const oscillators = []
+    installAudioContextMock(oscillators)
+    const transport = new FakeTransport()
+    render(<ColyseusApp transport={transport} />)
+    const countdown = {
+      ...lobby,
+      phase: 'countdown',
+      countdownEndsAt: Date.now() + 3000,
+      players: [{ ...lobby.players[0], ready: true }],
+      racers: Array.from({ length: 20 }, (_, index) => ({ laneId: index + 1, progress: 2, movementMode: 'stopped', eliminated: false })),
+    }
+    act(() => transport.emit('view', countdown))
+    expect(screen.getByText('3')).toBeTruthy()
+    expect(document.querySelectorAll('.migration-racer.anticipating')).toHaveLength(20)
+    expect(oscillators.at(-1).type).toBe('triangle')
+    await act(() => vi.advanceTimersByTimeAsync(3000))
+    act(() => transport.emit('view', { ...countdown, phase: 'playing' }))
+    expect(screen.getByText('Go!')).toBeTruthy()
+    expect(document.querySelector('.migration-track').className).toContain('is-launching')
+  })
+
   it('shows authoritative results and lets only the host advance', () => {
     const transport = new FakeTransport()
     render(<ColyseusApp transport={transport} />)
@@ -191,6 +246,50 @@ describe('feature-flagged Colyseus React client', () => {
     expect(document.querySelector('.migration-reveal-name').textContent).toBe('James')
   })
 
+  it('reveals humans in sequence and animates only server-derived score deltas', async () => {
+    vi.useFakeTimers()
+    const transport = new FakeTransport()
+    render(<ColyseusApp transport={transport} />)
+    act(() => transport.emit('view', { ...lobby, phase: 'countdown', countdownEndsAt: Date.now() + 3000 }))
+    const racers = Array.from({ length: 20 }, (_, index) => ({
+      laneId: index + 1,
+      progress: 93,
+      movementMode: 'stopped',
+      eliminated: false,
+      revealedName: index < 2 ? ['James', 'Mia'][index] : '',
+    }))
+    const result = {
+      ...lobby,
+      phase: 'roundOver',
+      racers,
+      players: [{ ...lobby.players[0], score: 4, kills: 1 }],
+      winner: { eventId: 'DRTEST:1:8', name: 'James', type: 'human', laneId: 1 },
+    }
+    act(() => transport.emit('view', result))
+    expect(document.querySelector('.migration-track').dataset.winnerEvent).toBe('DRTEST:1:8')
+    expect(document.querySelector('.migration-finish-burst')).toBeTruthy()
+    expect(document.querySelectorAll('.migration-reveal-name')).toHaveLength(0)
+    await act(() => vi.advanceTimersByTimeAsync(140))
+    expect(document.querySelectorAll('.migration-reveal-name')).toHaveLength(1)
+    await act(() => vi.advanceTimersByTimeAsync(140))
+    expect(document.querySelectorAll('.migration-reveal-name')).toHaveLength(2)
+    expect(document.querySelector('.migration-scoreboard .earned').textContent).toContain('+4')
+    expect(document.querySelector('.migration-scoreboard .earned').textContent).toContain('+1')
+    expect(screen.getByRole('button', { name: 'Next round' })).toBeTruthy()
+  })
+
+  it('reduces result animation to immediate state when reduced motion is requested', () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }))
+    const transport = new FakeTransport()
+    render(<ColyseusApp transport={transport} />)
+    const racers = Array.from({ length: 20 }, (_, index) => ({
+      laneId: index + 1, progress: 93, movementMode: 'stopped', eliminated: false,
+      revealedName: index < 2 ? `Player ${index + 1}` : '',
+    }))
+    act(() => transport.emit('view', { ...lobby, phase: 'roundOver', racers, winner: { eventId: 'DRTEST:1:9', name: 'Player 1', type: 'human', laneId: 1 } }))
+    expect(document.querySelectorAll('.migration-reveal-name')).toHaveLength(2)
+  })
+
   it('restarts gameplay music on later rounds and keeps mute outside the track', () => {
     const oscillators = []
     installAudioContextMock(oscillators)
@@ -207,6 +306,41 @@ describe('feature-flagged Colyseus React client', () => {
     expect(oscillators.slice(0, 6).every(oscillator => oscillator.stop.mock.calls.length === 1)).toBe(true)
     act(() => transport.emit('view', { ...playing, round: 2 }))
     expect(oscillators).toHaveLength(12)
+  })
+
+  it('adds final-third music intensity, footsteps, and deduplicated near-miss feedback without network traffic', async () => {
+    vi.useFakeTimers()
+    const oscillators = []
+    const gains = []
+    installAudioContextMock(oscillators, gains)
+    const transport = new FakeTransport()
+    render(<ColyseusApp transport={transport} />)
+    const playing = {
+      ...lobby,
+      phase: 'playing',
+      players: [{ ...lobby.players[0], ready: true }],
+      racers: Array.from({ length: 20 }, (_, index) => ({
+        laneId: index + 1,
+        progress: index === 6 ? 70 : 20,
+        movementMode: index === 6 ? 'running' : 'walking',
+        eliminated: false,
+      })),
+    }
+    act(() => transport.emit('meta', { ...playing, racers: [] }))
+    act(() => transport.emit('view', playing))
+    expect(gains[0].gain.setValueAtTime).toHaveBeenCalledWith(1.45, 0)
+    await act(() => vi.advanceTimersByTimeAsync(220))
+    expect(oscillators.length).toBeGreaterThan(6)
+    const beforeMiss = oscillators.length
+    const miss = { eventId: 'DRTEST:1:miss', shooterName: 'James', laneId: 4, impactX: 25, hit: false }
+    act(() => transport.emit('event', { payload: miss }))
+    expect(document.querySelector('.migration-impact.miss').dataset.eventId).toBe(miss.eventId)
+    const afterMiss = oscillators.length
+    expect(afterMiss).toBeGreaterThan(beforeMiss)
+    act(() => transport.emit('event', { payload: miss }))
+    expect(oscillators).toHaveLength(afterMiss)
+    expect(transport.move).not.toHaveBeenCalled()
+    expect(transport.aim).not.toHaveBeenCalled()
   })
 
   it('keeps a late-joining spectator from sending gameplay input', () => {

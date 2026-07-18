@@ -1148,3 +1148,20 @@ Last updated: 2026-07-14
 - Rewrote `WHY.md` around the current Colyseus/Fly architecture and changed the interactive guide's first-screen architecture, code tour, and deployment status to current truth.
 - Preserved the Durable Object material in `why.html` as explicitly labeled migration history.
 - Added the rollback-artifact-versus-dead-source lesson to `why.html` in the same commit.
+
+### task 112 : Complete The Planned Juice Pass
+
+- Added escalating authoritative countdown tones, synchronized crouch poses, a restrained camera build, and a shared launch treatment derived from `countdownEndsAt`.
+- Added immediate muzzle flash, crosshair recoil, pixel tracer, casing motion, authoritative hit sparks, and a two-tone near-miss cue with shot-event deduplication.
+- Added a server-generated winner event ID and used it to trigger one finish punch, checkered particle burst, winner bounce, and generated crowd chord per result.
+- Added sequential human reveals and animated per-round score/kill deltas measured from the server-state baseline; final values remain canonical synchronized state and Next round never waits for animation.
+- Added subtle moving lane texture, varied per-lane dust, finish-flag flutter, local footsteps, exhausted breathing, and progressive music intensity in the final third.
+- Kept all atmosphere client-only and driven by authoritative movement mode so humans and NPCs share the same public visual language without extra Fly traffic.
+- Added reduced-motion collapse behavior, mute/later-round cleanup, expired-countdown silence, event deduplication, and laptop-height constraints.
+- Added focused React, audio-graph, state-projection, and server winner-event regressions.
+- Removed the inaccurate agent-hour estimates and completed juice backlog from `todo.md`.
+- Updated `spec.md`, `WHY.md`, and `why.html` with the finished behavior and the authority/lifecycle/layout lessons.
+- Fixed the Windows local-game launcher uncovered during visual QA so `npm run dev:game` can spawn Vite under current Node versions.
+- Fixed countdown phase-boundary mounting to consume the transport's retained full snapshot, preventing all racers from disappearing until the next state patch.
+- Kept the finish treatment as one straight checkered line by animating its internal pattern instead of reintroducing the previously removed extra flag block.
+- Extended the public three-round Fly smoke test to require a distinct authoritative winner event for every round.

@@ -61,6 +61,24 @@ The public Fly smoke test proves composition. Two clients create and join a room
 
 **Placeholder sound changed the feel.** Immediate gun audio is local, but hit flashes and shakes wait for the authoritative event. Intent can feel instant while consequences remain true.
 
+## Juice Without New Lies
+
+The finished juice pass follows one rule: an effect may be immediate only when it claims something the local browser already knows. Clicking can create muzzle flash, recoil, tracer, casing motion, and the gun crack immediately. A hit spark, victim shake, near-miss cue, score change, or winner celebration waits for a unique server event because those effects claim a consequence is true.
+
+Countdown anticipation is synchronized from the server's deadline rather than a second client timer. All racers crouch together, tones rise through 3, 2, 1, and the Go launch treatment comes from the same timestamp. An expired countdown mounts silently instead of replaying old anticipation after a late tab resume.
+
+Winner celebration is keyed by `winnerEventId`, a room/round/server-sequence identifier. The checkered burst, short finish punch, winner bounce, and crowd chord play once. Human names then reveal in sequence while score and kill deltas animate from the round's synchronized baseline. Reduced-motion users and late mounts skip directly to final state; the host's Next round button never waits for theatre.
+
+Track atmosphere remains local and cheap. Authoritative movement mode chooses footsteps, dust cadence, and exhaustion breathing; authoritative progress increases music intensity in the final third. The client sends no new messages for any of it. Public movement effects stay identical for humans and NPCs, preserving hidden identity.
+
+Layout is part of correctness. Every particle is absolutely positioned and every motion uses transforms or opacity, so the 1200px playfield and 720px laptop viewport do not gain scrollbars when the game becomes more expressive.
+
+The visual pass also caught a Windows tooling bug: current Node rejected direct `npm.cmd` spawning with `EINVAL`. The combined local launcher now invokes the fixed `npm run dev` command through `cmd.exe` without enabling a general argument shell, and QA starts through `npm run dev:game` so the documented path is tested rather than bypassed.
+
+The first browser countdown also showed “3” over an empty track. The full snapshot arrived before React mounted the race component, while ordinary metadata deliberately omitted racers. The active track now initializes from the transport's retained full view, and its regression reproduces the real full-view-then-metadata ordering rather than the easier test-only order.
+
+The first result screenshot caught a visual regression too: finish-line flutter had added a separate checkered block above the straight line. The final version moves the checker pattern within the line itself, preserving atmosphere without reviving an element the design had already rejected.
+
 ## How Good Engineers Approach This
 
 1. Write down the product invariant before choosing the implementation. Hidden identity means player-to-lane mappings must never enter public state.

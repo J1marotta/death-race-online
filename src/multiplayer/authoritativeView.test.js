@@ -25,6 +25,16 @@ describe('authoritative UI projection', () => {
     expect(reconcileProgress(10, 30)).toBe(30)
   })
 
+  it('projects the authoritative winner event id for deduplicated celebration', () => {
+    const view = projectAuthoritativeState({
+      winnerLaneId: 4,
+      winnerEventId: 'DRTEST:2:9',
+      winnerName: 'James',
+      winnerType: 'human',
+    })
+    expect(view.winner).toEqual({ laneId: 4, eventId: 'DRTEST:2:9', name: 'James', type: 'human' })
+  })
+
   it('predicts only from acknowledged movement mode and bounded elapsed time', () => {
     expect(predictLocalProgress({ progress: 10, movementMode: 'walking' }, 1000, { walking: 5 })).toBe(15)
     expect(predictLocalProgress({ progress: 99, movementMode: 'running' }, 1000, { running: 7.5 })).toBe(100)

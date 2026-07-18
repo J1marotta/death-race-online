@@ -28,13 +28,17 @@ const send = (room, type, payload, sequence) => room.send('command', {
 const playerNamed = (room, name) => [...room.state.players.values()]
   .find(player => player.name === name)
 
-const playRound = async (host, round, sequence) => {
+const playRound = async (host, round, sequence, winnerEvents) => {
   await waitFor(() => host.state.round === round && host.state.phase === 'playing', 10000)
   send(host, CLIENT_MESSAGE_TYPES.INPUT, { movementMode: 'running' }, sequence)
   await waitFor(() => host.state.phase === 'roundOver', 35000)
   if (host.state.winnerName !== 'Smoke Host' || host.state.winnerType !== 'human') {
     throw new Error(`Round ${round} winner was ${host.state.winnerName || 'unknown'}`)
   }
+  if (!host.state.winnerEventId || winnerEvents.has(host.state.winnerEventId)) {
+    throw new Error(`Round ${round} did not publish a unique winner event`)
+  }
+  winnerEvents.add(host.state.winnerEventId)
 }
 
 try {
@@ -84,15 +88,16 @@ try {
   }, 3)
   await waitFor(() => guestRacer()?.eliminated && playerNamed(host, 'Smoke Host')?.score === 1)
 
-  await playRound(host, 1, 4)
+  const winnerEvents = new Set()
+  await playRound(host, 1, 4, winnerEvents)
   if (playerNamed(host, 'Smoke Host')?.score !== 4) {
     throw new Error('Round-one kill and win scoring did not accumulate')
   }
 
   send(host, CLIENT_MESSAGE_TYPES.NEXT_ROUND, {}, 5)
-  await playRound(host, 2, 6)
+  await playRound(host, 2, 6, winnerEvents)
   send(host, CLIENT_MESSAGE_TYPES.NEXT_ROUND, {}, 7)
-  await playRound(host, 3, 8)
+  await playRound(host, 3, 8, winnerEvents)
   send(host, CLIENT_MESSAGE_TYPES.NEXT_ROUND, {}, 9)
   await waitFor(() => host.state.phase === 'gameOver')
 
@@ -124,6 +129,7 @@ try {
     reconnect: 'passed',
     shot: 'passed',
     finalScore,
+    winnerEvents: winnerEvents.size,
     disposed: 'passed',
   }))
 } finally {

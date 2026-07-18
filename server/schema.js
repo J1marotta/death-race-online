@@ -47,6 +47,7 @@ export const DeathRaceState = schema({
   round: 'number',
   countdownEndsAt: 'number',
   winnerLaneId: 'number',
+  winnerEventId: 'string',
   winnerName: 'string',
   winnerType: 'string',
   speedMultiplier: 'number',

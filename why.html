@@ -1543,6 +1543,16 @@ crosshairIdByPlayerId.set(playerId, crosshairId)</code></pre>
   <p>The same pass replaced a temporary square-wave drone with the intended musical vocabulary: low sine-pad seventh chords, one gentle triangle melody voice, and a quiet bass that move through a small progression. The graph is still rebuilt every round, because a nicer oscillator is no less subject to Web Audio's one-start lifetime.</p>
   <div class="lesson">Make intent feel immediate; make consequences authoritative. The boundary is not “client effects versus server effects,” but which facts each effect claims are already true.</div>
 
+  <h3>Juice Is A State Projection, Not A Second Game</h3>
+  <p>The final polish pass could easily have recreated the architectural mistake we just removed: independent client timers deciding what happened. Instead, each effect projects an existing authoritative fact. Countdown tones and crouches read <code class="inline">countdownEndsAt</code>. Footsteps and dust read movement mode. Music intensity reads progress. Hit and miss effects consume unique shot events. The finish burst consumes a unique winner event.</p>
+  <p>Only intent feedback is optimistic. Muzzle flash, recoil, tracer, casing, and the gun crack happen immediately because the browser knows the player clicked. Their animation does not name a victim or award a point. Consequences wait for the room. A processed-event set makes repeated shot envelopes harmless, and the winner's room/round/sequence ID prevents reconnect from replaying celebration.</p>
+  <p>Animation state also never becomes score state. The result screen records each player's synchronized score and kill baseline at countdown, then decorates the authoritative final values with deltas. Reduced motion and late mounting simply skip the sequence. Next round stays visible because theatre is allowed to finish late; game flow is not.</p>
+  <p>The laptop constraint shaped the CSS. Particles are absolute, rows keep stable grid tracks, and movement uses transforms and opacity, so additional expression cannot increase document height. Audio follows the same resource discipline as before: one graph per round, local atmosphere intervals owned by that graph, and complete mute/phase cleanup.</p>
+  <p>Visual QA also exercised the documented local launcher instead of starting its two processes by hand. Current Node on Windows rejected direct <code class="inline">npm.cmd</code> spawning with <code class="inline">EINVAL</code>; invoking the fixed <code class="inline">npm run dev</code> command through <code class="inline">cmd.exe</code> restored <code class="inline">npm run dev:game</code> without enabling a general argument shell. Tooling paths deserve the same end-to-end treatment as player paths.</p>
+  <p>The first real countdown check then showed “3” over an empty track. The full view had arrived just before React mounted the race component; metadata intentionally strips racers, and no countdown patch was guaranteed to follow. The active race now initializes from the transport's retained full view, just like the result track. The regression reproduces that exact full-view-then-metadata ordering.</p>
+  <p>The first result screenshot found a more visual regression: “finish-line flutter” had become an extra checkered flag block above the straight line, reviving an element we had deliberately removed earlier. The final treatment shifts the checker pattern inside the existing line, preserving motion without changing its silhouette.</p>
+  <div class="lesson">Good juice makes true state easier to feel. If an effect needs its own competing version of time, score, identity, or outcome, it is no longer polish; it is an untested second simulation.</div>
+
   <h3>A Cutover Needs A Named Way Back</h3>
   <p>“We can roll back” is only useful when the old artifact has an address and the new deployment does not destroy it. Before changing the default Pages build, we recorded the immutable pre-cutover frontend at <code class="inline">40288567.death-race-online.pages.dev</code>. It still points at the old Cloudflare realtime backend even after the main URL begins loading Colyseus.</p>
   <p>The code change itself is intentionally small: the React entry renders <code class="inline">ColyseusApp</code> directly, production defaults to the public Fly WebSocket, and local development defaults to the local server. The much larger deletion of the Worker, polling adapter, and old client waits until the new default URL passes hosted acceptance. Routing and demolition are separate failure boundaries.</p>
@@ -1560,15 +1570,15 @@ crosshairIdByPlayerId.set(playerId, crosshairId)</code></pre>
 </section>
 
 <section id="next-juice">
-  <h2>The Next Layer Of Juice</h2>
-  <p>Juice is the tiny sensory evidence that tells a player, "yes, the game understood you." It is not decoration pasted over uncertain rules. The shot tracer is satisfying because it follows an accepted shot. The winner burst is satisfying because the room has locked one winner. Networking and juice meet at exactly this point: <strong>effects need authoritative event IDs, but they should render locally without producing more network traffic.</strong></p>
+  <h2>The Finished Juice Layer</h2>
+  <p>Juice is the tiny sensory evidence that tells a player, "yes, the game understood you." It is not decoration pasted over uncertain rules. The completed pass keeps immediate intent local and keys consequences to authoritative event IDs, without adding game-server traffic.</p>
 
   <div class="file-grid">
-    <div class="file-card"><code>Start anticipation · 2-3h</code><p>Escalating tones, crouched racers, a small camera push, and a shared dust release on Go. Every client derives it from the same countdown timestamp.</p></div>
-    <div class="file-card"><code>Shooting feedback · 2-4h</code><p>Immediate muzzle flash and recoil, followed by an authoritative tracer impact, casing spark, and near-miss sound. No pre-shot target highlighting.</p></div>
-    <div class="file-card"><code>Finish celebration · 2-4h</code><p>A short hit-stop, checkered burst, winner bounce, crowd swell, and restrained camera punch triggered once by the winner event ID.</p></div>
-    <div class="file-card"><code>Round reveal · 2-3h</code><p>Reveal human racers sequentially, then animate kills and points into the scoreboard while keeping Next round visible on a laptop.</p></div>
-    <div class="file-card"><code>Track atmosphere · 2-4h</code><p>Subtle lane motion, varied dust, footsteps, exhausted breathing, finish-line flutter, and music intensity in the final third.</p></div>
+    <div class="file-card"><code>Start anticipation · complete</code><p>Escalating tones, crouched racers, a restrained camera build, and a shared launch treatment all derive from the server countdown deadline.</p></div>
+    <div class="file-card"><code>Shooting feedback · complete</code><p>Immediate muzzle flash, recoil, tracer, and casing are reconciled with authoritative hit sparks or a deduplicated near-miss cue. There is no pre-shot highlighting.</p></div>
+    <div class="file-card"><code>Finish celebration · complete</code><p>A short finish punch, checkered burst, winner bounce, and generated crowd chord trigger once from the unique server winner event ID.</p></div>
+    <div class="file-card"><code>Round reveal · complete</code><p>Human racers reveal sequentially and server-derived kill/score deltas animate while Next round remains immediately available.</p></div>
+    <div class="file-card"><code>Track atmosphere · complete</code><p>Lane motion, varied dust, footsteps, exhausted breathing, flag flutter, and final-third music intensity remain client-only.</p></div>
   </div>
 
   <h3>The Hidden-Identity Constraint</h3>
@@ -1580,7 +1590,7 @@ crosshairIdByPlayerId.set(playerId, crosshairId)</code></pre>
   <h3>The Accessibility And Replay Constraint</h3>
   <p>Every shake, hit-stop, and bouncing marker needs a reduced-motion form. Every sound respects mute. Every network-driven effect needs deduplication so reconnecting or receiving a repeated snapshot cannot replay a gunshot, KO, point award, or celebration. Every timer must clean itself up between rounds.</p>
 
-  <p>The juice backlog is estimated at <strong>10-18 agent-hours</strong>, separate from migration. Start and finish effects should wait until the authoritative event protocol exists; track atmosphere can proceed independently because it is client-only.</p>
+  <p>The planned juice backlog is complete. Future effects must continue to satisfy the hidden-identity, laptop, accessibility, replay, and mute constraints above.</p>
 </section>
 
 <section id="prototype">

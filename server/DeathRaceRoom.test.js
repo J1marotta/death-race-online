@@ -438,6 +438,7 @@ describe('Colyseus DeathRaceRoom scaffold', () => {
 
     expect(room.state.phase).toBe('roundOver')
     expect(room.state.winnerLaneId).toBe(runtime.laneId)
+    expect(room.state.winnerEventId).toMatch(/^DRTEST:1:\d+$/)
     expect(room.state.winnerName).toBe('James')
     expect(room.state.winnerType).toBe('human')
     expect(room.authorizedPlayer(host).score).toBe(3)

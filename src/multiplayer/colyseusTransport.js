@@ -48,7 +48,14 @@ export class ColyseusTransport {
   publishView(state = this.latestState) {
     const view = projectAuthoritativeState(state, this.privateState)
     this.emit('view', view)
-    const meta = { ...view, racers: [] }
+    const meta = {
+      ...view,
+      racers: [],
+      crosshairs: [],
+      localStamina: undefined,
+      localExhausted: undefined,
+      localEliminated: undefined,
+    }
     const signature = JSON.stringify(meta)
     if (signature !== this.lastMetaSignature) {
       this.lastMetaSignature = signature
@@ -129,6 +136,7 @@ export class ColyseusTransport {
   updateSettings(settings) { this.command(CLIENT_MESSAGE_TYPES.SETTINGS, settings) }
   startCountdown() { this.command(CLIENT_MESSAGE_TYPES.START_COUNTDOWN) }
   move(movementMode) { this.command(CLIENT_MESSAGE_TYPES.INPUT, { movementMode }) }
+  aim(aimX, aimY) { this.command(CLIENT_MESSAGE_TYPES.AIM, { aimX, aimY }) }
   shoot(aimX, aimY) { this.command(CLIENT_MESSAGE_TYPES.SHOT, { aimX, aimY }) }
   nextRound() { this.command(CLIENT_MESSAGE_TYPES.NEXT_ROUND) }
 

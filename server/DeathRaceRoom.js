@@ -7,7 +7,7 @@ import {
   createServerEnvelope,
   validateClientMessage,
 } from '../src/multiplayer/protocol.js'
-import { DeathRaceState, PlayerState, RacerState, ShotState } from './schema.js'
+import { CrosshairState, DeathRaceState, PlayerState, RacerState, ShotState } from './schema.js'
 import {
   COUNTDOWN_DURATION_MS,
   FINISH_PROGRESS,
@@ -49,6 +49,8 @@ export class DeathRaceRoom extends Room {
   playerIdBySession = new Map()
   lastSequenceByPlayerId = new Map()
   runtimeByPlayerId = new Map()
+  crosshairIdByPlayerId = new Map()
+  lastPrivateStateSentAt = new Map()
   eventSequence = 0
   messages = {
     command: (client, message) => this.handleCommand(client, message),
@@ -182,6 +184,8 @@ export class DeathRaceRoom extends Room {
       result = this.startCountdown(player)
     } else if (message.type === CLIENT_MESSAGE_TYPES.INPUT) {
       result = this.updateMovementIntent(player, message.payload.movementMode)
+    } else if (message.type === CLIENT_MESSAGE_TYPES.AIM) {
+      result = this.updateAim(player, message.payload)
     } else if (message.type === CLIENT_MESSAGE_TYPES.SHOT) {
       result = this.fireShot(player, message.payload)
     } else if (message.type === CLIENT_MESSAGE_TYPES.NEXT_ROUND) {
@@ -269,13 +273,18 @@ export class DeathRaceRoom extends Room {
       return { ok: false, error: 'not-ready', message: 'Every player must be ready' }
     }
     this.runtimeByPlayerId.clear()
+    this.crosshairIdByPlayerId.clear()
+    this.lastPrivateStateSentAt.clear()
     this.state.racers.clear()
+    this.state.crosshairs.clear()
     this.state.shots.clear()
     const lanes = assignSecretLanes(players.map(current => current.id), MAX_ROOM_PLAYERS)
     const countdownEndsAt = Date.now() + COUNTDOWN_DURATION_MS
-    for (const current of players) {
+    players.forEach((current, index) => {
       const runtime = createPlayerRuntime({ playerId: current.id, laneId: lanes.get(current.id) })
       this.runtimeByPlayerId.set(current.id, runtime)
+      const crosshairId = randomUUID()
+      this.crosshairIdByPlayerId.set(current.id, crosshairId)
       current.hasBullet = true
       this.state.racers.set(String(runtime.laneId), new RacerState({
         laneId: runtime.laneId,
@@ -283,8 +292,15 @@ export class DeathRaceRoom extends Room {
         movementMode: 'stopped',
         eliminated: false,
       }))
+      this.state.crosshairs.set(crosshairId, new CrosshairState({
+        id: crosshairId,
+        aimX: 0,
+        aimY: 50,
+        colorIndex: index % 8,
+        hasBullet: true,
+      }))
       this.sendPrivateStateForPlayer(current.id)
-    }
+    })
     const humanLanes = new Set(lanes.values())
     for (let laneId = 1; laneId <= MAX_ROOM_PLAYERS; laneId += 1) {
       if (humanLanes.has(laneId)) continue
@@ -313,7 +329,14 @@ export class DeathRaceRoom extends Room {
   privateStateFor(client) {
     const player = this.authorizedPlayer(client)
     const runtime = player && this.runtimeByPlayerId.get(player.id)
-    return runtime ? { playerId: player.id, laneId: runtime.laneId } : undefined
+    return runtime ? {
+      playerId: player.id,
+      laneId: runtime.laneId,
+      crosshairId: this.crosshairIdByPlayerId.get(player.id) ?? '',
+      stamina: runtime.staminaMs / 2000,
+      exhausted: runtime.exhausted,
+      eliminated: runtime.eliminated,
+    } : undefined
   }
 
   sendPrivateStateForPlayer(playerId) {
@@ -331,6 +354,20 @@ export class DeathRaceRoom extends Room {
     if (!runtime || !setMovementIntent(runtime, movementMode)) {
       return { ok: false, error: 'invalid-input', message: 'Movement input is not available' }
     }
+    return { ok: true }
+  }
+
+  updateAim(player, { aimX, aimY }) {
+    if (!['countdown', 'playing'].includes(this.state.phase)) {
+      return { ok: false, error: 'wrong-phase', message: 'Aiming is available during the race' }
+    }
+    const crosshairId = this.crosshairIdByPlayerId.get(player.id)
+    const crosshair = crosshairId && this.state.crosshairs.get(crosshairId)
+    if (!crosshair) {
+      return { ok: false, error: 'invalid-input', message: 'Crosshair is not available' }
+    }
+    crosshair.aimX = aimX
+    crosshair.aimY = aimY
     return { ok: true }
   }
 
@@ -367,6 +404,12 @@ export class DeathRaceRoom extends Room {
       return { ok: false, error: result.error, message: 'This player cannot shoot now' }
     }
     player.hasBullet = false
+    const crosshair = this.state.crosshairs.get(this.crosshairIdByPlayerId.get(player.id))
+    if (crosshair) {
+      crosshair.aimX = aimX
+      crosshair.aimY = aimY
+      crosshair.hasBullet = false
+    }
     const victimPlayer = result.victim?.controllerType === 'human'
       ? this.state.players.get(result.victim.playerId)
       : undefined
@@ -420,6 +463,10 @@ export class DeathRaceRoom extends Room {
         advanceNpcRuntime(runtime, npcNow)
       } else {
         advancePlayerRuntime(runtime, deltaMs, nowMs)
+        if (nowMs - (this.lastPrivateStateSentAt.get(runtime.playerId) ?? 0) >= 100) {
+          this.sendPrivateStateForPlayer(runtime.playerId)
+          this.lastPrivateStateSentAt.set(runtime.playerId, nowMs)
+        }
       }
       const racer = this.state.racers.get(String(runtime.laneId))
       if (racer) {
@@ -487,6 +534,10 @@ export class DeathRaceRoom extends Room {
     const hostLeft = this.state.hostPlayerId === playerId
     this.playerIdBySession.delete(client.sessionId)
     this.lastSequenceByPlayerId.delete(playerId)
+    this.lastPrivateStateSentAt.delete(playerId)
+    const crosshairId = this.crosshairIdByPlayerId.get(playerId)
+    if (crosshairId) this.state.crosshairs.delete(crosshairId)
+    this.crosshairIdByPlayerId.delete(playerId)
     const runtime = this.runtimeByPlayerId.get(playerId)
     this.runtimeByPlayerId.delete(playerId)
     if (!hostLeft && runtime && ['countdown', 'playing'].includes(this.state.phase)) {
@@ -523,5 +574,7 @@ export class DeathRaceRoom extends Room {
     this.playerIdBySession.clear()
     this.lastSequenceByPlayerId.clear()
     this.runtimeByPlayerId.clear()
+    this.crosshairIdByPlayerId.clear()
+    this.lastPrivateStateSentAt.clear()
   }
 }

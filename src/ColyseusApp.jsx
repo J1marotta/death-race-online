@@ -6,7 +6,9 @@ import './ColyseusApp.css'
 
 const emptyView = {
   phase: 'menu', players: [], racers: [], shots: [], round: 1, roundCount: 5,
-  localLaneId: 0, localPlayerId: '', hostPlayerId: '', winner: null,
+  crosshairs: [], localLaneId: 0, localPlayerId: '', localCrosshairId: '',
+  localStamina: 1, localExhausted: false, localEliminated: false,
+  hostPlayerId: '', winner: null,
 }
 
 function Countdown({ endsAt }) {
@@ -23,6 +25,7 @@ function AuthoritativeRace({ transport, initialView, playShot }) {
   const [raceView, setRaceView] = useState(initialView)
   const [aim, setAim] = useState({ laneId: 1, x: 0 })
   const playfieldRef = useRef(null)
+  const lastAimSentAt = useRef(0)
   useEffect(() => transport.subscribe('view', setRaceView), [transport])
   const localPlayer = raceView.players.find(player => player.id === raceView.localPlayerId)
   useEffect(() => {
@@ -43,7 +46,18 @@ function AuthoritativeRace({ transport, initialView, playShot }) {
     const bounds = playfieldRef.current.getBoundingClientRect()
     return {
       x: Math.min(100, Math.max(0, ((event.clientX - bounds.left) / bounds.width) * 100)),
+      y: Math.min(100, Math.max(0, ((event.clientY - bounds.top) / bounds.height) * 100)),
       laneId: Math.min(20, Math.max(1, Math.floor(((event.clientY - bounds.top) / bounds.height) * 20) + 1)),
+    }
+  }
+  const updateAim = event => {
+    if (localPlayer?.role === 'spectator') return
+    const nextAim = pointFromEvent(event)
+    setAim(nextAim)
+    const now = performance.now()
+    if (now - lastAimSentAt.current >= 50) {
+      lastAimSentAt.current = now
+      transport.aim(nextAim.x, nextAim.y)
     }
   }
   const shoot = event => {
@@ -51,18 +65,30 @@ function AuthoritativeRace({ transport, initialView, playShot }) {
     const nextAim = pointFromEvent(event)
     setAim(nextAim)
     playShot()
-    transport.shoot(nextAim.x, ((nextAim.laneId - 0.5) / 20) * 100)
+    transport.shoot(nextAim.x, nextAim.y)
   }
+  const crosshairs = raceView.crosshairs.map(crosshair =>
+    crosshair.id === raceView.localCrosshairId
+      ? { ...crosshair, aimX: aim.x, aimY: aim.y }
+      : crosshair,
+  )
+  const recentShots = raceView.shots.slice(-4).reverse()
   return <>
-    <section className='migration-track' ref={playfieldRef} onMouseMove={event => setAim(pointFromEvent(event))} onClick={shoot} aria-label='Race track'>
+    <section className={`migration-track ${raceView.localEliminated ? 'local-eliminated' : ''}`} ref={playfieldRef} onMouseMove={updateAim} onClick={shoot} aria-label='Race track'>
       {raceView.phase === 'countdown' && <Countdown endsAt={raceView.countdownEndsAt} />}
       <div className='migration-finish' />
       {raceView.racers.map(racer => <div className='migration-lane' key={racer.laneId} data-lane={racer.laneId}>
         <div className={`migration-racer shape-${racer.laneId % 5} ${racer.eliminated ? 'eliminated' : ''}`} style={{ left: `${racer.progress}%` }} />
-        {aim.laneId === racer.laneId && <div className={`migration-crosshair ${localPlayer?.hasBullet ? '' : 'spent'}`} style={{ left: `${aim.x}%` }}>+</div>}
+        {raceView.shots.filter(shot => shot.hit && shot.laneId === racer.laneId).slice(-1).map(shot => <div className='migration-ko' key={shot.eventId} style={{ left: `${shot.impactX}%` }}>KO! <small>{shot.shooterName}</small></div>)}
       </div>)}
+      {crosshairs.map(crosshair => <div
+        className={`migration-crosshair color-${crosshair.colorIndex} ${crosshair.hasBullet ? '' : 'spent'}`}
+        key={crosshair.id}
+        style={{ left: `${crosshair.aimX}%`, top: `${crosshair.aimY}%` }}
+      ><span>+</span>{crosshair.hasBullet && <i aria-label='Loaded bullet' />}</div>)}
+      {recentShots.length > 0 && <div className='migration-kill-feed' aria-label='Kill feed'>{recentShots.map(shot => <div key={shot.eventId}><strong>{shot.shooterName}</strong><span>▸</span><span>{shot.hit ? shot.victimName || `NPC ${shot.laneId}` : 'missed'}</span></div>)}</div>}
     </section>
-    <div className={`migration-controls ${localPlayer?.role === 'spectator' ? 'spectating' : ''}`}><span><kbd>→</kbd> Walk</span><span><kbd>Space</kbd> Sprint</span><span><kbd>Mouse 1</kbd> Aim and shoot</span><strong>{localPlayer?.role === 'spectator' ? 'Spectating' : localPlayer?.hasBullet ? '1 bullet' : 'Bullet spent'}</strong></div>
+    <div className={`migration-controls ${localPlayer?.role === 'spectator' || raceView.localEliminated ? 'spectating' : ''}`}><span><kbd>→</kbd> Walk</span><span className={`migration-sprint ${raceView.localExhausted ? 'exhausted' : ''}`} style={{ '--stamina': raceView.localStamina }}><b><i /></b><kbd>Space</kbd> Sprint</span><span><kbd>Mouse 1</kbd> Aim and shoot</span><strong>{localPlayer?.role === 'spectator' || raceView.localEliminated ? 'Spectating' : localPlayer?.hasBullet ? '1 bullet' : 'Bullet spent'}</strong></div>
   </>
 }
 

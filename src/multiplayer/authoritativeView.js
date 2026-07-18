@@ -23,10 +23,15 @@ export function projectAuthoritativeState(state, privateState = null) {
     hostPlayerId: state?.hostPlayerId ?? '',
     localPlayerId: privateState?.playerId ?? '',
     localLaneId: privateState?.laneId ?? 0,
+    localCrosshairId: privateState?.crosshairId ?? '',
+    localStamina: privateState?.stamina ?? 1,
+    localExhausted: privateState?.exhausted ?? false,
+    localEliminated: privateState?.eliminated ?? false,
     players: values(state?.players).map(player => ({ ...player })),
     racers: values(state?.racers)
       .map(racer => ({ ...racer }))
       .sort((left, right) => left.laneId - right.laneId),
+    crosshairs: values(state?.crosshairs).map(crosshair => ({ ...crosshair })),
     shots: values(state?.shots).map(shot => ({ ...shot })),
   }
 }

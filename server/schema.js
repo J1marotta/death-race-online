@@ -30,6 +30,14 @@ export const ShotState = schema({
   scored: 'boolean',
 })
 
+export const CrosshairState = schema({
+  id: 'string',
+  aimX: 'number',
+  aimY: 'number',
+  colorIndex: 'number',
+  hasBullet: 'boolean',
+})
+
 export const DeathRaceState = schema({
   roomCode: 'string',
   phase: 'string',
@@ -44,5 +52,6 @@ export const DeathRaceState = schema({
   hostPlayerId: 'string',
   players: { map: PlayerState, default: new MapSchema() },
   racers: { map: RacerState, default: new MapSchema() },
+  crosshairs: { map: CrosshairState, default: new MapSchema() },
   shots: { map: ShotState, default: new MapSchema() },
 })

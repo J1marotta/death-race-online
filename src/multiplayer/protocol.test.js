@@ -27,6 +27,18 @@ describe('versioned multiplayer protocol', () => {
     expect(result.value.payload.progress).toBeUndefined()
   })
 
+  it('accepts bounded aim coordinates without a claimed player or lane', () => {
+    const result = validateClientMessage(inputMessage({
+      type: CLIENT_MESSAGE_TYPES.AIM,
+      payload: { aimX: 44.5, aimY: 72 },
+    }))
+
+    expect(result.ok).toBe(true)
+    expect(result.value.payload).toEqual({ aimX: 44.5, aimY: 72 })
+    expect(result.value.payload).not.toHaveProperty('playerId')
+    expect(result.value.payload).not.toHaveProperty('laneId')
+  })
+
   it('rejects malformed, unknown, and incompatible messages', () => {
     expect(validateClientMessage(null)).toEqual({
       ok: false,

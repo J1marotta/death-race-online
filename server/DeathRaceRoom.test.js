@@ -154,7 +154,44 @@ describe('Colyseus DeathRaceRoom scaffold', () => {
     const privateState = guest.send.mock.calls.find(([type]) => type === 'private-state')[1]
     expect(snapshot.payload.phase).toBe('playing')
     expect(JSON.stringify(snapshot.payload.racers)).not.toContain(room.authorizedPlayer(guest).id)
-    expect(privateState).toEqual({ playerId: room.authorizedPlayer(guest).id, laneId: ownLane })
+    expect(privateState).toEqual(expect.objectContaining({
+      playerId: room.authorizedPlayer(guest).id,
+      laneId: ownLane,
+      crosshairId: expect.any(String),
+      stamina: 1,
+      exhausted: false,
+      eliminated: false,
+    }))
+  })
+
+  it('publishes anonymous aim while keeping stamina and controlled lane private', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST' })
+    const host = client('session-host')
+    const guest = client('session-guest')
+    room.onJoin(host, { playerName: 'James' })
+    room.onJoin(guest, { playerName: 'Mia' })
+    room.authorizedPlayer(host).ready = true
+    room.authorizedPlayer(guest).ready = true
+    room.startCountdown(room.authorizedPlayer(host))
+
+    const privateState = room.privateStateFor(guest)
+    const result = room.handleCommand(guest, command(
+      CLIENT_MESSAGE_TYPES.AIM,
+      { aimX: 42, aimY: 17 },
+    ))
+    const publicCrosshair = room.state.crosshairs.get(privateState.crosshairId).toJSON()
+
+    expect(result.ok).toBe(true)
+    expect(publicCrosshair).toEqual(expect.objectContaining({ aimX: 42, aimY: 17 }))
+    expect(publicCrosshair).not.toHaveProperty('playerId')
+    expect(publicCrosshair).not.toHaveProperty('playerName')
+    expect(publicCrosshair).not.toHaveProperty('laneId')
+    expect(privateState).toEqual(expect.objectContaining({
+      playerId: room.authorizedPlayer(guest).id,
+      laneId: expect.any(Number),
+      stamina: 1,
+    }))
   })
 
   it('removes a dropped player after the reconnection token expires', async () => {

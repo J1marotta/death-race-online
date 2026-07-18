@@ -9,6 +9,7 @@ export const CLIENT_MESSAGE_TYPES = Object.freeze({
   READY: 'ready',
   START_COUNTDOWN: 'start-countdown',
   INPUT: 'input',
+  AIM: 'aim',
   SHOT: 'shot',
   NEXT_ROUND: 'next-round',
   LEAVE: 'leave',
@@ -49,6 +50,13 @@ const payloadValidators = {
   [CLIENT_MESSAGE_TYPES.START_COUNTDOWN]: () => true,
   [CLIENT_MESSAGE_TYPES.INPUT]: payload =>
     MOVEMENT_MODES.includes(payload.movementMode),
+  [CLIENT_MESSAGE_TYPES.AIM]: payload =>
+    isFiniteNumber(payload.aimX) &&
+    payload.aimX >= 0 &&
+    payload.aimX <= 100 &&
+    isFiniteNumber(payload.aimY) &&
+    payload.aimY >= 0 &&
+    payload.aimY <= 100,
   [CLIENT_MESSAGE_TYPES.SHOT]: payload =>
     isFiniteNumber(payload.aimX) &&
     payload.aimX >= 0 &&

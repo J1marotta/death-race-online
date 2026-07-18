@@ -1058,3 +1058,13 @@ Last updated: 2026-07-14
 - Added a regression that rejects a second `public/why.html` source and verifies the canonical page remains a configured build entry.
 - Added migration field notes explaining token-based reconnect continuity, deterministic adverse-network tests, restartable Web Audio lifecycles, and why hosted browser acceptance is part of the test surface.
 - Established `why.html` updates as a required part of each remaining migration commit so architecture decisions and bug lessons are recorded while their evidence is fresh.
+
+### task 103 : Restore Authoritative Crosshairs, Stamina, And Kill Feedback
+
+- Added anonymous per-round crosshair state synchronized by Colyseus: every client sees aim position, color, and bullet status without receiving a player name or controlled-lane mapping.
+- Added a bounded `aim` protocol command; the server derives crosshair ownership from the authenticated connection and the browser throttles mouse updates to 20 Hz.
+- Extended connection-private state with the local lane, crosshair ID, stamina fraction, exhaustion, and elimination status, including complete restoration after reconnect.
+- Kept high-frequency racers, crosshairs, and private stamina out of the ordinary React metadata projection so only the isolated track subtree rerenders during play.
+- Added a physical stamina meter, loaded bullet pip, shared color-coded crosshairs, persistent KO labels, and an authoritative kill feed to the flagged client.
+- Added protocol, privacy, reconnect, and rendering regressions, including proof that public crosshair serialization contains no player ID, player name, or controlled lane.
+- Updated the interactive learning guide with the public/private/server-only state model and fixed its live caching policy while retaining immutable caching for hashed game assets.

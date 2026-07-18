@@ -123,5 +123,6 @@ describe('WHY.html interactive page', () => {
     expect(juice.textContent).toContain('Laptop Constraint')
     expect(diary.textContent).toContain('Reconnect Is A State Transition')
     expect(diary.textContent).toContain('Audio Nodes Are Resources')
+    expect(diary.textContent).toContain('Public, Private, And Server-Only')
   })
 })

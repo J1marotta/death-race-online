@@ -11,6 +11,7 @@ class FakeTransport {
   setReady = vi.fn()
   startCountdown = vi.fn()
   move = vi.fn()
+  aim = vi.fn()
   shoot = vi.fn()
   nextRound = vi.fn()
   subscribe(type, listener) { this.listeners.set(type, listener); return () => this.listeners.delete(type) }
@@ -24,7 +25,7 @@ const lobby = {
   roomCode: 'DRTEST', phase: 'lobby', round: 1, roundCount: 3,
   localPlayerId: 'p1', hostPlayerId: 'p1', localLaneId: 7,
   players: [{ id: 'p1', name: 'James', role: 'host', ready: false, connected: true, score: 0, kills: 0, hasBullet: true }],
-  racers: [], shots: [], winner: null,
+  racers: [], crosshairs: [], shots: [], winner: null,
 }
 
 function installAudioContextMock(oscillators) {
@@ -101,6 +102,31 @@ describe('feature-flagged Colyseus React client', () => {
     expect(screen.getByRole('button', { name: 'Mute sound' }).closest('.migration-track')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Mute sound' }))
     expect(screen.getByRole('button', { name: 'Unmute sound' })).toBeTruthy()
+  })
+
+  it('renders anonymous shared crosshairs, private stamina, and authoritative kill feedback', () => {
+    const transport = new FakeTransport()
+    render(<ColyseusApp transport={transport} />)
+    const playing = {
+      ...lobby,
+      phase: 'playing',
+      localCrosshairId: 'cross-local',
+      localStamina: 0.4,
+      localExhausted: true,
+      players: [{ ...lobby.players[0], ready: true }],
+      racers: Array.from({ length: 20 }, (_, index) => ({ laneId: index + 1, progress: 20, movementMode: 'idle', eliminated: index === 2 })),
+      crosshairs: [
+        { id: 'cross-local', aimX: 10, aimY: 20, colorIndex: 0, hasBullet: true },
+        { id: 'cross-guest', aimX: 40, aimY: 15, colorIndex: 2, hasBullet: false },
+      ],
+      shots: [{ eventId: 'shot-1', shooterName: 'James', laneId: 3, victimName: '', victimType: 'npc', impactX: 20, hit: true, scored: false }],
+    }
+    act(() => transport.emit('meta', { ...playing, racers: [], crosshairs: [] }))
+    act(() => transport.emit('view', playing))
+    expect(document.querySelectorAll('.migration-crosshair')).toHaveLength(2)
+    expect(screen.getByLabelText('Kill feed').textContent).toContain('James▸NPC 3')
+    expect(document.querySelector('.migration-sprint').style.getPropertyValue('--stamina')).toBe('0.4')
+    expect(document.querySelector('.migration-sprint').className).toContain('exhausted')
   })
 
   it('shows authoritative results and lets only the host advance', () => {

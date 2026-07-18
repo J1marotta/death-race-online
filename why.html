@@ -1490,9 +1490,26 @@ await waitFor(() =&gt; guest.state.players.get(guestPlayerId)?.connected === tru
   <p>The Colyseus client now owns one browser audio context, creates a fresh music graph whenever authoritative state enters <code class="inline">playing</code>, stops and clears that graph when the round ends, and closes everything on unmount. Shot audio is immediate and local, so it feels responsive without adding a single game-server message.</p>
   <div class="lesson">For timers, sockets, animation frames, and audio nodes, cleanup is half the feature. Test start → stop → start again, because the second run finds lifecycle bugs the first run cannot.</div>
 
+  <h3>Public, Private, And Server-Only Are Different Products</h3>
+  <p>Shared crosshairs sound simple until hidden identity enters the room. Everyone needs to see where every loaded weapon is aiming, but nobody should receive “James controls lane 7.” The server therefore publishes anonymous, per-round crosshair IDs with aim coordinates, color, and bullet state. The authenticated connection separately receives its own crosshair ID, controlled lane, stamina, exhaustion, and elimination state. The player-to-lane map never enters synchronized public state.</p>
+  <details class="code-panel">
+    <summary>One room, three visibility levels <small>server/DeathRaceRoom.js</small></summary>
+    <pre><code class="js">// Public: enough for every browser to draw the same aim marker.
+crosshair = { id, aimX, aimY, colorIndex, hasBullet }
+
+// Private: sent only to the authenticated connection.
+privateState = { playerId, laneId, crosshairId, stamina, exhausted, eliminated }
+
+// Server-only: authorization and the hidden assignment relationship.
+crosshairIdByPlayerId.set(playerId, crosshairId)</code></pre>
+  </details>
+  <p>Stamina updates travel on the same private channel and are stripped from the low-frequency React metadata projection. Only the isolated track subtree receives rapid racer, crosshair, and stamina views, so a moving mouse does not rerender the lobby shell or scoreboard.</p>
+  <div class="lesson">Privacy is not “do not draw this field.” If the browser receives a secret, a curious player can read it. Design separate state channels and test the serialized public shape.</div>
+
   <h3>Deployment Is Part Of The Test Surface</h3>
   <p>The current migration path is live behind a stable preview alias while the existing Cloudflare-backed game remains untouched. A 1280×720 browser acceptance pass proved all 20 racers fit with no document scrolling, the sound control remains outside the track, and the public page talks to the Fly WebSocket endpoint. The immutable deployment URL gives each step a precise artifact; the alias gives playtesters one address to remember.</p>
   <div class="lesson">A feature is not deployed because the build command succeeded. Exercise the hosted frontend against the hosted server and inspect the actual laptop viewport.</div>
+  <p>The guide itself supplied a smaller version of the same lesson. The repo once had a tested 113 KB root guide and a stale 50 KB public copy, so green tests and successful deployment still served old teaching material. The fix was one canonical lowercase <code class="inline">why.html</code> Vite entry plus a regression that forbids the duplicate. The guide now uses <code class="inline">Cache-Control: no-cache</code>, while hashed game assets remain immutable.</p>
 </section>
 
 <section id="next-juice">

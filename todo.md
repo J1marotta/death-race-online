@@ -4,24 +4,13 @@ This file tracks remaining implementation work only. Design decisions live in `s
 
 ## Delivery Estimate
 
-The remaining Fly.io and Colyseus migration is estimated at **22-38 agent-hours** including writing failing tests first, implementation, passing regression tests, deployment, and live multiplayer verification. Protocol, scaffold, authenticated sessions, lobby parity, movement, and shooting Tasks 01-06 are complete. With carefully divided agents, expect roughly **14-25 hours of elapsed work** because simulation, integration, deployment, and browser-to-browser testing cannot all be parallelized safely.
+The remaining Fly.io and Colyseus migration is estimated at **17-30 agent-hours** including writing failing tests first, implementation, passing regression tests, deployment, and live multiplayer verification. Authoritative server Tasks 01-07 are complete. With carefully divided agents, expect roughly **11-20 hours of elapsed work** because integration, deployment, and browser-to-browser testing cannot all be parallelized safely.
 
 The first complete migration should therefore be treated as roughly **4-7 focused agent working days**, including time for at least one failed deployment or integration pass. This assumes agents are writing the code and a human is available only for Fly.io account access, billing limits, secrets, and final live acceptance testing.
 
 Juice work is estimated separately at **10-18 agent-hours**. The remaining independent NPC timing work is estimated at **4-7 agent-hours**, or less if it is implemented directly in the new authoritative Colyseus simulation instead of being fixed twice.
 
 ## Migration To Fly.io And Colyseus
-
-### Task 07: Move NPC Simulation And Winners To The Server
-
-Estimate: **5-8 agent-hours**.
-
-- Implement independent per-NPC behavior state with its own mode, mode deadline, last update time, speed variation, run bias, and pause bias.
-- Remove the shared `npcTick` behavior clock described in `npc_logic.md`.
-- Run NPC movement in the same authoritative fixed-step simulation as humans.
-- Keep seeded personalities for repeatable tests while choosing independent action durations.
-- Let the server adjudicate NPC finishes so the host is no longer trusted to report an NPC winner.
-- Write failing tests proving one NPC's timer cannot change another NPC's decision time, NPCs do not move in a visible shared rhythm, and NPCs can cross the finish.
 
 ### Task 08: Add Reconnection And Ordering
 
@@ -131,14 +120,3 @@ Estimate: **2-4 agent-hours**.
 - Add intensity layers to gameplay music during the final third of the race.
 - Keep effects client-only so they add no game-server traffic.
 - Check laptop performance, mute behavior, reduced motion, and cleanup between rounds.
-
-## Remaining NPC Work If Migration Is Delayed
-
-Estimate: **4-7 agent-hours**.
-
-- Replace the shared `npcTick` and global interval behavior with per-NPC timers in the current client implementation.
-- Give each NPC independent current mode, mode deadline, last update time, speed jitter, pause bias, and run bias.
-- Use one render loop if helpful, but advance each NPC according to its own state and deadline.
-- Write failing independence tests before implementation, including a test that changing one NPC's timer cannot affect another NPC's next decision.
-- Treat this as temporary work. Prefer implementing it once in the authoritative Colyseus simulation if migration starts immediately.
-- See `npc_logic.md` for the existing diagnosis and implementation guidance.

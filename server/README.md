@@ -25,10 +25,12 @@ The migration server currently provides:
 - server-owned walking, sprint stamina, elimination, progress, and finish detection
 - authoritative aim-based shooting with one server-owned bullet per player
 - canonical shot events, corpse protection, self-shot rules, and human kill scoring
+- 20 total racers with server-filled NPC lanes
+- independent seeded NPC modes, decision deadlines, speed variation, pauses, and finish adjudication
 - automatic empty-room disposal
 - protocol validation and ordering helpers in `src/multiplayer/protocol.js`
 
-It does not yet provide NPC simulation, round progression, or a frontend transport, so it is not a playable game. Do not point production at it until the migration tasks in `todo.md` reach cutover.
+It does not yet provide round progression or a frontend transport, so it is not a playable game. Do not point production at it until the migration tasks in `todo.md` reach cutover.
 
 ## Commands
 

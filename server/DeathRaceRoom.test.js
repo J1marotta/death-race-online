@@ -263,7 +263,7 @@ describe('Colyseus DeathRaceRoom scaffold', () => {
     const guestPrivate = room.privateStateFor(guest)
     expect(hostPrivate.laneId).not.toBe(guestPrivate.laneId)
     expect(hostPrivate.playerId).toBe(room.authorizedPlayer(host).id)
-    expect([...room.state.racers.values()]).toHaveLength(2)
+    expect([...room.state.racers.values()]).toHaveLength(20)
     expect([...room.state.racers.values()].every(racer => !('playerId' in racer))).toBe(true)
     expect([...room.state.racers.values()].every(racer => !('name' in racer))).toBe(true)
   })
@@ -376,6 +376,40 @@ describe('Colyseus DeathRaceRoom scaffold', () => {
     expect(result.event.scored).toBe(false)
     expect(room.authorizedPlayer(host).score).toBe(0)
     expect(runtime.eliminated).toBe(true)
+  })
+
+  it('fills empty lanes with independent server-owned NPCs', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST' })
+    const host = client('session-host')
+    room.onJoin(host, { playerName: 'James' })
+    room.authorizedPlayer(host).ready = true
+    room.startCountdown(room.authorizedPlayer(host))
+    const npcs = [...room.runtimeByPlayerId.values()].filter(runtime => runtime.controllerType === 'npc')
+
+    expect(npcs).toHaveLength(19)
+    expect(new Set(npcs.map(npc => npc.laneId)).size).toBe(19)
+    expect(new Set(npcs.map(npc => Math.round(npc.modeEndsAt))).size).toBeGreaterThan(10)
+    expect(room.state.racers.size).toBe(20)
+  })
+
+  it('lets an NPC independently cross the finish and become authoritative winner', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST' })
+    const host = client('session-host')
+    room.onJoin(host, { playerName: 'James' })
+    room.authorizedPlayer(host).ready = true
+    room.startCountdown(room.authorizedPlayer(host))
+    room.advanceSimulation(0, room.state.countdownEndsAt)
+    const npc = [...room.runtimeByPlayerId.values()].find(runtime => runtime.controllerType === 'npc')
+    npc.progress = FINISH_PROGRESS - 0.01
+    npc.behaviorMode = 'walking'
+    npc.modeEndsAt = room.state.countdownEndsAt + 1000
+
+    room.advanceSimulation(50, room.state.countdownEndsAt + 50)
+
+    expect(room.state.phase).toBe('roundOver')
+    expect(room.state.winnerLaneId).toBe(npc.laneId)
   })
 
   it('does not start while a player is inside the reconnection grace window', () => {

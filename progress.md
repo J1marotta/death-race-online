@@ -917,3 +917,14 @@ Last updated: 2026-07-14
 - Added pure geometry and room-level security tests covering aim bounds, hit windows, misses, spent bullets, fabricated victims/scores, duplicate shots, self-shots, corpse shots, and server-owned scoring.
 - Kept the active Cloudflare frontend and Durable Object shooting path unchanged until the client adapter and live acceptance gates are complete.
 - Completed migration Task 06. Task 07, authoritative independent NPC simulation, is next.
+
+### task 88 : Move Independent NPCs And Winners To Colyseus
+
+- Filled every unclaimed lane to 20 racers with server-owned NPC runtimes, keeping human lane assignments secret and unique.
+- Replaced the old shared `npcTick` decision model in the migration path with private per-NPC mode, mode deadline, last-update timestamp, seeded random stream, and speed variation.
+- Added independent stopped, idle-creep, walking, and short-running behavior with the documented duration ranges and an individual 1.2-1.8 second reaction delay after Go.
+- Advanced NPCs inside the same fixed server simulation as humans while making each decision from that NPC's own deadline. Changing one NPC timer cannot influence another NPC's state or next decision.
+- Let NPCs use the shared authoritative elimination, shooting, finish threshold, and first-winner adjudication paths.
+- Added deterministic tests for varied deadlines and personalities, timer isolation, partial-subset mode changes, all-lane room population, and NPC finish-line wins.
+- Left the production client's shared-clock NPC code intact only as rollback code; it will disappear when the Colyseus client path passes live acceptance and the old realtime implementation is removed.
+- Completed migration Task 07. Task 08, reconnect snapshots and ordering hardening, is next.

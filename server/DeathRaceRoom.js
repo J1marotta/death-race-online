@@ -18,6 +18,7 @@ import {
   setMovementIntent,
 } from './simulation.js'
 import { resolveShot } from './shooting.js'
+import { advanceNpcRuntime, createNpcRuntime } from './npcSimulation.js'
 
 export const DEATH_RACE_ROOM_NAME = 'death-race'
 export const MAX_ROOM_PLAYERS = 20
@@ -249,7 +250,8 @@ export class DeathRaceRoom extends Room {
     this.runtimeByPlayerId.clear()
     this.state.racers.clear()
     this.state.shots.clear()
-    const lanes = assignSecretLanes(players.map(current => current.id))
+    const lanes = assignSecretLanes(players.map(current => current.id), MAX_ROOM_PLAYERS)
+    const countdownEndsAt = Date.now() + COUNTDOWN_DURATION_MS
     for (const current of players) {
       const runtime = createPlayerRuntime({ playerId: current.id, laneId: lanes.get(current.id) })
       this.runtimeByPlayerId.set(current.id, runtime)
@@ -262,7 +264,23 @@ export class DeathRaceRoom extends Room {
       }))
       this.sendPrivateStateForPlayer(current.id)
     }
-    this.state.countdownEndsAt = Date.now() + COUNTDOWN_DURATION_MS
+    const humanLanes = new Set(lanes.values())
+    for (let laneId = 1; laneId <= MAX_ROOM_PLAYERS; laneId += 1) {
+      if (humanLanes.has(laneId)) continue
+      const runtime = createNpcRuntime({
+        laneId,
+        seed: `${this.state.roomCode}:${this.state.round}`,
+        nowMs: countdownEndsAt,
+      })
+      this.runtimeByPlayerId.set(runtime.playerId, runtime)
+      this.state.racers.set(String(laneId), new RacerState({
+        laneId,
+        progress: 0,
+        movementMode: 'idle',
+        eliminated: false,
+      }))
+    }
+    this.state.countdownEndsAt = countdownEndsAt
     this.state.winnerLaneId = 0
     this.state.phase = 'countdown'
     return { ok: true }
@@ -346,7 +364,11 @@ export class DeathRaceRoom extends Room {
     if (this.state.phase !== 'playing') return
 
     for (const runtime of this.runtimeByPlayerId.values()) {
-      advancePlayerRuntime(runtime, deltaMs, nowMs)
+      if (runtime.controllerType === 'npc') {
+        advanceNpcRuntime(runtime, nowMs)
+      } else {
+        advancePlayerRuntime(runtime, deltaMs, nowMs)
+      }
       const racer = this.state.racers.get(String(runtime.laneId))
       if (racer) {
         racer.progress = runtime.progress

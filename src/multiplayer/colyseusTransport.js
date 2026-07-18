@@ -28,6 +28,7 @@ export class ColyseusTransport {
     this.roundId = 1
     this.sequence = 0
     this.closedIntentionally = false
+    this.serverClosed = false
     this.latestState = null
     this.privateState = null
     this.lastMetaSignature = ''
@@ -84,6 +85,7 @@ export class ColyseusTransport {
     this.room = room
     this.roomId = room.roomId
     this.closedIntentionally = false
+    this.serverClosed = false
     room.onStateChange(state => {
       const snapshot = state?.toJSON ? state.toJSON() : state
       const players = snapshot?.players instanceof Map
@@ -109,7 +111,13 @@ export class ColyseusTransport {
     })
     room.onMessage(SERVER_MESSAGE_TYPES.EVENT, envelope => this.emit('event', envelope))
     room.onMessage(SERVER_MESSAGE_TYPES.ERROR, envelope => this.emit('error', envelope))
+    room.onMessage(SERVER_MESSAGE_TYPES.CLOSED, envelope => {
+      this.serverClosed = true
+      this.closedIntentionally = true
+      this.emit('closed', envelope.payload)
+    })
     room.onLeave(code => {
+      if (this.serverClosed) return
       if (this.closedIntentionally || code === 1000) {
         this.emit('closed', { code })
         return

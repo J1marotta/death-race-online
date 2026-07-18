@@ -9,6 +9,7 @@
 .migration-connect input, .migration-connect select, .migration-actions input { width: 100%; min-height: 42px; border: 1px solid var(--border); border-radius: 5px; padding: 0 10px; background: #101217; color: var(--text-h); font: inherit; }
 .migration-primary { border-color: var(--accent); background: var(--accent); color: white; font-weight: 800; }
 .migration-error { margin: 0; color: #ff8b85; }
+.migration-closed { width: min(520px,100%); margin-top: 28px; padding: 18px; border: 1px solid var(--border); background: var(--panel); }
 .migration-topbar { align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .migration-summary { align-items: center; }
 .migration-summary span { padding: 8px 10px; border: 1px solid var(--border); border-radius: 5px; }

@@ -24,6 +24,7 @@ export const DEATH_RACE_ROOM_NAME = 'death-race'
 export const MAX_ROOM_PLAYERS = 20
 export const MAX_MESSAGES_PER_SECOND = 30
 export const RECONNECT_GRACE_SECONDS = 45
+export const ROOM_IDLE_TIMEOUT_MS = 30 * 60 * 1000
 
 const cleanPlayerName = value => {
   const name = typeof value === 'string' ? value.trim() : ''
@@ -53,6 +54,8 @@ export class DeathRaceRoom extends Room {
   crosshairIdByPlayerId = new Map()
   lastPrivateStateSentAt = new Map()
   eventSequence = 0
+  lastActivityAt = Date.now()
+  closing = false
   messages = {
     command: (client, message) => this.handleCommand(client, message),
   }
@@ -64,6 +67,7 @@ export class DeathRaceRoom extends Room {
     }
     activeRoomCodes.add(roomCode)
     this.roomId = roomCode
+    this.lastActivityAt = Date.now()
     this.state = new DeathRaceState({
       roomCode,
       phase: 'lobby',
@@ -205,6 +209,7 @@ export class DeathRaceRoom extends Room {
       return this.sendError(client, result.error, result.message)
     }
     this.lastSequenceByPlayerId.set(player.id, message.sequence)
+    this.lastActivityAt = Date.now()
     return result
   }
 
@@ -451,6 +456,10 @@ export class DeathRaceRoom extends Room {
   }
 
   advanceSimulation(deltaMs, nowMs = Date.now()) {
+    if (!this.closing && nowMs - this.lastActivityAt >= ROOM_IDLE_TIMEOUT_MS) {
+      void this.closeRoom('idle-expired', 'Room closed after 30 minutes without activity')
+      return
+    }
     if (this.state.phase === 'countdown') {
       if (nowMs < this.state.countdownEndsAt) return
       this.state.phase = 'playing'
@@ -569,7 +578,23 @@ export class DeathRaceRoom extends Room {
   }
 
   async closeAfterHostDeparture() {
+    await this.closeRoom('host-left', 'The host left the room')
+  }
+
+  async closeRoom(reason, message) {
+    if (this.closing) return
+    this.closing = true
     this.state.phase = 'closed'
+    const payload = createServerEnvelope(
+      SERVER_MESSAGE_TYPES.CLOSED,
+      { reason, message },
+      {
+        roomId: this.state.roomCode,
+        roundId: this.state.round,
+        eventId: this.createEventId(),
+      },
+    )
+    this.broadcast?.(SERVER_MESSAGE_TYPES.CLOSED, payload)
     await this.disconnect()
   }
 

@@ -1088,3 +1088,13 @@ Last updated: 2026-07-14
 - Disabled movement, aiming, shooting, crosshairs, and the controls strip on the result track while retaining bodies, KO attribution, finish state, and revealed names.
 - Added server and React regressions for post-win reveal timing, all 20 result racers, winner naming, and next-round availability.
 - Added the phase-boundary and retained-snapshot lessons to `why.html` in the same commit.
+
+### task 106 : Close Abandoned Rooms And Explain Intentional Shutdown
+
+- Added a server-owned 30-minute meaningful-activity deadline that closes a room even when network connections remain technically alive.
+- Added a browser-owned 20-minute pointer/keyboard inactivity timer that voluntarily leaves abandoned sessions and resets only on real user interaction.
+- Unified host departure and idle expiry through one versioned `closed` protocol event carrying a stable reason and user-facing message.
+- Prevented the Colyseus transport from treating an intentional server closure as a dropped connection and retrying a room that no longer exists.
+- Added a Room closed screen with the server reason and one visible Return to menu action.
+- Added room, transport, and React regressions for idle expiry, no reconnect after closure, browser timeout cleanup, reason display, and menu recovery.
+- Added the liveness-versus-activity lesson to `why.html` in the same commit.

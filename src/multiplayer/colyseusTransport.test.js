@@ -113,4 +113,23 @@ describe('Colyseus client transport', () => {
     expect(errors.at(-1).code).toBe('reconnect-failed')
     expect(transport.client.reconnect).toHaveBeenCalledTimes(MAX_RECONNECT_ATTEMPTS)
   })
+
+  it('surfaces a server-owned room closure without starting reconnection', async () => {
+    const room = fakeRoom()
+    const reconnect = vi.fn()
+    const transport = new ColyseusTransport({
+      client: { create: vi.fn().mockResolvedValue(room), reconnect },
+    })
+    const closures = []
+    transport.subscribe('closed', details => closures.push(details))
+    await transport.create({ roomCode: 'DRTEST', playerName: 'James' })
+
+    room.handlers.messages.get('closed')({
+      payload: { reason: 'host-left', message: 'The host left the room' },
+    })
+    room.handlers.leave(1006)
+
+    expect(closures).toEqual([{ reason: 'host-left', message: 'The host left the room' }])
+    expect(reconnect).not.toHaveBeenCalled()
+  })
 })

@@ -14,6 +14,7 @@ const emptyView = {
 
 const SPECIES = ['Cat', 'Bunny', 'Bear', 'Fox', 'Frog', 'Pig', 'Chick', 'Mouse']
 const PALETTES = ['peach', 'sky', 'mint', 'honey', 'berry']
+const CLIENT_IDLE_TIMEOUT_MS = 20 * 60 * 1000
 
 function racerAppearance(roomCode, round, laneId) {
   const seed = hashString(`${roomCode}:${round}:appearance`)
@@ -144,9 +145,32 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
   useEffect(() => {
     const offView = transport.subscribe('meta', setView)
     const offError = transport.subscribe('error', event => setError(event?.payload?.message ?? event.message ?? 'Connection error'))
-    const offClosed = transport.subscribe('closed', () => setView(emptyView))
+    const offClosed = transport.subscribe('closed', details => setView(details?.reason
+      ? { ...emptyView, phase: 'closed', closedReason: details.message }
+      : emptyView))
     return () => { offView(); offError(); offClosed() }
   }, [transport])
+
+  useEffect(() => {
+    if (view.phase === 'menu' || view.phase === 'closed') return undefined
+    let timeout
+    const leaveIdleRoom = () => {
+      void transport.leave().catch(() => {})
+      setView(emptyView)
+    }
+    const resetIdleTimeout = () => {
+      window.clearTimeout(timeout)
+      timeout = window.setTimeout(leaveIdleRoom, CLIENT_IDLE_TIMEOUT_MS)
+    }
+    resetIdleTimeout()
+    window.addEventListener('pointerdown', resetIdleTimeout, true)
+    window.addEventListener('keydown', resetIdleTimeout, true)
+    return () => {
+      window.clearTimeout(timeout)
+      window.removeEventListener('pointerdown', resetIdleTimeout, true)
+      window.removeEventListener('keydown', resetIdleTimeout, true)
+    }
+  }, [transport, view.phase])
 
   const localPlayer = view.players.find(player => player.id === view.localPlayerId)
   const isHost = view.localPlayerId && view.localPlayerId === view.hostPlayerId
@@ -188,6 +212,16 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
         {error && <p className='migration-error' role='alert'>{error}</p>}
         <button className='migration-primary' disabled={busy}>{busy ? 'Connecting...' : mode === 'create' ? 'Create lobby' : 'Join lobby'}</button>
       </form>
+    </main>
+  }
+
+  if (view.phase === 'closed') {
+    return <main className='migration-shell'>
+      <header><p>Death Race</p><h1>Room closed</h1></header>
+      <section className='migration-closed'>
+        <p>{view.closedReason || 'This room is no longer available.'}</p>
+        <button className='migration-primary' onClick={() => { setError(''); setView(emptyView) }}>Return to menu</button>
+      </section>
     </main>
   }
 

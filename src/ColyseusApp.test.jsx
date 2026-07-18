@@ -14,6 +14,7 @@ class FakeTransport {
   aim = vi.fn()
   shoot = vi.fn()
   nextRound = vi.fn()
+  leave = vi.fn().mockResolvedValue(undefined)
   subscribe(type, listener) { this.listeners.set(type, listener); return () => this.listeners.delete(type) }
   emit(type, value) {
     if (type === 'view') this.currentView = value
@@ -48,7 +49,7 @@ function installAudioContextMock(oscillators) {
 }
 
 describe('feature-flagged Colyseus React client', () => {
-  afterEach(() => { cleanup(); vi.unstubAllGlobals() })
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.useRealTimers() })
 
   it('generates an easy-to-share lobby code for hosts', () => {
     expect(createLobbyCode(() => 0)).toBe('AAAAAA')
@@ -191,5 +192,29 @@ describe('feature-flagged Colyseus React client', () => {
     fireEvent.keyDown(window, { code: 'ArrowRight' })
     expect(transport.move).not.toHaveBeenCalled()
     expect(screen.getByText('Spectating')).toBeTruthy()
+  })
+
+  it('leaves an inactive browser session after twenty minutes', async () => {
+    vi.useFakeTimers()
+    const transport = new FakeTransport()
+    render(<ColyseusApp transport={transport} />)
+    act(() => transport.emit('view', lobby))
+
+    await act(() => vi.advanceTimersByTimeAsync(20 * 60 * 1000))
+
+    expect(transport.leave).toHaveBeenCalledOnce()
+    expect(screen.getByText('Enter the race')).toBeTruthy()
+  })
+
+  it('shows the server closure reason and a return-to-menu action', () => {
+    const transport = new FakeTransport()
+    render(<ColyseusApp transport={transport} />)
+    act(() => transport.emit('view', lobby))
+    act(() => transport.emit('closed', { reason: 'host-left', message: 'The host left the room' }))
+
+    expect(screen.getByText('Room closed')).toBeTruthy()
+    expect(screen.getByText('The host left the room')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Return to menu' }))
+    expect(screen.getByText('Enter the race')).toBeTruthy()
   })
 })

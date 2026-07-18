@@ -4,6 +4,7 @@ import {
   MAX_MESSAGES_PER_SECOND,
   MAX_ROOM_PLAYERS,
   RECONNECT_GRACE_SECONDS,
+  ROOM_IDLE_TIMEOUT_MS,
   DeathRaceRoom,
   resetActiveRoomCodesForTests,
 } from './DeathRaceRoom.js'
@@ -38,6 +39,24 @@ describe('Colyseus DeathRaceRoom scaffold', () => {
     expect(room.maxClients).toBe(MAX_ROOM_PLAYERS)
     expect(room.autoDispose).toBe(true)
     expect(room.maxMessagesPerSecond).toBe(MAX_MESSAGES_PER_SECOND)
+  })
+
+  it('closes an inactive room from the server even while clients remain connected', async () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST' })
+    room.onJoin(client('session-host'), { playerName: 'James' })
+    room.broadcast = vi.fn()
+    room.disconnect = vi.fn().mockResolvedValue(undefined)
+    room.lastActivityAt = 1000
+
+    room.advanceSimulation(0, 1000 + ROOM_IDLE_TIMEOUT_MS)
+
+    await vi.waitFor(() => expect(room.disconnect).toHaveBeenCalledOnce())
+    expect(room.state.phase).toBe('closed')
+    expect(room.broadcast).toHaveBeenCalledWith(
+      'closed',
+      expect.objectContaining({ payload: expect.objectContaining({ reason: 'idle-expired' }) }),
+    )
   })
 
   it('makes the first connection host and later connections players', () => {

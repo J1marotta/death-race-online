@@ -53,13 +53,17 @@ describe('Colyseus client transport', () => {
     const transport = new ColyseusTransport({ client: { create: vi.fn().mockResolvedValue(room) } })
     const snapshots = []
     const privateStates = []
+    const views = []
     transport.subscribe('snapshot', value => snapshots.push(value))
     transport.subscribe('private-state', value => privateStates.push(value))
+    transport.subscribe('view', value => views.push(value))
     await transport.create({ roomCode: 'DRTEST', playerName: 'James' })
     room.handlers.state({ toJSON: () => ({ phase: 'playing', round: 2 }) })
     room.handlers.messages.get('private-state')({ laneId: 7 })
     expect(snapshots).toEqual([{ phase: 'playing', round: 2 }])
     expect(privateStates).toEqual([{ laneId: 7 }])
+    expect(views.at(-1).localLaneId).toBe(7)
+    expect(views.at(-1).phase).toBe('playing')
   })
 
   it('reconnects with capped exponential delays and jitter', async () => {

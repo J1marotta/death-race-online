@@ -959,3 +959,13 @@ Last updated: 2026-07-14
 - Fixed resumed-client ordering by preserving its monotonically increasing command sequence instead of resetting it to zero after reconnect.
 - Added tests for human and NPC winner scoring, guest rejection, fresh round reset, and final match completion.
 - Task 09 remains in progress; the server contract now supports every round-loop operation the transport adapter needs.
+
+### task 92 : Add The Authoritative Client View Model
+
+- Added a stable UI projection that converts Colyseus schema maps into sorted player, racer, shot, winner, countdown, and room views without inventing or leaking a public player-to-lane mapping.
+- Merged private player ID and lane state only into the local client view.
+- Added local progress prediction based only on the last authoritative movement mode and speed, bounded to the track.
+- Added smooth correction for ordinary drift with a large-divergence snap threshold for recovery from stale or resumed state.
+- Made the transport publish projected views from push snapshots and private-state updates without polling.
+- Added tests for anonymous projection, local private-state merge, correction convergence, snap recovery, and bounded prediction.
+- Task 09 remains in progress; the next substep is the feature-flagged React integration and rendering tests.

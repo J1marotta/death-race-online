@@ -4,6 +4,7 @@ import {
   PROTOCOL_VERSION,
   SERVER_MESSAGE_TYPES,
 } from './protocol.js'
+import { projectAuthoritativeState } from './authoritativeView.js'
 
 export const DEFAULT_COLYSEUS_ENDPOINT = 'ws://127.0.0.1:2567'
 export const MAX_RECONNECT_ATTEMPTS = 5
@@ -27,6 +28,8 @@ export class ColyseusTransport {
     this.roundId = 1
     this.sequence = 0
     this.closedIntentionally = false
+    this.latestState = null
+    this.privateState = null
     this.listeners = new Map()
   }
 
@@ -63,13 +66,21 @@ export class ColyseusTransport {
     room.onStateChange(state => {
       const snapshot = state?.toJSON ? state.toJSON() : state
       this.roundId = snapshot?.round ?? this.roundId
+      this.latestState = snapshot
       this.emit('snapshot', snapshot)
+      this.emit('view', projectAuthoritativeState(snapshot, this.privateState))
     })
     room.onMessage(SERVER_MESSAGE_TYPES.SNAPSHOT, envelope => {
       this.roundId = envelope.roundId
+      this.latestState = envelope.payload
       this.emit('snapshot', envelope.payload)
+      this.emit('view', projectAuthoritativeState(envelope.payload, this.privateState))
     })
-    room.onMessage(SERVER_MESSAGE_TYPES.PRIVATE_STATE, payload => this.emit('private-state', payload))
+    room.onMessage(SERVER_MESSAGE_TYPES.PRIVATE_STATE, payload => {
+      this.privateState = payload
+      this.emit('private-state', payload)
+      if (this.latestState) this.emit('view', projectAuthoritativeState(this.latestState, payload))
+    })
     room.onMessage(SERVER_MESSAGE_TYPES.EVENT, envelope => this.emit('event', envelope))
     room.onMessage(SERVER_MESSAGE_TYPES.ERROR, envelope => this.emit('error', envelope))
     room.onLeave(code => {

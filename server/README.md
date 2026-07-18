@@ -12,7 +12,8 @@ The migration server currently provides:
 - an isolated `DeathRaceRoom`
 - synchronized lobby state
 - a 20-player room limit
-- connection-session player keys
+- random server-owned player IDs bound privately to connection sessions
+- 256-bit rotating reconnection tokens with a 45-second expiry window
 - automatic empty-room disposal
 - protocol validation and ordering helpers in `src/multiplayer/protocol.js`
 
@@ -33,7 +34,6 @@ The local server listens on port `2567` by default and exposes `GET /health`.
 
 Keep the Cloudflare path intact until all of these are true:
 
-- authenticated sessions replace display-name identity
 - lobby behavior reaches parity
 - movement, stamina, shooting, NPCs, scoring, and winners are server authoritative
 - reconnect and message ordering tests pass

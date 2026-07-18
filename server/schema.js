@@ -14,6 +14,6 @@ export const DeathRaceState = schema({
   privacy: 'string',
   roundCount: 'number',
   round: 'number',
-  hostSessionId: 'string',
+  hostPlayerId: 'string',
   players: { map: PlayerState, default: new MapSchema() },
 })

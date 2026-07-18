@@ -4,24 +4,13 @@ This file tracks remaining implementation work only. Design decisions live in `s
 
 ## Delivery Estimate
 
-The remaining Fly.io and Colyseus migration is estimated at **40-67 agent-hours** including writing failing tests first, implementation, passing regression tests, deployment, and live multiplayer verification. Protocol Task 01 and server-scaffold Task 02 are complete. With carefully divided agents, expect roughly **25-41 hours of elapsed work** because integration, deployment, and browser-to-browser testing cannot all be parallelized safely.
+The remaining Fly.io and Colyseus migration is estimated at **36-61 agent-hours** including writing failing tests first, implementation, passing regression tests, deployment, and live multiplayer verification. Protocol Task 01, server-scaffold Task 02, and authenticated-session Task 03 are complete. With carefully divided agents, expect roughly **23-38 hours of elapsed work** because integration, deployment, and browser-to-browser testing cannot all be parallelized safely.
 
 The first complete migration should therefore be treated as roughly **4-7 focused agent working days**, including time for at least one failed deployment or integration pass. This assumes agents are writing the code and a human is available only for Fly.io account access, billing limits, secrets, and final live acceptance testing.
 
 Juice work is estimated separately at **10-18 agent-hours**. The remaining independent NPC timing work is estimated at **4-7 agent-hours**, or less if it is implemented directly in the new authoritative Colyseus simulation instead of being fixed twice.
 
 ## Migration To Fly.io And Colyseus
-
-### Task 03: Replace Names With Authenticated Sessions
-
-Estimate: **4-6 agent-hours**.
-
-- Generate an unguessable player/session token when a player creates or joins a room.
-- Bind identity to the Colyseus client session. Never accept `playerName`, host status, or player ID as authority from later gameplay messages.
-- Store display names as editable presentation data only.
-- Add resume tokens with expiry so a reconnecting browser can reclaim its player without creating a duplicate.
-- Reject attempts to impersonate another player, reuse another player's token, or perform host-only actions from a guest session.
-- Write failing security tests first for host impersonation, shot impersonation, ready impersonation, token reuse, and unauthorized settings changes.
 
 ### Task 04: Rebuild Lobby State On Colyseus
 

@@ -871,3 +871,14 @@ Last updated: 2026-07-14
 - Removed a proposed `concurrently` helper after its dependency tree reported a critical advisory; replaced it with a small repository-owned Node launcher and restored `npm audit` to zero vulnerabilities.
 - Documented the migration server's inactive status and cutover safety boundary in `server/README.md` and the root README.
 - Completed migration Tasks 01 and 02; Task 03, authenticated resumable sessions, is next.
+
+### task 84 : Add Authenticated Resumable Colyseus Sessions
+
+- Replaced connection session IDs as public player identity with random server-owned player UUIDs.
+- Added a private connection-session-to-player map and bound server authentication metadata to the connection; later messages can resolve only the player attached to that connection, regardless of any forged display name in a payload.
+- Upgraded Colyseus' default short reconnection token to a fresh 256-bit URL-safe token on join and every successful resume.
+- Added a 45-second reconnection grace window using Colyseus' native room reservation lifecycle.
+- Kept dropped players in synchronized state as disconnected during the grace window, restored them on resume, and removed them after token expiry.
+- Added security and lifecycle tests for random IDs, connection-bound authorization, unique tokens, token rotation, reconnection, and expiry.
+- Kept the entire implementation inside the inactive migration server; the deployed Cloudflare game remains the active production path.
+- Completed migration Task 03. Task 04, Colyseus lobby parity, is next.

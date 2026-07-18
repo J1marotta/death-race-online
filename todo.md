@@ -4,26 +4,13 @@ This file tracks remaining implementation work only. Design decisions live in `s
 
 ## Delivery Estimate
 
-The remaining Fly.io and Colyseus migration is estimated at **32-55 agent-hours** including writing failing tests first, implementation, passing regression tests, deployment, and live multiplayer verification. Protocol, scaffold, authenticated-session, and lobby-parity Tasks 01-04 are complete. With carefully divided agents, expect roughly **20-35 hours of elapsed work** because simulation, integration, deployment, and browser-to-browser testing cannot all be parallelized safely.
+The remaining Fly.io and Colyseus migration is estimated at **26-45 agent-hours** including writing failing tests first, implementation, passing regression tests, deployment, and live multiplayer verification. Protocol, scaffold, authenticated sessions, lobby parity, and authoritative movement Tasks 01-05 are complete. With carefully divided agents, expect roughly **16-29 hours of elapsed work** because simulation, integration, deployment, and browser-to-browser testing cannot all be parallelized safely.
 
 The first complete migration should therefore be treated as roughly **4-7 focused agent working days**, including time for at least one failed deployment or integration pass. This assumes agents are writing the code and a human is available only for Fly.io account access, billing limits, secrets, and final live acceptance testing.
 
 Juice work is estimated separately at **10-18 agent-hours**. The remaining independent NPC timing work is estimated at **4-7 agent-hours**, or less if it is implemented directly in the new authoritative Colyseus simulation instead of being fixed twice.
 
 ## Migration To Fly.io And Colyseus
-
-### Task 05: Make Movement Server Authoritative
-
-Estimate: **6-10 agent-hours**.
-
-- Assign each human a secret lane on the server and send that assignment only to that player's connection.
-- Accept movement intent such as stopped, walking, or sprinting instead of accepting client-authored progress.
-- Run a fixed-step server simulation with server-owned position, stamina, elimination state, and finish detection.
-- Validate input rate, legal state transitions, maximum movement speed, and current round ID.
-- Continue client prediction for the local racer and interpolation for remote racers so controls remain responsive.
-- Add correction handling that converges smoothly without teleporting under ordinary latency.
-- Write failing tests proving a client cannot teleport, exceed sprint stamina, change lanes, move before Go, move after death, or declare itself the winner.
-- Add deterministic simulation tests that give the same result regardless of render frame rate.
 
 ### Task 06: Make Shooting Server Authoritative
 
@@ -68,6 +55,7 @@ Estimate: **4-7 agent-hours**.
 - Keep the current Cloudflare adapter temporarily available behind a development flag for comparison and rollback.
 - Remove HTTP polling from the Colyseus path.
 - Ensure network updates do not force the entire React application to rerender at server tick frequency.
+- Add local-racer prediction, remote-racer interpolation, and smooth correction toward authoritative positions without ordinary-latency teleporting.
 - Write adapter tests with a fake transport plus React integration tests for lobby, countdown, movement, shooting, round over, and next round.
 
 ### Task 10: Deploy The Game Server To Fly.io

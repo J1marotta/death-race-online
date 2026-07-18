@@ -7,7 +7,16 @@ import {
   createServerEnvelope,
   validateClientMessage,
 } from '../src/multiplayer/protocol.js'
-import { DeathRaceState, PlayerState } from './schema.js'
+import { DeathRaceState, PlayerState, RacerState } from './schema.js'
+import {
+  COUNTDOWN_DURATION_MS,
+  FINISH_PROGRESS,
+  SERVER_TICK_MS,
+  advancePlayerRuntime,
+  assignSecretLanes,
+  createPlayerRuntime,
+  setMovementIntent,
+} from './simulation.js'
 
 export const DEATH_RACE_ROOM_NAME = 'death-race'
 export const MAX_ROOM_PLAYERS = 20
@@ -37,6 +46,7 @@ export class DeathRaceRoom extends Room {
   maxMessagesPerSecond = MAX_MESSAGES_PER_SECOND
   playerIdBySession = new Map()
   lastSequenceByPlayerId = new Map()
+  runtimeByPlayerId = new Map()
   eventSequence = 0
   messages = {
     command: (client, message) => this.handleCommand(client, message),
@@ -55,8 +65,11 @@ export class DeathRaceRoom extends Room {
       privacy: options.privacy === 'private' ? 'private' : 'public',
       roundCount: [3, 5, 7].includes(options.roundCount) ? options.roundCount : 5,
       round: 1,
+      countdownEndsAt: 0,
+      winnerLaneId: 0,
       hostPlayerId: '',
     })
+    this.setSimulationInterval?.(deltaMs => this.advanceSimulation(deltaMs), SERVER_TICK_MS)
   }
 
   onJoin(client, options = {}) {
@@ -143,6 +156,8 @@ export class DeathRaceRoom extends Room {
       result = this.setPlayerReady(player, message.payload.ready)
     } else if (message.type === CLIENT_MESSAGE_TYPES.START_COUNTDOWN) {
       result = this.startCountdown(player)
+    } else if (message.type === CLIENT_MESSAGE_TYPES.INPUT) {
+      result = this.updateMovementIntent(player, message.payload.movementMode)
     } else if (message.type === CLIENT_MESSAGE_TYPES.LEAVE) {
       const hostLeft = this.removePlayer(client)
       if (hostLeft) {
@@ -225,8 +240,71 @@ export class DeathRaceRoom extends Room {
     ) {
       return { ok: false, error: 'not-ready', message: 'Every player must be ready' }
     }
+    this.runtimeByPlayerId.clear()
+    this.state.racers.clear()
+    const lanes = assignSecretLanes(players.map(current => current.id))
+    for (const current of players) {
+      const runtime = createPlayerRuntime({ playerId: current.id, laneId: lanes.get(current.id) })
+      this.runtimeByPlayerId.set(current.id, runtime)
+      this.state.racers.set(String(runtime.laneId), new RacerState({
+        laneId: runtime.laneId,
+        progress: 0,
+        movementMode: 'stopped',
+        eliminated: false,
+      }))
+      this.sendPrivateStateForPlayer(current.id)
+    }
+    this.state.countdownEndsAt = Date.now() + COUNTDOWN_DURATION_MS
+    this.state.winnerLaneId = 0
     this.state.phase = 'countdown'
     return { ok: true }
+  }
+
+  privateStateFor(client) {
+    const player = this.authorizedPlayer(client)
+    const runtime = player && this.runtimeByPlayerId.get(player.id)
+    return runtime ? { playerId: player.id, laneId: runtime.laneId } : undefined
+  }
+
+  sendPrivateStateForPlayer(playerId) {
+    const client = this.clients?.find(candidate => this.playerIdBySession.get(candidate.sessionId) === playerId)
+    if (!client) return
+    const privateState = this.privateStateFor(client)
+    if (privateState) client.send?.(SERVER_MESSAGE_TYPES.PRIVATE_STATE, privateState)
+  }
+
+  updateMovementIntent(player, movementMode) {
+    if (this.state.phase !== 'playing') {
+      return { ok: false, error: 'wrong-phase', message: 'Movement is available after Go' }
+    }
+    const runtime = this.runtimeByPlayerId.get(player.id)
+    if (!runtime || !setMovementIntent(runtime, movementMode)) {
+      return { ok: false, error: 'invalid-input', message: 'Movement input is not available' }
+    }
+    return { ok: true }
+  }
+
+  advanceSimulation(deltaMs, nowMs = Date.now()) {
+    if (this.state.phase === 'countdown') {
+      if (nowMs < this.state.countdownEndsAt) return
+      this.state.phase = 'playing'
+    }
+    if (this.state.phase !== 'playing') return
+
+    for (const runtime of this.runtimeByPlayerId.values()) {
+      advancePlayerRuntime(runtime, deltaMs, nowMs)
+      const racer = this.state.racers.get(String(runtime.laneId))
+      if (racer) {
+        racer.progress = runtime.progress
+        racer.movementMode = runtime.movementMode
+        racer.eliminated = runtime.eliminated
+      }
+      if (!runtime.eliminated && runtime.progress >= FINISH_PROGRESS) {
+        this.state.winnerLaneId = runtime.laneId
+        this.state.phase = 'roundOver'
+        break
+      }
+    }
   }
 
   markDisconnected(client) {
@@ -270,6 +348,7 @@ export class DeathRaceRoom extends Room {
     const hostLeft = this.state.hostPlayerId === playerId
     this.playerIdBySession.delete(client.sessionId)
     this.lastSequenceByPlayerId.delete(playerId)
+    this.runtimeByPlayerId.delete(playerId)
     this.state.players.delete(playerId)
     if (hostLeft) {
       this.state.hostPlayerId = ''
@@ -293,5 +372,6 @@ export class DeathRaceRoom extends Room {
     activeRoomCodes.delete(this.state?.roomCode)
     this.playerIdBySession.clear()
     this.lastSequenceByPlayerId.clear()
+    this.runtimeByPlayerId.clear()
   }
 }

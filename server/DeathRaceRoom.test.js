@@ -7,6 +7,7 @@ import {
   DeathRaceRoom,
   resetActiveRoomCodesForTests,
 } from './DeathRaceRoom.js'
+import { FINISH_PROGRESS, WALK_PROGRESS_PER_SECOND } from './simulation.js'
 
 const client = sessionId => ({ sessionId, send: vi.fn() })
 const command = (type, payload, overrides = {}) => ({
@@ -247,6 +248,72 @@ describe('Colyseus DeathRaceRoom scaffold', () => {
     expect(room.state.phase).toBe('countdown')
   })
 
+  it('assigns secret unique lanes and exposes only anonymized racer state', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST' })
+    const host = client('session-host')
+    const guest = client('session-guest')
+    room.onJoin(host, { playerName: 'James' })
+    room.onJoin(guest, { playerName: 'Mia' })
+    room.authorizedPlayer(host).ready = true
+    room.authorizedPlayer(guest).ready = true
+
+    expect(room.startCountdown(room.authorizedPlayer(host)).ok).toBe(true)
+    const hostPrivate = room.privateStateFor(host)
+    const guestPrivate = room.privateStateFor(guest)
+    expect(hostPrivate.laneId).not.toBe(guestPrivate.laneId)
+    expect(hostPrivate.playerId).toBe(room.authorizedPlayer(host).id)
+    expect([...room.state.racers.values()]).toHaveLength(2)
+    expect([...room.state.racers.values()].every(racer => !('playerId' in racer))).toBe(true)
+    expect([...room.state.racers.values()].every(racer => !('name' in racer))).toBe(true)
+  })
+
+  it('accepts movement only after Go and derives progress on the server', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST' })
+    const host = client('session-host')
+    room.onJoin(host, { playerName: 'James' })
+    room.authorizedPlayer(host).ready = true
+
+    expect(
+      room.handleCommand(host, command(CLIENT_MESSAGE_TYPES.INPUT, { movementMode: 'walking' })),
+    ).toEqual({ ok: false, error: 'wrong-phase' })
+    room.startCountdown(room.authorizedPlayer(host))
+    room.advanceSimulation(0, room.state.countdownEndsAt)
+    expect(room.state.phase).toBe('playing')
+
+    const result = room.handleCommand(
+      host,
+      command(
+        CLIENT_MESSAGE_TYPES.INPUT,
+        { movementMode: 'walking', progress: 100 },
+        { sequence: 2 },
+      ),
+    )
+    expect(result.ok).toBe(true)
+    room.advanceSimulation(1000, room.state.countdownEndsAt + 1000)
+    const laneId = room.privateStateFor(host).laneId
+    expect(room.state.racers.get(String(laneId)).progress).toBe(WALK_PROGRESS_PER_SECOND)
+  })
+
+  it('declares a winner only when server simulation crosses the finish', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST' })
+    const host = client('session-host')
+    room.onJoin(host, { playerName: 'James' })
+    room.authorizedPlayer(host).ready = true
+    room.startCountdown(room.authorizedPlayer(host))
+    room.advanceSimulation(0, room.state.countdownEndsAt)
+    const runtime = room.runtimeByPlayerId.get(room.authorizedPlayer(host).id)
+    runtime.progress = FINISH_PROGRESS - 1
+    room.updateMovementIntent(room.authorizedPlayer(host), 'walking')
+
+    room.advanceSimulation(1000, room.state.countdownEndsAt + 1000)
+
+    expect(room.state.phase).toBe('roundOver')
+    expect(room.state.winnerLaneId).toBe(runtime.laneId)
+  })
+
   it('does not start while a player is inside the reconnection grace window', () => {
     const room = new DeathRaceRoom()
     room.onCreate({ roomCode: 'DRTEST' })
@@ -282,7 +349,7 @@ describe('Colyseus DeathRaceRoom scaffold', () => {
     expect(room.disconnect).toHaveBeenCalledOnce()
   })
 
-  it('rejects wrong-room, stale, duplicate, and unsupported commands', () => {
+  it('rejects wrong-room, stale, duplicate, and wrong-phase commands', () => {
     const room = new DeathRaceRoom()
     room.onCreate({ roomCode: 'DRTEST' })
     const host = client('session-host')
@@ -311,6 +378,6 @@ describe('Colyseus DeathRaceRoom scaffold', () => {
         host,
         command(CLIENT_MESSAGE_TYPES.INPUT, { movementMode: 'walking' }, { sequence: 2 }),
       ).error,
-    ).toBe('unsupported-command')
+    ).toBe('wrong-phase')
   })
 })

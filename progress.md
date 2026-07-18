@@ -896,3 +896,13 @@ Last updated: 2026-07-14
 - Added lobby security and parity tests for collisions, names, self-actions, forged host settings, ready gating, guest restrictions, stale and duplicate messages, reconnect gating, unsupported commands, and host departure.
 - Kept the new command channel inside the inactive migration server. The deployed frontend continues to use the existing Cloudflare lobby.
 - Completed migration Task 04. Task 05, authoritative movement and stamina, is next.
+
+### task 86 : Make Colyseus Movement Authoritative
+
+- Added a fixed 20 Hz server simulation with the current 5 progress/second walk speed, 7.5 progress/second sprint speed, two-second sprint tank, one-second refill delay, and three-second full refill.
+- Moved human progress, effective movement mode, stamina lockout, elimination state, finish crossing, and winner selection into server-owned runtime state.
+- Assigned unique lanes with cryptographic server randomness. Public synchronized racer state is keyed only by lane and contains no player ID or display name; each connection can receive only its own private lane assignment.
+- Gated movement until the authoritative countdown reaches Go and accepted stopped/walking/running intent only. A client-supplied progress field is ignored and cannot alter simulation state.
+- Added deterministic simulation and room integration tests for legal speed, sprint exhaustion and recovery, frame-rate independence, invalid input, eliminated racers, unique lanes, hidden identity, pre-Go movement, fabricated progress, and server-owned finish detection.
+- Kept the React client and Cloudflare Durable Object path unchanged. Prediction, interpolation, and correction are assigned to the future Colyseus client adapter, where they can be implemented without activating an incomplete backend.
+- Completed migration Task 05. Task 06, authoritative shooting, is next.

@@ -20,10 +20,13 @@ The migration server currently provides:
 - host-only settings and countdown start
 - all-connected/all-ready start gating
 - host-departure room closure
+- secret server-assigned lanes disclosed only to their owning connection
+- a fixed 20 Hz authoritative movement simulation
+- server-owned walking, sprint stamina, elimination, progress, and finish detection
 - automatic empty-room disposal
 - protocol validation and ordering helpers in `src/multiplayer/protocol.js`
 
-It does not yet provide a playable game. Do not point production at it until the migration tasks in `todo.md` reach cutover.
+It does not yet provide shooting, NPC simulation, scoring, or a frontend transport, so it is not a playable game. Do not point production at it until the migration tasks in `todo.md` reach cutover.
 
 ## Commands
 

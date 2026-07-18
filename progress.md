@@ -980,3 +980,12 @@ Last updated: 2026-07-14
 - Completed a real local create -> ready -> start -> Go -> 20 server-driven racers -> shoot -> bullet-spent browser flow against the running Colyseus server.
 - Added React integration tests for create, lobby readiness, host gating, 20 authoritative racers, intent-only movement, result rendering, and next round.
 - Task 09 remains in progress until a two-client automated run verifies join, synchronized play, and room cleanup without HTTP polling.
+
+### task 94 : Complete The Colyseus Client Adapter And Two-Client Gate
+
+- Added a real two-client WebSocket harness using the official SDK against an ephemeral Colyseus server.
+- Proved create, join by shared code, synchronized two-player roster, both-ready gating, host start, distinct private lanes, 20 anonymous public racers, authoritative Go, server-bounded movement, and graceful cleanup.
+- Split high-frequency racer views from low-frequency room metadata. Progress-only 20 Hz ticks update the track component without rerendering lobby, header, results, or connection flow.
+- Added a regression proving two progress snapshots publish one metadata update, plus bounded cleanup so host room closure cannot hang the suite.
+- Confirmed the Colyseus React path performs no HTTP polling and the Cloudflare app remains available behind the default build selection.
+- Completed migration Task 09. Task 10, production Fly.io packaging and deployment, is next.

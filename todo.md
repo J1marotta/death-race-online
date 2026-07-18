@@ -4,26 +4,13 @@ This file tracks remaining implementation work only. Design decisions live in `s
 
 ## Delivery Estimate
 
-The remaining Fly.io and Colyseus migration is estimated at **14-25 agent-hours** including writing failing tests first, implementation, passing regression tests, deployment, and live multiplayer verification. Server Tasks 01-08 are complete. With carefully divided agents, expect roughly **9-17 hours of elapsed work** because integration, deployment, and browser-to-browser testing cannot all be parallelized safely.
+The remaining Fly.io and Colyseus migration is estimated at **10-18 agent-hours** including deployment, network regression, cutover, and live verification. Tasks 01-09 are complete. With carefully divided agents, expect roughly **7-12 hours of elapsed work** because deployment and browser-to-browser testing cannot be parallelized safely.
 
 The first complete migration should therefore be treated as roughly **4-7 focused agent working days**, including time for at least one failed deployment or integration pass. This assumes agents are writing the code and a human is available only for Fly.io account access, billing limits, secrets, and final live acceptance testing.
 
 Juice work is estimated separately at **10-18 agent-hours**. The remaining independent NPC timing work is estimated at **4-7 agent-hours**, or less if it is implemented directly in the new authoritative Colyseus simulation instead of being fixed twice.
 
 ## Migration To Fly.io And Colyseus
-
-### Task 09: Add A Client Transport Adapter
-
-Estimate: **4-7 agent-hours**.
-
-- Put Colyseus behind a small client adapter so React does not directly own socket lifecycle or protocol parsing.
-- Expose stable operations and subscriptions for lobby actions, local input, shot intent, snapshots, events, reconnect state, and room closure.
-- Add exponential reconnect with jitter and a sensible retry cap, resuming with Colyseus' rotating token.
-- Keep the current Cloudflare adapter temporarily available behind a development flag for comparison and rollback.
-- Remove HTTP polling from the Colyseus path.
-- Ensure network updates do not force the entire React application to rerender at server tick frequency.
-- Add local-racer prediction, remote-racer interpolation, and smooth correction toward authoritative positions without ordinary-latency teleporting.
-- Write adapter tests with a fake transport plus React integration tests for lobby, countdown, movement, shooting, round over, and next round.
 
 ### Task 10: Deploy The Game Server To Fly.io
 

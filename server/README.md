@@ -32,7 +32,7 @@ The migration server currently provides:
 - automatic empty-room disposal
 - protocol validation and ordering helpers in `src/multiplayer/protocol.js`
 
-The browser-side migration has a tested Colyseus transport in `src/multiplayer/colyseusTransport.js` and a playable flagged surface in `src/ColyseusApp.jsx`. Run with `VITE_NETWORK_BACKEND=colyseus`; production still selects the existing Cloudflare app by default.
+The browser-side migration has a tested Colyseus transport in `src/multiplayer/colyseusTransport.js` and a playable flagged surface in `src/ColyseusApp.jsx`. Run with `VITE_NETWORK_BACKEND=colyseus`; production still selects the existing Cloudflare app by default. A real two-client SDK harness covers the full lobby-to-movement flow.
 
 It does not yet provide round progression or a frontend transport, so it is not a playable game. Do not point production at it until the migration tasks in `todo.md` reach cutover.
 

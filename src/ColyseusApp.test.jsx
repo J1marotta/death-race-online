@@ -13,7 +13,10 @@ class FakeTransport {
   shoot = vi.fn()
   nextRound = vi.fn()
   subscribe(type, listener) { this.listeners.set(type, listener); return () => this.listeners.delete(type) }
-  emit(type, value) { this.listeners.get(type)?.(value) }
+  emit(type, value) {
+    if (type === 'view') this.listeners.get('meta')?.({ ...value, racers: [] })
+    this.listeners.get(type)?.(value)
+  }
 }
 
 const lobby = {
@@ -47,12 +50,14 @@ describe('feature-flagged Colyseus React client', () => {
   it('renders authoritative racers and sends intent rather than progress', () => {
     const transport = new FakeTransport()
     render(<ColyseusApp transport={transport} />)
-    act(() => transport.emit('view', {
+    const playing = {
       ...lobby,
       phase: 'playing',
       players: [{ ...lobby.players[0], ready: true }],
       racers: Array.from({ length: 20 }, (_, index) => ({ laneId: index + 1, progress: index, movementMode: 'idle', eliminated: false })),
-    }))
+    }
+    act(() => transport.emit('meta', { ...playing, racers: [] }))
+    act(() => transport.emit('view', playing))
     expect(screen.getByLabelText('Race track').querySelectorAll('.migration-racer')).toHaveLength(20)
     fireEvent.keyDown(window, { code: 'ArrowRight' })
     fireEvent.keyUp(window, { code: 'ArrowRight' })

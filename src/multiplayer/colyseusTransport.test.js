@@ -68,6 +68,17 @@ describe('Colyseus client transport', () => {
     expect(views.at(-1).phase).toBe('playing')
   })
 
+  it('does not republish room metadata for progress-only server ticks', async () => {
+    const room = fakeRoom()
+    const transport = new ColyseusTransport({ client: { create: vi.fn().mockResolvedValue(room) } })
+    const meta = []
+    transport.subscribe('meta', value => meta.push(value))
+    await transport.create({ roomCode: 'DRTEST', playerName: 'James' })
+    room.handlers.state({ toJSON: () => ({ phase: 'playing', round: 1, racers: { 1: { laneId: 1, progress: 1 } } }) })
+    room.handlers.state({ toJSON: () => ({ phase: 'playing', round: 1, racers: { 1: { laneId: 1, progress: 2 } } }) })
+    expect(meta).toHaveLength(1)
+  })
+
   it('reconnects with capped exponential delays and jitter', async () => {
     const original = fakeRoom()
     const resumed = fakeRoom()

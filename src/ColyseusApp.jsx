@@ -7,32 +7,12 @@ const emptyView = {
   localLaneId: 0, localPlayerId: '', hostPlayerId: '', winner: null,
 }
 
-export default function ColyseusApp({ transport: suppliedTransport }) {
-  const transport = useMemo(() => suppliedTransport ?? new ColyseusTransport(), [suppliedTransport])
-  const [view, setView] = useState(emptyView)
-  const [name, setName] = useState('')
-  const [roomCode, setRoomCode] = useState('')
-  const [mode, setMode] = useState('create')
-  const [privacy, setPrivacy] = useState('public')
-  const [roundCount, setRoundCount] = useState(5)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
+function AuthoritativeRace({ transport, initialView }) {
+  const [raceView, setRaceView] = useState(initialView)
   const [aim, setAim] = useState({ laneId: 1, x: 0 })
   const playfieldRef = useRef(null)
-
+  useEffect(() => transport.subscribe('view', setRaceView), [transport])
   useEffect(() => {
-    const offView = transport.subscribe('view', setView)
-    const offError = transport.subscribe('error', event => setError(event?.payload?.message ?? event.message ?? 'Connection error'))
-    const offClosed = transport.subscribe('closed', () => setView(emptyView))
-    return () => { offView(); offError(); offClosed() }
-  }, [transport])
-
-  const localPlayer = view.players.find(player => player.id === view.localPlayerId)
-  const isHost = view.localPlayerId && view.localPlayerId === view.hostPlayerId
-  const allReady = view.players.length > 0 && view.players.every(player => player.connected && player.ready)
-
-  useEffect(() => {
-    if (view.phase !== 'playing') return undefined
     const update = event => {
       if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return
       if (event.code === 'ArrowRight') transport.move('walking')
@@ -44,7 +24,55 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
     window.addEventListener('keydown', update)
     window.addEventListener('keyup', stop)
     return () => { window.removeEventListener('keydown', update); window.removeEventListener('keyup', stop) }
-  }, [transport, view.phase])
+  }, [transport])
+  const localPlayer = raceView.players.find(player => player.id === raceView.localPlayerId)
+  const pointFromEvent = event => {
+    const bounds = playfieldRef.current.getBoundingClientRect()
+    return {
+      x: Math.min(100, Math.max(0, ((event.clientX - bounds.left) / bounds.width) * 100)),
+      laneId: Math.min(20, Math.max(1, Math.floor(((event.clientY - bounds.top) / bounds.height) * 20) + 1)),
+    }
+  }
+  const shoot = event => {
+    if (!localPlayer?.hasBullet) return
+    const nextAim = pointFromEvent(event)
+    setAim(nextAim)
+    transport.shoot(nextAim.x, ((nextAim.laneId - 0.5) / 20) * 100)
+  }
+  return <>
+    <section className='migration-track' ref={playfieldRef} onMouseMove={event => setAim(pointFromEvent(event))} onClick={shoot} aria-label='Race track'>
+      {raceView.phase === 'countdown' && <div className='migration-countdown'>Get ready</div>}
+      <div className='migration-finish' />
+      {raceView.racers.map(racer => <div className='migration-lane' key={racer.laneId} data-lane={racer.laneId}>
+        <div className={`migration-racer shape-${racer.laneId % 5} ${racer.eliminated ? 'eliminated' : ''}`} style={{ left: `${racer.progress}%` }} />
+        {aim.laneId === racer.laneId && <div className={`migration-crosshair ${localPlayer?.hasBullet ? '' : 'spent'}`} style={{ left: `${aim.x}%` }}>+</div>}
+      </div>)}
+    </section>
+    <div className='migration-controls'><span><kbd>→</kbd> Walk</span><span><kbd>Space</kbd> Sprint</span><span><kbd>Mouse 1</kbd> Aim and shoot</span><strong>{localPlayer?.hasBullet ? '1 bullet' : 'Bullet spent'}</strong></div>
+  </>
+}
+
+export default function ColyseusApp({ transport: suppliedTransport }) {
+  const transport = useMemo(() => suppliedTransport ?? new ColyseusTransport(), [suppliedTransport])
+  const [view, setView] = useState(emptyView)
+  const [name, setName] = useState('')
+  const [roomCode, setRoomCode] = useState('')
+  const [mode, setMode] = useState('create')
+  const [privacy, setPrivacy] = useState('public')
+  const [roundCount, setRoundCount] = useState(5)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const offView = transport.subscribe('meta', setView)
+    const offError = transport.subscribe('error', event => setError(event?.payload?.message ?? event.message ?? 'Connection error'))
+    const offClosed = transport.subscribe('closed', () => setView(emptyView))
+    return () => { offView(); offError(); offClosed() }
+  }, [transport])
+
+  const localPlayer = view.players.find(player => player.id === view.localPlayerId)
+  const isHost = view.localPlayerId && view.localPlayerId === view.hostPlayerId
+  const allReady = view.players.length > 0 && view.players.every(player => player.connected && player.ready)
 
   const connect = async event => {
     event.preventDefault()
@@ -62,21 +90,6 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
     } finally {
       setBusy(false)
     }
-  }
-
-  const pointFromEvent = event => {
-    const bounds = playfieldRef.current.getBoundingClientRect()
-    const x = Math.min(100, Math.max(0, ((event.clientX - bounds.left) / bounds.width) * 100))
-    const laneId = Math.min(20, Math.max(1, Math.floor(((event.clientY - bounds.top) / bounds.height) * 20) + 1))
-    return { x, laneId }
-  }
-
-  const aimAt = event => setAim(pointFromEvent(event))
-  const shoot = event => {
-    if (!localPlayer?.hasBullet) return
-    const nextAim = pointFromEvent(event)
-    setAim(nextAim)
-    transport.shoot(nextAim.x, ((nextAim.laneId - 0.5) / 20) * 100)
   }
 
   if (view.phase === 'menu') {
@@ -113,17 +126,7 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
       </div>
       <div className='migration-roster'>{view.players.map(player => <div key={player.id}><strong>{player.name}</strong><span>{player.role === 'host' ? 'Host' : player.ready ? 'Ready' : 'Waiting'}</span></div>)}</div>
     </section>}
-    {playing && <>
-      <section className='migration-track' ref={playfieldRef} onMouseMove={aimAt} onClick={shoot} aria-label='Race track'>
-        {view.phase === 'countdown' && <div className='migration-countdown'>Get ready</div>}
-        <div className='migration-finish' />
-        {view.racers.map(racer => <div className='migration-lane' key={racer.laneId} data-lane={racer.laneId}>
-          <div className={`migration-racer shape-${racer.laneId % 5} ${racer.eliminated ? 'eliminated' : ''}`} style={{ left: `${racer.progress}%` }} />
-          {aim.laneId === racer.laneId && <div className={`migration-crosshair ${localPlayer?.hasBullet ? '' : 'spent'}`} style={{ left: `${aim.x}%` }}>+</div>}
-        </div>)}
-      </section>
-      <div className='migration-controls'><span><kbd>→</kbd> Walk</span><span><kbd>Space</kbd> Sprint</span><span><kbd>Mouse 1</kbd> Aim and shoot</span><strong>{localPlayer?.hasBullet ? '1 bullet' : 'Bullet spent'}</strong></div>
-    </>}
+    {playing && <AuthoritativeRace transport={transport} initialView={{ ...view, racers: [] }} />}
     {(view.phase === 'roundOver' || view.phase === 'gameOver') && <section className='migration-results'>
       <h2>{view.winner?.type === 'npc' ? `${view.winner.name} won` : `${view.winner?.name ?? 'Racer'} wins`}</h2>
       <div className='migration-scoreboard'>{[...view.players].sort((a, b) => b.score - a.score).map(player => <div key={player.id}><strong>{player.name}</strong><span>{player.kills} kills</span><b>{player.score}</b></div>)}</div>

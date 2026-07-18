@@ -30,6 +30,7 @@ export class ColyseusTransport {
     this.closedIntentionally = false
     this.latestState = null
     this.privateState = null
+    this.lastMetaSignature = ''
     this.listeners = new Map()
   }
 
@@ -42,6 +43,17 @@ export class ColyseusTransport {
 
   emit(type, payload) {
     for (const listener of this.listeners.get(type) ?? []) listener(payload)
+  }
+
+  publishView(state = this.latestState) {
+    const view = projectAuthoritativeState(state, this.privateState)
+    this.emit('view', view)
+    const meta = { ...view, racers: [] }
+    const signature = JSON.stringify(meta)
+    if (signature !== this.lastMetaSignature) {
+      this.lastMetaSignature = signature
+      this.emit('meta', meta)
+    }
   }
 
   async create({ roomCode, playerName, privacy = 'public', roundCount = 5 }) {
@@ -68,23 +80,23 @@ export class ColyseusTransport {
       this.roundId = snapshot?.round ?? this.roundId
       this.latestState = snapshot
       this.emit('snapshot', snapshot)
-      this.emit('view', projectAuthoritativeState(snapshot, this.privateState))
+      this.publishView(snapshot)
     })
     room.onMessage(SERVER_MESSAGE_TYPES.SNAPSHOT, envelope => {
       this.roundId = envelope.roundId
       this.latestState = envelope.payload
       this.emit('snapshot', envelope.payload)
-      this.emit('view', projectAuthoritativeState(envelope.payload, this.privateState))
+      this.publishView(envelope.payload)
     })
     room.onMessage(SERVER_MESSAGE_TYPES.SESSION, payload => {
       this.privateState = { ...this.privateState, playerId: payload.playerId }
       this.emit('session', payload)
-      if (this.latestState) this.emit('view', projectAuthoritativeState(this.latestState, this.privateState))
+      if (this.latestState) this.publishView()
     })
     room.onMessage(SERVER_MESSAGE_TYPES.PRIVATE_STATE, payload => {
       this.privateState = { ...this.privateState, ...payload }
       this.emit('private-state', this.privateState)
-      if (this.latestState) this.emit('view', projectAuthoritativeState(this.latestState, this.privateState))
+      if (this.latestState) this.publishView()
     })
     room.onMessage(SERVER_MESSAGE_TYPES.EVENT, envelope => this.emit('event', envelope))
     room.onMessage(SERVER_MESSAGE_TYPES.ERROR, envelope => this.emit('error', envelope))

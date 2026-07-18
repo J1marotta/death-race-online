@@ -90,6 +90,7 @@ export class DeathRaceRoom extends Room {
     const joinsActiveRound = this.state.phase !== 'lobby'
     const player = new PlayerState({
       id: playerId,
+      connectionId: client.sessionId,
       name: playerName,
       role: isHost ? 'host' : joinsActiveRound ? 'spectator' : 'player',
       ready: joinsActiveRound,
@@ -105,7 +106,6 @@ export class DeathRaceRoom extends Room {
     if (isHost) {
       this.state.hostPlayerId = playerId
     }
-    client.send?.(SERVER_MESSAGE_TYPES.SESSION, { playerId })
   }
 
   authorizedPlayer(client) {

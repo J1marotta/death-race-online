@@ -77,6 +77,11 @@ export class ColyseusTransport {
     this.closedIntentionally = false
     room.onStateChange(state => {
       const snapshot = state?.toJSON ? state.toJSON() : state
+      const players = snapshot?.players instanceof Map
+        ? [...snapshot.players.values()]
+        : Object.values(snapshot?.players ?? {})
+      const localPlayer = players.find(player => player.connectionId === room.sessionId)
+      if (localPlayer) this.privateState = { ...this.privateState, playerId: localPlayer.id }
       this.roundId = snapshot?.round ?? this.roundId
       this.latestState = snapshot
       this.emit('snapshot', snapshot)
@@ -87,11 +92,6 @@ export class ColyseusTransport {
       this.latestState = envelope.payload
       this.emit('snapshot', envelope.payload)
       this.publishView(envelope.payload)
-    })
-    room.onMessage(SERVER_MESSAGE_TYPES.SESSION, payload => {
-      this.privateState = { ...this.privateState, playerId: payload.playerId }
-      this.emit('session', payload)
-      if (this.latestState) this.publishView()
     })
     room.onMessage(SERVER_MESSAGE_TYPES.PRIVATE_STATE, payload => {
       this.privateState = { ...this.privateState, ...payload }

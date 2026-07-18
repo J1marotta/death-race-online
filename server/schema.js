@@ -2,6 +2,7 @@ import { MapSchema, schema } from '@colyseus/schema'
 
 export const PlayerState = schema({
   id: 'string',
+  connectionId: 'string',
   name: 'string',
   role: 'string',
   ready: 'boolean',

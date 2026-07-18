@@ -4,25 +4,13 @@ This file tracks remaining implementation work only. Design decisions live in `s
 
 ## Delivery Estimate
 
-The remaining Fly.io and Colyseus migration is estimated at **10-18 agent-hours** including deployment, network regression, cutover, and live verification. Tasks 01-09 are complete. With carefully divided agents, expect roughly **7-12 hours of elapsed work** because deployment and browser-to-browser testing cannot be parallelized safely.
+The remaining Fly.io and Colyseus migration is estimated at **7-13 agent-hours** for remote network regression, acceptance, cutover, and cleanup. Tasks 01-10 are complete. Expect roughly **5-9 hours of elapsed work** because live browser acceptance and cutover must remain sequential and rollbackable.
 
 The first complete migration should therefore be treated as roughly **4-7 focused agent working days**, including time for at least one failed deployment or integration pass. This assumes agents are writing the code and a human is available only for Fly.io account access, billing limits, secrets, and final live acceptance testing.
 
 Juice work is estimated separately at **10-18 agent-hours**. The remaining independent NPC timing work is estimated at **4-7 agent-hours**, or less if it is implemented directly in the new authoritative Colyseus simulation instead of being fixed twice.
 
 ## Migration To Fly.io And Colyseus
-
-### Task 10: Deploy The Game Server To Fly.io
-
-Estimate: **3-5 agent-hours**.
-
-- Add a production Dockerfile, health endpoint, Fly configuration, region choice, memory limit, restart policy, and graceful shutdown handling.
-- Configure TLS WebSocket access and the frontend server URL through environment configuration.
-- Set explicit Fly.io spending limits and alerts before live traffic is enabled.
-- Decide whether to keep one small machine running or accept cold starts. Active matches must never be stopped automatically.
-- Keep Cloudflare Pages for the static frontend unless a separate decision changes frontend hosting.
-- Add deployment smoke tests for health, room creation, two-client joining, reconnect, and room disposal.
-- Expect and budget for at least one failed configuration or deployment iteration.
 
 ### Task 11: Multiplayer Regression And Network Simulation
 

@@ -6,6 +6,7 @@ const fakeRoom = (roomId = 'DRTEST') => {
   const handlers = { messages: new Map() }
   return {
     roomId,
+    sessionId: 'session-local',
     reconnectionToken: 'resume-token',
     send: vi.fn(),
     leave: vi.fn().mockResolvedValue(undefined),
@@ -58,10 +59,9 @@ describe('Colyseus client transport', () => {
     transport.subscribe('private-state', value => privateStates.push(value))
     transport.subscribe('view', value => views.push(value))
     await transport.create({ roomCode: 'DRTEST', playerName: 'James' })
-    room.handlers.state({ toJSON: () => ({ phase: 'playing', round: 2 }) })
-    room.handlers.messages.get('session')({ playerId: 'p1' })
+    room.handlers.state({ toJSON: () => ({ phase: 'playing', round: 2, players: { p1: { id: 'p1', connectionId: 'session-local' } } }) })
     room.handlers.messages.get('private-state')({ laneId: 7 })
-    expect(snapshots).toEqual([{ phase: 'playing', round: 2 }])
+    expect(snapshots).toEqual([expect.objectContaining({ phase: 'playing', round: 2 })])
     expect(privateStates).toEqual([{ playerId: 'p1', laneId: 7 }])
     expect(views.at(-1).localLaneId).toBe(7)
     expect(views.at(-1).localPlayerId).toBe('p1')

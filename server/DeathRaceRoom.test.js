@@ -59,7 +59,7 @@ describe('Colyseus DeathRaceRoom scaffold', () => {
     expect(hostClient.auth).toEqual({ playerId: host.id })
     expect(hostClient.reconnectionToken.length).toBeGreaterThanOrEqual(43)
     expect(hostClient.reconnectionToken).not.toBe(guestClient.reconnectionToken)
-    expect(hostClient.send).toHaveBeenCalledWith('session', { playerId: host.id })
+    expect(host.connectionId).toBe('session-host')
   })
 
   it('keys players by server connection session instead of display name', () => {

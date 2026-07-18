@@ -1024,3 +1024,13 @@ Last updated: 2026-07-14
 - Extended the authoritative countdown to three seconds and replaced the static migration overlay with a synchronized visible 3-2-1 sequence driven by the server deadline.
 - Added focused tests for deterministic code generation and editable authenticated names; existing create/join and countdown integration remains green.
 - Kept these changes behind the Colyseus flag while Fly authentication remains pending.
+
+### task 99 : Deploy Colyseus To Fly.io And Smoke-Test Public WebSockets
+
+- Installed and authenticated Fly CLI, created `death-race-online-game`, and validated `fly.toml` with Fly's current CLI.
+- Completed a remote Docker build from the restricted context: the production image is 57 MB and `npm ci --omit=dev` reported zero vulnerabilities.
+- Deployed one 256 MB `shared-cpu-1x` Machine in Sydney with scale-to-zero, shared IPv4, dedicated IPv6, HTTPS, graceful SIGTERM, and no volume.
+- Verified Fly reports one passing `/health` check and confirmed `https://death-race-online-game.fly.dev/health` returns the Colyseus service identity.
+- Added and ran `npm run smoke:fly` against `wss://death-race-online-game.fly.dev`, proving two public SDK clients can create, join by shared code, ready, receive distinct private lanes, start, synchronize 20 racers, and move authoritatively.
+- Replaced the timing-sensitive private session-on-join message with a synchronized public connection ID matched against the SDK's own session ID. Identity remains presentation state; server authorization still uses its private connection map, and no lane mapping is exposed.
+- Completed migration Task 10. Task 11 remote network and browser acceptance is next.

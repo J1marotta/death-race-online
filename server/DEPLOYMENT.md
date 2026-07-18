@@ -20,6 +20,12 @@ flyctl checks list
 
 The service URL is `https://death-race-online-game.fly.dev`; browser clients use `wss://death-race-online-game.fly.dev`.
 
+Verify a deployment with:
+
+```text
+npm run smoke:fly
+```
+
 ## Frontend Preview
 
 Build the migration client without changing the default rollback build:

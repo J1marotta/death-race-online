@@ -882,3 +882,17 @@ Last updated: 2026-07-14
 - Added security and lifecycle tests for random IDs, connection-bound authorization, unique tokens, token rotation, reconnection, and expiry.
 - Kept the entire implementation inside the inactive migration server; the deployed Cloudflare game remains the active production path.
 - Completed migration Task 03. Task 04, Colyseus lobby parity, is next.
+
+### task 85 : Rebuild The Lobby In Colyseus
+
+- Added one versioned Colyseus command gate that resolves identity from the authenticated connection before validating room, round, sequence, phase, payload, and authorization.
+- Added normalized active room-code reservation and collision rejection, with release on room disposal.
+- Rejected case-insensitive duplicate display names while keeping names as presentation data rather than identity.
+- Added connection-bound rename and ready actions; forged player names in payloads cannot redirect either action.
+- Added host-only privacy and round-count settings plus host-only countdown start.
+- Required every room player to remain connected and ready before the countdown can start, including players inside the reconnection grace window.
+- Closed the room when the authenticated host intentionally leaves or fails to reconnect before token expiry.
+- Added canonical versioned error envelopes with authoritative room, round, event ID, and server timestamp fields.
+- Added lobby security and parity tests for collisions, names, self-actions, forged host settings, ready gating, guest restrictions, stale and duplicate messages, reconnect gating, unsupported commands, and host departure.
+- Kept the new command channel inside the inactive migration server. The deployed frontend continues to use the existing Cloudflare lobby.
+- Completed migration Task 04. Task 05, authoritative movement and stamina, is next.

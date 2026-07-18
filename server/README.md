@@ -14,6 +14,12 @@ The migration server currently provides:
 - a 20-player room limit
 - random server-owned player IDs bound privately to connection sessions
 - 256-bit rotating reconnection tokens with a 45-second expiry window
+- versioned lobby commands with round and sequence validation
+- unique room codes and display names
+- self-service naming and readiness
+- host-only settings and countdown start
+- all-connected/all-ready start gating
+- host-departure room closure
 - automatic empty-room disposal
 - protocol validation and ordering helpers in `src/multiplayer/protocol.js`
 
@@ -34,7 +40,6 @@ The local server listens on port `2567` by default and exposes `GET /health`.
 
 Keep the Cloudflare path intact until all of these are true:
 
-- lobby behavior reaches parity
 - movement, stamina, shooting, NPCs, scoring, and winners are server authoritative
 - reconnect and message ordering tests pass
 - two remote browsers complete a multi-round game on Fly.io

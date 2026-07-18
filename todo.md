@@ -4,24 +4,13 @@ This file tracks remaining implementation work only. Design decisions live in `s
 
 ## Delivery Estimate
 
-The remaining Fly.io and Colyseus migration is estimated at **36-61 agent-hours** including writing failing tests first, implementation, passing regression tests, deployment, and live multiplayer verification. Protocol Task 01, server-scaffold Task 02, and authenticated-session Task 03 are complete. With carefully divided agents, expect roughly **23-38 hours of elapsed work** because integration, deployment, and browser-to-browser testing cannot all be parallelized safely.
+The remaining Fly.io and Colyseus migration is estimated at **32-55 agent-hours** including writing failing tests first, implementation, passing regression tests, deployment, and live multiplayer verification. Protocol, scaffold, authenticated-session, and lobby-parity Tasks 01-04 are complete. With carefully divided agents, expect roughly **20-35 hours of elapsed work** because simulation, integration, deployment, and browser-to-browser testing cannot all be parallelized safely.
 
 The first complete migration should therefore be treated as roughly **4-7 focused agent working days**, including time for at least one failed deployment or integration pass. This assumes agents are writing the code and a human is available only for Fly.io account access, billing limits, secrets, and final live acceptance testing.
 
 Juice work is estimated separately at **10-18 agent-hours**. The remaining independent NPC timing work is estimated at **4-7 agent-hours**, or less if it is implemented directly in the new authoritative Colyseus simulation instead of being fixed twice.
 
 ## Migration To Fly.io And Colyseus
-
-### Task 04: Rebuild Lobby State On Colyseus
-
-Estimate: **4-6 agent-hours**.
-
-- Move room creation, room-code collision handling, joining, naming, privacy, round count, readiness, host start, and room destruction into `DeathRaceRoom`.
-- Make host authorization depend on the authenticated session, not a derived display-name ID.
-- Reject creation when a requested room code already exists rather than replacing an active room.
-- Preserve the current host-leaves behavior unless `spec.md` is deliberately changed.
-- Synchronize only the lobby fields the clients need.
-- Write failing tests for collisions, duplicate names, reconnects, all-ready gating, guest restrictions, host departure, and empty-room disposal.
 
 ### Task 05: Make Movement Server Authoritative
 

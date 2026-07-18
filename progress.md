@@ -1050,3 +1050,11 @@ Last updated: 2026-07-14
 - Added immediate local shot audio and a clear Sound on/Sound off control in the top bar outside the game area.
 - Reused one browser audio context, resumed it from real keyboard or pointer gestures, and cleaned up every oscillator and the context when the app unmounts.
 - Added a regression for the previous failure mode: music must stop after a round and restart in the next one, while mute remains visible outside the track.
+
+### task 102 : Make The Interactive Learning Guide Part Of Every Migration Step
+
+- Consolidated the interactive guide into one canonical lowercase `why.html` source instead of maintaining a tested root file and a stale deployed public copy.
+- Configured Vite as a multi-page build so the canonical guide is transformed and published beside the game on every deployment.
+- Added a regression that rejects a second `public/why.html` source and verifies the canonical page remains a configured build entry.
+- Added migration field notes explaining token-based reconnect continuity, deterministic adverse-network tests, restartable Web Audio lifecycles, and why hosted browser acceptance is part of the test surface.
+- Established `why.html` updates as a required part of each remaining migration commit so architecture decisions and bug lessons are recorded while their evidence is fresh.

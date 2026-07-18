@@ -608,6 +608,7 @@
   <a href="#network-review">The Honest Network Review</a>
   <a href="#migration">Why Fly.io And Colyseus</a>
   <a href="#migration-plan">The Migration Plan</a>
+  <a href="#migration-diary">Migration Field Notes</a>
   <a href="#next-juice">The Next Layer Of Juice</a>
   <a href="#prototype">Still Prototype-Shaped</a>
   <a href="#thinking">How Engineers Think</a>
@@ -810,7 +811,7 @@ const target = Math.min(
 )
 const displayed = current[name]
 let value = target
-if (Number.isFinite(displayed) && Math.abs(target - displayed) <= REMOTE_SNAP_DISTANCE) {
+if (Number.isFinite(displayed) && Math.abs(target - displayed) &lt;= REMOTE_SNAP_DISTANCE) {
   // small corrections ease over 150ms...
   value = displayed + (target - displayed) * Math.min(1, dt / REMOTE_BLEND_MS)
 }
@@ -1030,7 +1031,7 @@ if (
     <pre><code class="js">// Gunshot crack: a burst of decaying noise through a lowpass filter.
 const buffer = ctx.createBuffer(1, Math.floor(sampleRate * 0.2), sampleRate)
 const channel = buffer.getChannelData(0)
-for (let i = 0; i < channel.length; i += 1) {
+for (let i = 0; i &lt; channel.length; i += 1) {
   channel[i] = (Math.random() * 2 - 1) * (1 - i / channel.length) ** 2
 }
 // ...through lowpass at 2800Hz, gain 0.4 decaying to silence in 200ms
@@ -1161,7 +1162,7 @@ t5  lane 12 is now marked "seen", so when it is shot for real in
 // dropped whole: applying their shotRacerIds after resetRoundState used
 // to re-freeze old corpses at the rebuilt start positions and mark those
 // lanes as already seen.
-if (Number.isFinite(roomSnapshot.round) && roomSnapshot.round < currentRound) {
+if (Number.isFinite(roomSnapshot.round) && roomSnapshot.round &lt; currentRound) {
   return
 }</code></pre>
     </details>
@@ -1435,7 +1436,7 @@ npm run deploy:rooms      // Worker (room backend)</code></pre>
   <p>A tiny Fly machine is conceptually simple: while matches exist, one Node process exists. That lets the server run a fixed-step clock, retain room inputs, and handle reconnect grace periods without translating everything into storage writes or alarm semantics. It also gives us a predictable small-machine cost rather than billing shaped around every message and active object duration.</p>
   <p>There is a tradeoff. A conventional process can restart, deploys can interrupt rooms, and scaling beyond one machine eventually requires room-aware routing or presence infrastructure. For this project, those are honest future problems. We should solve the current friend-scale game clearly before optimizing for an audience we do not have.</p>
 
-  <div class="note">Colyseus documentation describes server-owned state with property-level synchronization, and Fly documents per-second machine billing plus autostart/autostop controls. Exact prices and platform behavior can change, so deployment work must verify current official documentation and set billing alerts rather than copying old numbers from this guide.</div>
+  <div class="note">Colyseus documentation describes server-owned state with property-level synchronization, and Fly documents per-second machine billing plus autostart/autostop controls. Fly does not currently provide native billing alerts, so this side project uses scale-to-zero, one 256 MB machine, no volume, and manual billing checks instead of pretending an alert exists.</div>
   <p><a href="https://docs.colyseus.io/state">Colyseus state synchronization</a> · <a href="https://docs.colyseus.io/room">Colyseus rooms</a> · <a href="https://fly.io/docs/about/pricing/">Fly.io pricing</a></p>
 </section>
 
@@ -1460,6 +1461,38 @@ npm run deploy:rooms      // Worker (room backend)</code></pre>
   <p>This is not ceremony. A migration changes enough code that a passing old suite can become misleading: it may only prove that the old architecture still behaves like itself. New tests describe the guarantees we are moving for.</p>
 
   <div class="lesson">Migrate behavior, not files. Keep a runnable game at every boundary, prove one authority rule at a time, and delete the old transport only after the new path survives a real multi-browser match.</div>
+</section>
+
+<section id="migration-diary">
+  <h2>Migration Field Notes: What The Running System Taught Us</h2>
+  <p>This is the part of the guide that grows with the migration. Plans explain what we expect; field notes record what the deployed software proved, including the moments where a green local suite was not enough.</p>
+
+  <h3>Reconnect Is A State Transition, Not A New Login</h3>
+  <p>A dropped WebSocket does not mean the player disappeared. The server keeps the authenticated player and secret lane alive for a 45-second grace window, while the client presents a rotating 256-bit reconnection token. A successful resume must restore the same player, the same private lane, the current round, and the latest authoritative snapshot. Creating a new player would look connected while quietly corrupting the match.</p>
+  <details class="code-panel">
+    <summary>The live proof <small>server/remoteSmoke.js</small></summary>
+    <pre><code class="js">const guestPlayerId = findPlayerForSession(guest.sessionId)
+const resumed = waitForReconnect(guest)
+guest.connection.close() // unexpected network drop
+await resumed
+await waitFor(() =&gt; guest.state.players.get(guestPlayerId)?.connected === true)</code></pre>
+  </details>
+  <p>The public Fly smoke now creates two clients, joins by shared code, forces one connection to drop, waits for Colyseus to resume it, then starts the race and proves authoritative movement still reaches the other client.</p>
+  <div class="lesson">Reconnect is continuity. Test identity and private state after recovery, not merely whether a socket opened again.</div>
+
+  <h3>Bad Networks Need A Deterministic Test</h3>
+  <p>Latency and jitter are timing; duplication and reordering are ordering; packet loss is absence. A useful regression turns all five into a fixed delivery schedule. The server accepts a monotonically newer command once, rejects old copies, and never fills in a missing command by trusting client-authored progress.</p>
+  <p>This is why every command carries a room ID, round ID, and increasing sequence number. A packet can contain perfectly valid JSON and still belong to yesterday's round or arrive after its replacement.</p>
+  <div class="lesson">Do not test a network by hoping the test runner is slow today. Build a small, deterministic hostile network and assert the state left behind.</div>
+
+  <h3>Audio Nodes Are Resources, Not Just Effects</h3>
+  <p>The earlier game lost music after round one because lifecycle state and sound state drifted apart. A stopped oscillator cannot be restarted. If a stale reference says “music exists,” the next round remains silent even though every UI flag looks right.</p>
+  <p>The Colyseus client now owns one browser audio context, creates a fresh music graph whenever authoritative state enters <code class="inline">playing</code>, stops and clears that graph when the round ends, and closes everything on unmount. Shot audio is immediate and local, so it feels responsive without adding a single game-server message.</p>
+  <div class="lesson">For timers, sockets, animation frames, and audio nodes, cleanup is half the feature. Test start → stop → start again, because the second run finds lifecycle bugs the first run cannot.</div>
+
+  <h3>Deployment Is Part Of The Test Surface</h3>
+  <p>The current migration path is live behind a stable preview alias while the existing Cloudflare-backed game remains untouched. A 1280×720 browser acceptance pass proved all 20 racers fit with no document scrolling, the sound control remains outside the track, and the public page talks to the Fly WebSocket endpoint. The immutable deployment URL gives each step a precise artifact; the alias gives playtesters one address to remember.</p>
+  <div class="lesson">A feature is not deployed because the build command succeeded. Exercise the hosted frontend against the hosted server and inspect the actual laptop viewport.</div>
 </section>
 
 <section id="next-juice">

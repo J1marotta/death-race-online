@@ -1,10 +1,10 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { JSDOM } from 'jsdom'
 import { describe, expect, it } from 'vitest'
 
 const loadWhyPage = () => {
-  const html = readFileSync(join(process.cwd(), 'WHY.html'), 'utf8')
+  const html = readFileSync(join(process.cwd(), 'why.html'), 'utf8')
   const dom = new JSDOM(html, {
     runScripts: 'outside-only',
     pretendToBeVisual: true,
@@ -27,6 +27,13 @@ const loadWhyPage = () => {
 }
 
 describe('WHY.html interactive page', () => {
+  it('has one canonical source that Vite publishes directly', () => {
+    expect(existsSync(join(process.cwd(), 'why.html'))).toBe(true)
+    expect(existsSync(join(process.cwd(), 'public', 'why.html'))).toBe(false)
+    expect(readFileSync(join(process.cwd(), 'vite.config.js'), 'utf8'))
+      .toContain("why: resolve('why.html')")
+  })
+
   it('boots without throwing and highlights code', () => {
     const window = loadWhyPage()
     expect(window.document.querySelectorAll('pre code.js .tok-kw').length).toBeGreaterThan(10)
@@ -107,11 +114,14 @@ describe('WHY.html interactive page', () => {
     const migration = window.document.getElementById('migration')
     const plan = window.document.getElementById('migration-plan')
     const juice = window.document.getElementById('next-juice')
+    const diary = window.document.getElementById('migration-diary')
 
     expect(review.textContent).toContain('transport is not authority')
     expect(migration.textContent).toContain('Colyseus DeathRaceRoom')
     expect(plan.textContent).toContain('45-75 agent-hours')
     expect(juice.textContent).toContain('Hidden-Identity Constraint')
     expect(juice.textContent).toContain('Laptop Constraint')
+    expect(diary.textContent).toContain('Reconnect Is A State Transition')
+    expect(diary.textContent).toContain('Audio Nodes Are Resources')
   })
 })

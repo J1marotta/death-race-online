@@ -51,32 +51,63 @@ function Countdown({ endsAt }) {
     const timer = window.setInterval(() => setNow(Date.now()), 100)
     return () => window.clearInterval(timer)
   }, [])
-  const remaining = Number.isFinite(endsAt) ? Math.max(1, Math.ceil((endsAt - now) / 1000)) : 3
-  return <div className='migration-countdown'>{remaining}</div>
+  if (Number.isFinite(endsAt) && now >= endsAt + 450) return null
+  const remaining = Number.isFinite(endsAt) ? Math.ceil((endsAt - now) / 1000) : 3
+  return <div className='migration-countdown'>{remaining > 0 ? remaining : 'Go!'}</div>
 }
 
 function AuthoritativeRace({ transport, initialView, playShot, interactive = true }) {
   const [raceView, setRaceView] = useState(initialView)
   const [aim, setAim] = useState({ laneId: 1, x: 0 })
+  const [pressedKeys, setPressedKeys] = useState({ walking: false, running: false })
   const playfieldRef = useRef(null)
   const lastAimSentAt = useRef(0)
+  const heldKeysRef = useRef(new Set())
+  const lastMovementRef = useRef('stopped')
   useEffect(() => transport.subscribe('view', setRaceView), [transport])
   const localPlayer = raceView.players.find(player => player.id === raceView.localPlayerId)
   useEffect(() => {
+    const heldKeys = heldKeysRef.current
+    const isTyping = target => target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement
+    const publishMovement = () => {
+      const movement = heldKeys.has('Space')
+        ? 'running'
+        : heldKeys.has('ArrowRight')
+          ? 'walking'
+          : 'stopped'
+      setPressedKeys({
+        walking: heldKeys.has('ArrowRight'),
+        running: heldKeys.has('Space'),
+      })
+      if (movement !== lastMovementRef.current) {
+        lastMovementRef.current = movement
+        transport.move(movement)
+      }
+    }
     const update = event => {
       if (!interactive || raceView.phase !== 'playing') return
       if (localPlayer?.role === 'spectator') return
-      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return
-      if (event.code === 'ArrowRight') transport.move('walking')
-      if (event.code === 'Space') { event.preventDefault(); transport.move('running') }
+      if (isTyping(event.target)) return
+      if (event.code !== 'ArrowRight' && event.code !== 'Space') return
+      if (event.code === 'Space') event.preventDefault()
+      heldKeys.add(event.code)
+      publishMovement()
     }
     const stop = event => {
       if (!interactive || raceView.phase !== 'playing') return
-      if (event.code === 'ArrowRight' || event.code === 'Space') transport.move('stopped')
+      if (isTyping(event.target)) return
+      if (event.code !== 'ArrowRight' && event.code !== 'Space') return
+      heldKeys.delete(event.code)
+      publishMovement()
     }
     window.addEventListener('keydown', update)
     window.addEventListener('keyup', stop)
-    return () => { window.removeEventListener('keydown', update); window.removeEventListener('keyup', stop) }
+    return () => {
+      heldKeys.clear()
+      lastMovementRef.current = 'stopped'
+      window.removeEventListener('keydown', update)
+      window.removeEventListener('keyup', stop)
+    }
   }, [interactive, localPlayer?.role, raceView.phase, transport])
   const pointFromEvent = event => {
     const bounds = playfieldRef.current.getBoundingClientRect()
@@ -113,7 +144,7 @@ function AuthoritativeRace({ transport, initialView, playShot, interactive = tru
   const recentShots = raceView.shots.slice(-4).reverse()
   return <>
     <section className={`migration-track ${raceView.localEliminated ? 'local-eliminated' : ''}`} ref={playfieldRef} onMouseMove={updateAim} onClick={shoot} aria-label='Race track'>
-      {raceView.phase === 'countdown' && <Countdown endsAt={raceView.countdownEndsAt} />}
+      {(raceView.phase === 'countdown' || raceView.phase === 'playing') && <Countdown endsAt={raceView.countdownEndsAt} />}
       <div className='migration-finish' />
       {raceView.racers.map(racer => <div className='migration-lane' key={racer.laneId} data-lane={racer.laneId}>
         <PixelRacer racer={racer} roomCode={raceView.roomCode} round={raceView.round} isLocal={racer.laneId === raceView.localLaneId} localExhausted={raceView.localExhausted} />
@@ -126,7 +157,7 @@ function AuthoritativeRace({ transport, initialView, playShot, interactive = tru
       ><span>+</span>{crosshair.hasBullet && <i aria-label='Loaded bullet' />}</div>)}
       {recentShots.length > 0 && <div className='migration-kill-feed' aria-label='Kill feed'>{recentShots.map(shot => <div key={shot.eventId}><strong>{shot.shooterName}</strong><span>▸</span><span>{shot.hit ? shot.victimName || `NPC ${shot.laneId}` : 'missed'}</span></div>)}</div>}
     </section>
-    {interactive && <div className={`migration-controls ${localPlayer?.role === 'spectator' || raceView.localEliminated ? 'spectating' : ''}`}><span><kbd>→</kbd> Walk</span><span className={`migration-sprint ${raceView.localExhausted ? 'exhausted' : ''}`} style={{ '--stamina': raceView.localStamina }}><b><i /></b><kbd>Space</kbd> Sprint</span><span><kbd>Mouse 1</kbd> Aim and shoot</span><strong>{localPlayer?.role === 'spectator' || raceView.localEliminated ? 'Spectating' : localPlayer?.hasBullet ? '1 bullet' : 'Bullet spent'}</strong></div>}
+    {interactive && <div className={`migration-controls ${localPlayer?.role === 'spectator' || raceView.localEliminated ? 'spectating' : ''}`}><span className={pressedKeys.walking ? 'pressed' : ''}><kbd>→</kbd> Walk</span><span className={`migration-sprint ${pressedKeys.running ? 'pressed' : ''} ${raceView.localExhausted ? 'exhausted' : ''}`} style={{ '--stamina': raceView.localStamina }}><b><i /></b><kbd>Space</kbd> Sprint</span><span className={!localPlayer?.hasBullet ? 'spent' : ''}><kbd>Mouse 1</kbd> Aim and shoot</span><strong>{localPlayer?.role === 'spectator' || raceView.localEliminated ? 'Spectating' : localPlayer?.hasBullet ? '1 bullet' : 'Bullet spent'}</strong></div>}
   </>
 }
 

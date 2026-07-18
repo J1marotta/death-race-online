@@ -110,12 +110,34 @@ describe('feature-flagged Colyseus React client', () => {
     expect(new Set(racers.map(racer => racer.className.match(/archetype-\w+/)?.[0])).size).toBe(5)
     expect(racers.every(racer => racer.querySelector('.racer-head') && racer.querySelector('.racer-body'))).toBe(true)
     fireEvent.keyDown(window, { code: 'ArrowRight' })
+    fireEvent.keyDown(window, { code: 'Space' })
     fireEvent.keyUp(window, { code: 'ArrowRight' })
-    expect(transport.move.mock.calls).toEqual([['walking'], ['stopped']])
+    fireEvent.keyUp(window, { code: 'Space' })
+    expect(transport.move.mock.calls).toEqual([['walking'], ['running'], ['stopped']])
     expect(transport.move.mock.calls.flat()).not.toContain(expect.objectContaining({ progress: expect.anything() }))
     expect(screen.getByRole('button', { name: 'Mute sound' }).closest('.migration-track')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Mute sound' }))
     expect(screen.getByRole('button', { name: 'Unmute sound' })).toBeTruthy()
+  })
+
+  it('falls back to walking when sprint is released while walk remains held', () => {
+    const transport = new FakeTransport()
+    render(<ColyseusApp transport={transport} />)
+    const playing = {
+      ...lobby,
+      phase: 'playing',
+      countdownEndsAt: Date.now() - 1000,
+      players: [{ ...lobby.players[0], ready: true }],
+      racers: Array.from({ length: 20 }, (_, index) => ({ laneId: index + 1, progress: 3, movementMode: 'stopped', eliminated: false })),
+    }
+    act(() => transport.emit('view', playing))
+
+    fireEvent.keyDown(window, { code: 'ArrowRight' })
+    fireEvent.keyDown(window, { code: 'Space' })
+    fireEvent.keyUp(window, { code: 'Space' })
+
+    expect(transport.move.mock.calls).toEqual([['walking'], ['running'], ['walking']])
+    expect(document.querySelector('.migration-controls span.pressed').textContent).toContain('Walk')
   })
 
   it('renders anonymous shared crosshairs, private stamina, and authoritative kill feedback', () => {

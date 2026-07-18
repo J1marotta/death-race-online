@@ -85,6 +85,8 @@
 .migration-controls { align-items: center; justify-content: center; margin-top: 8px; font-size: 12px; }
 .migration-controls span, .migration-controls strong { padding: 7px 9px; border: 1px solid var(--border); }
 .migration-controls kbd { color: var(--text-h); }
+.migration-controls span.pressed { border-color: var(--accent); background: rgba(225,61,53,.14); transform: translateY(1px); }
+.migration-controls span.spent { opacity: .5; }
 .migration-controls.spectating { opacity: .55; }
 .migration-sprint { position: relative; }
 .migration-sprint > b { position: absolute; right: 7px; bottom: calc(100% + 3px); left: 7px; height: 4px; overflow: hidden; border: 1px solid #394154; background: #171b23; }

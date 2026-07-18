@@ -1098,3 +1098,13 @@ Last updated: 2026-07-14
 - Added a Room closed screen with the server reason and one visible Return to menu action.
 - Added room, transport, and React regressions for idle expiry, no reconnect after closure, browser timeout cleanup, reason display, and menu recovery.
 - Added the liveness-versus-activity lesson to `why.html` in the same commit.
+
+### task 107 : Make Overlapping Controls Deterministic
+
+- Replaced independent keydown/keyup commands with a held-key state model: Space requests sprint, otherwise Right Arrow requests walk, otherwise movement stops.
+- Prevented releasing one movement key from stopping a racer while the other key remains held, and suppressed duplicate commands when the derived movement mode does not change.
+- Kept movement listeners inactive outside live play, for spectators, and while form controls own the keyboard.
+- Drove the physical control-bar pressed states from the same held-key set and dimmed the mouse control after the authoritative bullet is spent.
+- Added a brief `Go!` label derived from the authoritative countdown deadline after the synchronized 3, 2, 1 sequence.
+- Added regressions for walk-to-sprint-to-stop and walk-to-sprint-back-to-walk key chords.
+- Added the input-state-machine lesson to `why.html` in the same commit.

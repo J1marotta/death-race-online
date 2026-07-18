@@ -2,17 +2,17 @@
 
 Browser-playable hidden-identity racing/shooting game.
 
-## Colyseus Migration (Inactive)
+## Architecture
 
-The playable game still uses the existing Cloudflare Worker and Durable Object backend. A side-by-side Colyseus migration server now lives in `server/`; it is not connected to the frontend or production deployment yet.
+The playable frontend is hosted on Cloudflare Pages and connects directly to the authoritative Colyseus game server on Fly.io. The server owns authenticated players, hidden lane assignments, movement, stamina, NPCs, shots, scores, rounds, reconnects, and room disposal.
 
-Run both local processes while working on the migration:
+Run the local frontend and Colyseus server together:
 
 ```powershell
 npm run dev:migration
 ```
 
-Run only migration tests with `npm run test:colyseus`. See `server/README.md` for the safety boundary and current capabilities. Keep the Cloudflare path intact until the new server passes full multiplayer parity and live Fly.io acceptance tests.
+Run server and protocol tests with `npm run test:colyseus`, and the complete hosted three-round match proof with `npm run smoke:fly`. See `server/README.md` for the authority and deployment boundaries.
 
 ## Commands
 
@@ -44,24 +44,26 @@ npx wrangler login
 npm run deploy:cloudflare
 ```
 
-## Rooms Backend
+## Game Server
 
-The multiplayer room state lives in the Cloudflare Worker defined by `wrangler.worker.jsonc`.
+The multiplayer room state lives in the Colyseus `DeathRaceRoom` deployed as `death-race-online-game` on Fly.io.
 
-Deploy it with:
+Deploy it with the Fly CLI:
 
 ```powershell
-npm run deploy:rooms
+C:\Users\James\.fly\bin\flyctl.exe deploy --remote-only
 ```
 
-For a production Pages build that talks to the deployed worker, set `VITE_ROOMS_API_BASE` to the worker endpoint plus `/api/rooms`.
+Production builds default to `wss://death-race-online-game.fly.dev`. Override the endpoint for another environment with `VITE_COLYSEUS_URL`.
 
 Example:
 
 ```powershell
-$env:VITE_ROOMS_API_BASE='https://death-race-rooms.james-marotta.workers.dev/api/rooms'
+$env:VITE_COLYSEUS_URL='wss://another-game-server.example'
 npm run build
 ```
+
+The pre-cutover Cloudflare-realtime build remains available for rollback at `https://40288567.death-race-online.pages.dev` until the obsolete Worker code is removed from the repository.
 
 ## Project Docs
 
@@ -69,7 +71,7 @@ npm run build
 - `progress.md`: completed work and current state.
 - `todo.md`: remaining work.
 - `WHY.md`: the architecture story — how the pieces fit and what to learn from them.
-- `WHY.html`: interactive version of `WHY.md` with live demos and code walkthroughs; open it directly in a browser.
+- `why.html`: interactive version of `WHY.md` with live demos and code walkthroughs; served at `/why.html`.
 
 ## Manual QA
 

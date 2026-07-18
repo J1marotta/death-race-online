@@ -1129,3 +1129,12 @@ Last updated: 2026-07-14
 - Disabled all new flash and shake animation under reduced-motion preferences.
 - Added React and audio-graph regressions for authoritative event ownership, effect roles, instrument types, and restartable later-round music.
 - Added the immediate-versus-authoritative feedback lesson to `why.html` in the same commit.
+
+### task 110 : Cut Production Routing Over To Colyseus
+
+- Made `ColyseusApp` the only production entry instead of selecting the old Cloudflare client through a build flag.
+- Made production builds default to the public Fly.io WebSocket endpoint while local development continues to default to `ws://127.0.0.1:2567`.
+- Updated the spec and deployment guides to describe Colyseus authority, private state, protocol ordering, reconnection, disposal, and scale-to-zero costs.
+- Recorded `https://40288567.death-race-online.pages.dev` as the immutable pre-cutover rollback build.
+- Kept the old React, Worker, Durable Object, and fallback code in the repository for this cutover commit; removal follows only after the new default production URL passes live acceptance.
+- Added the rollback-boundary lesson to `why.html` in the same commit.

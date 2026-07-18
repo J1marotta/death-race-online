@@ -29,7 +29,7 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 - Only the host can start the game.
 - Connected players see the same lobby, countdown, round, and scoreboard state.
 - Create-lobby actions show a loading state so the user can tell the backend request is in flight.
-- Room updates use a Cloudflare-compatible live transport, with polling only as a fallback.
+- Room updates use a direct Colyseus WebSocket connection to the authoritative Fly.io server.
 - Once a room exists, the room code, connection count, ready count, and match summary live in the top bar.
 - The lobby side panel focuses on the editable real-players roster, ready/start actions, and compact host settings so the flow fits without scrolling.
 - The room side panel is visible for menu, lobby, and result/scoreboard states, then hides during countdown and live play so the playfield is the focus.
@@ -167,21 +167,19 @@ Movement keys never hijack typing: while an input field has focus they are ignor
 - Current app stack is React + Vite + JavaScript + npm + Oxlint.
 - React should own shell UI, lobby, scoreboard, and top-level state.
 - High-frequency gameplay should be isolated from ordinary React UI rendering where practical.
-- Current networking scope: lobbies, readiness, countdown, live phase, shots, round winners, scoreboard state, and next-round state are backed by Cloudflare room state.
+- Current networking scope: lobbies, readiness, countdown, live phase, shots, round winners, scoreboard state, and next-round state are owned by one authoritative Colyseus room.
 - MVP backend choice: server state is required for friends to join and play in the same room.
 - MVP deployment target: deploy the multiplayer game so friends can reach the same hosted room.
 - MVP platform target: desktop/laptop first; mobile and tablet controls are deferred until the laptop loop works.
 - Keep lobby, player, and round state behind small modules so real-time networking can own the authoritative session later.
-- Use the Cloudflare Durable Object room backend, Worker API, and live WebSocket transport with HTTP polling as fallback.
-- Realtime traffic (input, heartbeat, shots) travels over hibernatable WebSockets accepted through the Durable Object hibernation API; HTTP actions remain for lobby operations and as the fallback path.
-- The room lives in Durable Object memory during play; storage writes happen only for durable changes (lobby actions, phase changes, shots, heartbeats), never per input or per read.
-- Input sends are event-driven: movement-mode, lane, and firing changes send immediately; progress-only drift sends a correction every 400ms (dead reckoning fills the gap from shared speed constants); the final stretch (progress 85+) runs at the full 20Hz check rate so finishes adjudicate from fresh data. Aim never rides the periodic snapshot — it travels only with the shot input. The Durable Object rebroadcasts compact input deltas on a 50ms ticker that stops itself when traffic goes quiet so the object can hibernate.
-- The firing input must carry the full snapshot (laneId, progress) because the server replaces a player's input entry wholesale; a partial firing input would erase the lane claim used for winner adjudication and kill attribution.
-- Room inputs are cleared when a countdown or next round starts so stale lane claims from the previous round cannot mis-attribute kills or finishes; clients repopulate them within one input tick.
+- Use the Colyseus room backend on Fly.io with Cloudflare Pages retained only for static frontend hosting.
+- Clients send authenticated intent such as movement mode, aim, shot, ready, and next round. They never send lane ownership, progress, hits, winners, or scores as facts.
+- The room runs a fixed 20Hz authoritative simulation and synchronizes public racer state; connection-private messages carry only the local lane, crosshair identity, stamina, exhaustion, and elimination state.
+- Every command carries protocol, room, round, and increasing sequence identifiers so stale, duplicated, reordered, or replayed messages are rejected.
+- Unexpected disconnects have a 45-second rotating-token reconnection window. Host departure closes the room; browser and server inactivity limits dispose abandoned rooms.
 - Rendering targets 60fps: local movement advances on a requestAnimationFrame delta-time loop, and remote racers are dead-reckoned from their last synced progress and movement mode, easing toward the extrapolated target instead of snapping per sync.
-- Keep Cloudflare usage modest: prefer WebSocket pushes over polling, throttle heartbeat/fallback requests, slow fallback polling, and destroy rooms when the host leaves or everyone disconnects.
-- Cost model: incoming WebSocket messages bill as Durable Object requests at a 20:1 ratio (outgoing broadcasts, protocol pings, and auto-responses are free); duration is the dominant cost at scale, controlled via hibernation and the self-stopping input ticker.
-- Observability: Workers Logs is enabled on the rooms worker with automatic invocation logs disabled (per-message invocation logs would swamp limits at 20Hz input); the worker emits explicit structured lifecycle events for room create/destroy, socket open/close/error, input ticker start/stop, and server adjudications.
+- Keep hosting cost modest with one 256 MB shared Fly machine, scale-to-zero, no volume, bounded room size, and aggressive room disposal. Cloudflare Pages serves hashed static assets without realtime Worker traffic.
+- Observability comes from Fly health checks, structured room lifecycle logs, deterministic network regressions, and the public three-round SDK smoke test.
 - Use a renderer that can support 20 visible pixel-art lanes, mouse crosshairs, dead bodies, and reveal highlights at the `1200px` target.
 - Keep all gameplay constants easy to tune.
 - Defender integration must wait until the user provides or identifies Defender source files. No Defender source was found in the active repo or old workspace.

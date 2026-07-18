@@ -4,7 +4,7 @@ This file tracks remaining implementation work only. Design decisions live in `s
 
 ## Delivery Estimate
 
-The remaining Fly.io and Colyseus migration is estimated at **2-4 agent-hours** for production cutover and cleanup. Tasks 01-11 are complete. Expect roughly **2-4 hours of elapsed work** because live browser acceptance and cutover must remain sequential and rollbackable.
+The remaining Fly.io and Colyseus migration is estimated at **1-2 agent-hours** for post-cutover proof and obsolete realtime cleanup. Tasks 01-11 and the production routing portion of Task 12 are complete.
 
 The first complete migration should therefore be treated as roughly **4-7 focused agent working days**, including time for at least one failed deployment or integration pass. This assumes agents are writing the code and a human is available only for Fly.io account access, billing limits, secrets, and final live acceptance testing.
 
@@ -16,9 +16,6 @@ Juice work is estimated separately at **10-18 agent-hours**. The remaining indep
 
 Estimate: **2-4 agent-hours**.
 
-- Deploy the Colyseus path behind a temporary feature flag and test it with real browsers on separate networks.
-- Keep rollback available until one complete multi-round game succeeds without polling or Worker room traffic.
-- Point production at Fly.io only after live acceptance passes.
 - Remove the Durable Object room binding, Worker deployment scripts, fallback polling, and obsolete Cloudflare-specific tests.
 - Keep Cloudflare Pages deployment for the frontend.
 - Update `README.md`, `spec.md`, `progress.md`, `WHY.md`, architecture diagrams, environment examples, and deployment instructions.

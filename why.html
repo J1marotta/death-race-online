@@ -1542,6 +1542,11 @@ crosshairIdByPlayerId.set(playerId, crosshairId)</code></pre>
   <p>The same pass replaced a temporary square-wave drone with the intended musical vocabulary: low sine-pad seventh chords, one gentle triangle melody voice, and a quiet bass that move through a small progression. The graph is still rebuilt every round, because a nicer oscillator is no less subject to Web Audio's one-start lifetime.</p>
   <div class="lesson">Make intent feel immediate; make consequences authoritative. The boundary is not “client effects versus server effects,” but which facts each effect claims are already true.</div>
 
+  <h3>A Cutover Needs A Named Way Back</h3>
+  <p>“We can roll back” is only useful when the old artifact has an address and the new deployment does not destroy it. Before changing the default Pages build, we recorded the immutable pre-cutover frontend at <code class="inline">40288567.death-race-online.pages.dev</code>. It still points at the old Cloudflare realtime backend even after the main URL begins loading Colyseus.</p>
+  <p>The code change itself is intentionally small: the React entry renders <code class="inline">ColyseusApp</code> directly, production defaults to the public Fly WebSocket, and local development defaults to the local server. The much larger deletion of the Worker, polling adapter, and old client waits until the new default URL passes hosted acceptance. Routing and demolition are separate failure boundaries.</p>
+  <div class="lesson">A rollback is an executable path, not a feeling. Name the artifact, verify it independently, switch the smallest routing surface, and delete the old implementation only after production proof.</div>
+
   <h3>Deployment Is Part Of The Test Surface</h3>
   <p>The current migration path is live behind a stable preview alias while the existing Cloudflare-backed game remains untouched. A 1280×720 browser acceptance pass proved all 20 racers fit with no document scrolling, the sound control remains outside the track, and the public page talks to the Fly WebSocket endpoint. The immutable deployment URL gives each step a precise artifact; the alias gives playtesters one address to remember.</p>
   <div class="lesson">A feature is not deployed because the build command succeeded. Exercise the hosted frontend against the hosted server and inspect the actual laptop viewport.</div>

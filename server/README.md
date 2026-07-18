@@ -1,10 +1,10 @@
 # Colyseus Migration Server
 
-This directory is the side-by-side replacement for the Cloudflare Durable Object room backend.
+This directory contains the authoritative Colyseus replacement for the Cloudflare Durable Object room backend.
 
 ## Current Status
 
-The server is intentionally inactive in the production game. The React frontend still uses `src/multiplayer/api.js`, the Cloudflare Worker, and the Durable Object room implementation. Nothing in `server/` is imported by the active frontend.
+The production React frontend connects to this server over WebSockets. Cloudflare Pages serves static frontend files only; it does not own live room state.
 
 The migration server currently provides:
 
@@ -32,7 +32,7 @@ The migration server currently provides:
 - automatic empty-room disposal
 - protocol validation and ordering helpers in `src/multiplayer/protocol.js`
 
-The browser-side migration has a tested Colyseus transport in `src/multiplayer/colyseusTransport.js` and a playable flagged surface in `src/ColyseusApp.jsx`. Run with `VITE_NETWORK_BACKEND=colyseus`; production still selects the existing Cloudflare app by default. A real two-client SDK harness covers the full lobby-to-movement flow.
+The browser transport lives in `src/multiplayer/colyseusTransport.js` and the active surface in `src/ColyseusApp.jsx`. A real two-client SDK harness covers reconnect, shooting, three complete rounds, final scoring, and room disposal against Fly.io.
 
 It does not yet provide round progression or a frontend transport, so it is not a playable game. Do not point production at it until the migration tasks in `todo.md` reach cutover.
 
@@ -49,7 +49,7 @@ The local server listens on port `2567` by default and exposes `GET /health`.
 
 ## Safety Boundary
 
-Keep the Cloudflare path intact until all of these are true:
+The old Cloudflare path may be removed only after all of these are true:
 
 - movement, stamina, shooting, NPCs, scoring, and winners are server authoritative
 - reconnect and message ordering tests pass

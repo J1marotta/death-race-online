@@ -31,6 +31,7 @@ export class ColyseusTransport {
     this.latestState = null
     this.privateState = null
     this.lastMetaSignature = ''
+    this.currentView = null
     this.listeners = new Map()
   }
 
@@ -47,6 +48,7 @@ export class ColyseusTransport {
 
   publishView(state = this.latestState) {
     const view = projectAuthoritativeState(state, this.privateState)
+    this.currentView = view
     this.emit('view', view)
     const meta = {
       ...view,

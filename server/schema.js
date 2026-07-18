@@ -17,6 +17,7 @@ export const RacerState = schema({
   progress: 'number',
   movementMode: 'string',
   eliminated: 'boolean',
+  revealedName: 'string',
 })
 
 export const ShotState = schema({

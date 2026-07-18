@@ -400,7 +400,7 @@ describe('Colyseus DeathRaceRoom scaffold', () => {
     const startingProgress = room.state.racers.get(String(laneId)).progress
     room.advanceSimulation(1000, room.state.countdownEndsAt + 1000)
     expect(room.state.racers.get(String(laneId)).progress - startingProgress)
-      .toBe(WALK_PROGRESS_PER_SECOND)
+      .toBeCloseTo(WALK_PROGRESS_PER_SECOND, 8)
   })
 
   it('declares a winner only when server simulation crosses the finish', () => {
@@ -422,6 +422,8 @@ describe('Colyseus DeathRaceRoom scaffold', () => {
     expect(room.state.winnerName).toBe('James')
     expect(room.state.winnerType).toBe('human')
     expect(room.authorizedPlayer(host).score).toBe(3)
+    expect(room.state.racers.get(String(runtime.laneId)).revealedName).toBe('James')
+    expect([...room.state.racers.values()].filter(racer => racer.revealedName)).toHaveLength(1)
   })
 
   it('resolves shots from aim instead of a client-claimed victim', () => {

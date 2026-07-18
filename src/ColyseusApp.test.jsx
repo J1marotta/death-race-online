@@ -16,6 +16,7 @@ class FakeTransport {
   nextRound = vi.fn()
   subscribe(type, listener) { this.listeners.set(type, listener); return () => this.listeners.delete(type) }
   emit(type, value) {
+    if (type === 'view') this.currentView = value
     if (type === 'view') this.listeners.get('meta')?.({ ...value, racers: [] })
     this.listeners.get(type)?.(value)
   }
@@ -144,10 +145,20 @@ describe('feature-flagged Colyseus React client', () => {
   it('shows authoritative results and lets only the host advance', () => {
     const transport = new FakeTransport()
     render(<ColyseusApp transport={transport} />)
-    act(() => transport.emit('view', { ...lobby, phase: 'roundOver', winner: { name: 'James', type: 'human', laneId: 7 } }))
+    const racers = Array.from({ length: 20 }, (_, index) => ({
+      laneId: index + 1,
+      progress: 30,
+      movementMode: 'stopped',
+      eliminated: false,
+      revealedName: index === 6 ? 'James' : '',
+    }))
+    act(() => transport.emit('view', { ...lobby, phase: 'roundOver', racers, winner: { name: 'James', type: 'human', laneId: 7 } }))
     fireEvent.click(screen.getByRole('button', { name: 'Next round' }))
     expect(transport.nextRound).toHaveBeenCalledOnce()
     expect(screen.getByText('James wins')).toBeTruthy()
+    expect(screen.getByText('Human winner. Racers revealed.')).toBeTruthy()
+    expect(document.querySelectorAll('.migration-racer')).toHaveLength(20)
+    expect(document.querySelector('.migration-reveal-name').textContent).toBe('James')
   })
 
   it('restarts gameplay music on later rounds and keeps mute outside the track', () => {

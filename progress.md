@@ -1078,3 +1078,13 @@ Last updated: 2026-07-14
 - Changed the entry screen to open on Join lobby and put Host a game second because guests using a shared code are the common path.
 - Reworked movement regressions to assert legal server-derived progress deltas from randomized starts instead of assuming every racer starts at zero.
 - Added the appearance, fairness, and test-design lessons to `why.html` in the same commit.
+
+### task 105 : Restore Authoritative Human Reveal And Side-By-Side Results
+
+- Added an initially empty public `revealedName` field to racers and populated it for human-controlled lanes only after the authoritative winner is locked.
+- Kept the player-to-lane relationship absent throughout countdown and live play, making the reveal an explicit server-owned phase transition instead of a client-derived guess.
+- Retained the transport's latest full projected view so a result track mounted after simulation stops cannot miss the final 20-racer snapshot.
+- Added a frozen reveal track beside the scoreboard, with human/NPC result copy and the host's Next round or Show final scores action visible in the same laptop-height layout.
+- Disabled movement, aiming, shooting, crosshairs, and the controls strip on the result track while retaining bodies, KO attribution, finish state, and revealed names.
+- Added server and React regressions for post-win reveal timing, all 20 result racers, winner naming, and next-round availability.
+- Added the phase-boundary and retained-snapshot lessons to `why.html` in the same commit.

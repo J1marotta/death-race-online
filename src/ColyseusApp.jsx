@@ -40,6 +40,7 @@ function PixelRacer({ racer, roomCode, round, isLocal, localExhausted }) {
     <span className='racer-shadow' />
     <span className='racer-dust' aria-hidden='true' />
     <span className='racer-sweat' aria-hidden='true' />
+    {racer.revealedName && <strong className='migration-reveal-name'>{racer.revealedName}</strong>}
   </div>
 }
 
@@ -53,7 +54,7 @@ function Countdown({ endsAt }) {
   return <div className='migration-countdown'>{remaining}</div>
 }
 
-function AuthoritativeRace({ transport, initialView, playShot }) {
+function AuthoritativeRace({ transport, initialView, playShot, interactive = true }) {
   const [raceView, setRaceView] = useState(initialView)
   const [aim, setAim] = useState({ laneId: 1, x: 0 })
   const playfieldRef = useRef(null)
@@ -62,18 +63,20 @@ function AuthoritativeRace({ transport, initialView, playShot }) {
   const localPlayer = raceView.players.find(player => player.id === raceView.localPlayerId)
   useEffect(() => {
     const update = event => {
+      if (!interactive || raceView.phase !== 'playing') return
       if (localPlayer?.role === 'spectator') return
       if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return
       if (event.code === 'ArrowRight') transport.move('walking')
       if (event.code === 'Space') { event.preventDefault(); transport.move('running') }
     }
     const stop = event => {
+      if (!interactive || raceView.phase !== 'playing') return
       if (event.code === 'ArrowRight' || event.code === 'Space') transport.move('stopped')
     }
     window.addEventListener('keydown', update)
     window.addEventListener('keyup', stop)
     return () => { window.removeEventListener('keydown', update); window.removeEventListener('keyup', stop) }
-  }, [localPlayer?.role, transport])
+  }, [interactive, localPlayer?.role, raceView.phase, transport])
   const pointFromEvent = event => {
     const bounds = playfieldRef.current.getBoundingClientRect()
     return {
@@ -83,6 +86,7 @@ function AuthoritativeRace({ transport, initialView, playShot }) {
     }
   }
   const updateAim = event => {
+    if (!interactive || raceView.phase !== 'playing') return
     if (localPlayer?.role === 'spectator') return
     const nextAim = pointFromEvent(event)
     setAim(nextAim)
@@ -93,6 +97,7 @@ function AuthoritativeRace({ transport, initialView, playShot }) {
     }
   }
   const shoot = event => {
+    if (!interactive || raceView.phase !== 'playing') return
     if (!localPlayer?.hasBullet || localPlayer.role === 'spectator') return
     const nextAim = pointFromEvent(event)
     setAim(nextAim)
@@ -113,14 +118,14 @@ function AuthoritativeRace({ transport, initialView, playShot }) {
         <PixelRacer racer={racer} roomCode={raceView.roomCode} round={raceView.round} isLocal={racer.laneId === raceView.localLaneId} localExhausted={raceView.localExhausted} />
         {raceView.shots.filter(shot => shot.hit && shot.laneId === racer.laneId).slice(-1).map(shot => <div className='migration-ko' key={shot.eventId} style={{ left: `${shot.impactX}%` }}>KO! <small>{shot.shooterName}</small></div>)}
       </div>)}
-      {crosshairs.map(crosshair => <div
+      {interactive && crosshairs.map(crosshair => <div
         className={`migration-crosshair color-${crosshair.colorIndex} ${crosshair.hasBullet ? '' : 'spent'}`}
         key={crosshair.id}
         style={{ left: `${crosshair.aimX}%`, top: `${crosshair.aimY}%` }}
       ><span>+</span>{crosshair.hasBullet && <i aria-label='Loaded bullet' />}</div>)}
       {recentShots.length > 0 && <div className='migration-kill-feed' aria-label='Kill feed'>{recentShots.map(shot => <div key={shot.eventId}><strong>{shot.shooterName}</strong><span>▸</span><span>{shot.hit ? shot.victimName || `NPC ${shot.laneId}` : 'missed'}</span></div>)}</div>}
     </section>
-    <div className={`migration-controls ${localPlayer?.role === 'spectator' || raceView.localEliminated ? 'spectating' : ''}`}><span><kbd>→</kbd> Walk</span><span className={`migration-sprint ${raceView.localExhausted ? 'exhausted' : ''}`} style={{ '--stamina': raceView.localStamina }}><b><i /></b><kbd>Space</kbd> Sprint</span><span><kbd>Mouse 1</kbd> Aim and shoot</span><strong>{localPlayer?.role === 'spectator' || raceView.localEliminated ? 'Spectating' : localPlayer?.hasBullet ? '1 bullet' : 'Bullet spent'}</strong></div>
+    {interactive && <div className={`migration-controls ${localPlayer?.role === 'spectator' || raceView.localEliminated ? 'spectating' : ''}`}><span><kbd>→</kbd> Walk</span><span className={`migration-sprint ${raceView.localExhausted ? 'exhausted' : ''}`} style={{ '--stamina': raceView.localStamina }}><b><i /></b><kbd>Space</kbd> Sprint</span><span><kbd>Mouse 1</kbd> Aim and shoot</span><strong>{localPlayer?.role === 'spectator' || raceView.localEliminated ? 'Spectating' : localPlayer?.hasBullet ? '1 bullet' : 'Bullet spent'}</strong></div>}
   </>
 }
 
@@ -202,10 +207,14 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
       <div className='migration-roster'>{view.players.map(player => <div key={player.id}><strong>{player.name}</strong><span>{player.role === 'host' ? 'Host' : player.ready ? 'Ready' : 'Waiting'}</span></div>)}</div>
     </section>}
     {playing && <AuthoritativeRace transport={transport} initialView={{ ...view, racers: [] }} playShot={playShot} />}
-    {(view.phase === 'roundOver' || view.phase === 'gameOver') && <section className='migration-results'>
-      <h2>{view.winner?.type === 'npc' ? `${view.winner.name} won` : `${view.winner?.name ?? 'Racer'} wins`}</h2>
-      <div className='migration-scoreboard'>{[...view.players].sort((a, b) => b.score - a.score).map(player => <div key={player.id}><strong>{player.name}</strong><span>{player.kills} kills</span><b>{player.score}</b></div>)}</div>
-      {isHost && view.phase === 'roundOver' && <button className='migration-primary' onClick={() => transport.nextRound()}>{view.round >= view.roundCount ? 'Show final scores' : 'Next round'}</button>}
-    </section>}
+    {(view.phase === 'roundOver' || view.phase === 'gameOver') && <div className='migration-postround'>
+      <div className='migration-reveal-track'><AuthoritativeRace transport={transport} initialView={transport.currentView ?? view} playShot={playShot} interactive={false} /></div>
+      <section className='migration-results'>
+        <p>{view.winner?.type === 'npc' ? 'NPC shame. Humans revealed.' : 'Human winner. Racers revealed.'}</p>
+        <h2>{view.winner?.type === 'npc' ? `${view.winner.name} won` : `${view.winner?.name ?? 'Racer'} wins`}</h2>
+        <div className='migration-scoreboard'>{[...view.players].sort((a, b) => b.score - a.score).map(player => <div key={player.id}><strong>{player.name}</strong><span>{player.kills} kills</span><b>{player.score}</b></div>)}</div>
+        {isHost && view.phase === 'roundOver' && <button className='migration-primary' onClick={() => transport.nextRound()}>{view.round >= view.roundCount ? 'Show final scores' : 'Next round'}</button>}
+      </section>
+    </div>}
   </main>
 }

@@ -293,6 +293,7 @@ export class DeathRaceRoom extends Room {
         progress: runtime.progress,
         movementMode: 'stopped',
         eliminated: false,
+        revealedName: '',
       }))
       this.state.crosshairs.set(crosshairId, new CrosshairState({
         id: crosshairId,
@@ -318,6 +319,7 @@ export class DeathRaceRoom extends Room {
         progress: runtime.progress,
         movementMode: 'idle',
         eliminated: false,
+        revealedName: '',
       }))
     }
     this.state.countdownEndsAt = countdownEndsAt
@@ -486,6 +488,12 @@ export class DeathRaceRoom extends Room {
           if (winner) winner.score += 3
         } else {
           this.state.winnerName = `NPC ${runtime.laneId}`
+        }
+        for (const candidate of this.runtimeByPlayerId.values()) {
+          if (candidate.controllerType !== 'human') continue
+          const revealedRacer = this.state.racers.get(String(candidate.laneId))
+          const revealedPlayer = this.state.players.get(candidate.playerId)
+          if (revealedRacer) revealedRacer.revealedName = revealedPlayer?.name ?? 'Player'
         }
         this.state.phase = 'roundOver'
         break

@@ -125,5 +125,6 @@ describe('WHY.html interactive page', () => {
     expect(diary.textContent).toContain('Audio Nodes Are Resources')
     expect(diary.textContent).toContain('Public, Private, And Server-Only')
     expect(diary.textContent).toContain('Randomize The Costume')
+    expect(diary.textContent).toContain('A Reveal Is A Permission Change')
   })
 })

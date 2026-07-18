@@ -57,6 +57,8 @@
 .migration-racer.winded { filter: saturate(.7); animation: migration-step 850ms ease-in-out infinite; }
 .migration-racer.winded .racer-sweat { display: block; top: -7px; right: -4px; width: 3px; height: 5px; background: #7dd3fc; animation: migration-sweat 700ms steps(4,jump-none) infinite; }
 .migration-racer.eliminated { opacity: .55; transform: translate(-50%,-30%) rotate(90deg) scale(1.08); animation: none; filter: saturate(.5); }
+.migration-racer:has(.migration-reveal-name) { z-index: 3; box-shadow: 0 0 0 2px #facc15, 2px 2px 0 rgba(0,0,0,.42); }
+.migration-reveal-name { position: absolute; left: 50%; bottom: calc(100% + 5px); translate: -50% 0; padding: 2px 3px; background: #101217; color: #facc15; font: 800 7px/1 var(--mono); white-space: nowrap; }
 @keyframes migration-step { 50% { transform: translate(-50%,-55%) scale(1.08); } }
 @keyframes migration-dust { to { transform: translate(-8px,-5px) scale(1.7); opacity: 0; } }
 @keyframes migration-sweat { from { opacity: 0; } 40% { opacity: 1; } to { transform: translateY(7px); opacity: 0; } }
@@ -88,8 +90,12 @@
 .migration-sprint > b i { display: block; width: calc(var(--stamina) * 100%); height: 100%; background: hsl(calc(var(--stamina) * 118) 82% 52%); transition: width 100ms linear; }
 .migration-sprint.exhausted > b i { animation: migration-stamina-pulse 700ms ease-in-out infinite; }
 @keyframes migration-stamina-pulse { 50% { opacity: .35; } }
-.migration-results { width: min(680px, 100%); }
+.migration-postround { display: grid; grid-template-columns: minmax(0,1fr) 310px; gap: 14px; align-items: start; }
+.migration-reveal-track .migration-track { height: min(69svh, 680px); }
+.migration-results { min-width: 0; }
+.migration-results > p { margin: 0; color: var(--accent); font: 700 11px/1.3 var(--mono); }
+.migration-results h2 { margin: 8px 0 12px; color: var(--text-h); }
 .migration-scoreboard { margin: 14px 0; border: 1px solid var(--border); }
 .migration-scoreboard div { grid-template-columns: 1fr auto 44px; }
 .migration-scoreboard b { color: var(--text-h); text-align: right; }
-@media (max-width: 720px) { .migration-lobby { grid-template-columns: 1fr; } .migration-actions, .migration-topbar, .migration-controls { flex-wrap: wrap; } .migration-track { height: 68svh; } }
+@media (max-width: 720px) { .migration-lobby, .migration-postround { grid-template-columns: 1fr; } .migration-actions, .migration-topbar, .migration-controls { flex-wrap: wrap; } .migration-track { height: 68svh; } }

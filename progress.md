@@ -928,3 +928,14 @@ Last updated: 2026-07-14
 - Added deterministic tests for varied deadlines and personalities, timer isolation, partial-subset mode changes, all-lane room population, and NPC finish-line wins.
 - Left the production client's shared-clock NPC code intact only as rollback code; it will disappear when the Colyseus client path passes live acceptance and the old realtime implementation is removed.
 - Completed migration Task 07. Task 08, reconnect snapshots and ordering hardening, is next.
+
+### task 89 : Complete Colyseus Resume And Ordering Semantics
+
+- Sent a complete versioned authoritative snapshot after successful reconnection, followed by only that player's private lane assignment.
+- Verified public snapshots contain racer lanes and progress without a player-to-lane mapping, while private state contains only the reconnecting player's identity and lane.
+- Preserved countdown, live progress, bullet, elimination, score, winner, and shot state throughout the existing 45-second rotating-token grace period.
+- Kept strict room ID, round ID, and monotonically increasing per-player sequence checks for every command, rejecting stale, future, duplicate, and reordered input.
+- Defined expiry behavior: a missing host closes the room; a missing guest is removed and replaced at the same lane and progress by an independent authoritative NPC.
+- Added resume tests for full snapshots, private-state isolation, live-phase restoration, token rotation, token expiry, guest replacement, host closure, and ordering rejection.
+- Assigned exponential retry and jitter to Task 09 because socket retry lifecycle belongs to the client transport adapter, not the room simulation.
+- Completed migration Task 08. Task 09, the Colyseus client transport and UI integration, is next.

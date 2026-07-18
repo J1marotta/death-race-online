@@ -27,6 +27,8 @@ The migration server currently provides:
 - canonical shot events, corpse protection, self-shot rules, and human kill scoring
 - 20 total racers with server-filled NPC lanes
 - independent seeded NPC modes, decision deadlines, speed variation, pauses, and finish adjudication
+- complete resume snapshots followed by the reconnecting player's private lane state
+- deterministic guest-to-NPC replacement after grace expiry and room closure after host expiry
 - automatic empty-room disposal
 - protocol validation and ordering helpers in `src/multiplayer/protocol.js`
 

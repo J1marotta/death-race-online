@@ -4,7 +4,7 @@ This file tracks remaining implementation work only. Design decisions live in `s
 
 ## Delivery Estimate
 
-The remaining Fly.io and Colyseus migration is estimated at **17-30 agent-hours** including writing failing tests first, implementation, passing regression tests, deployment, and live multiplayer verification. Authoritative server Tasks 01-07 are complete. With carefully divided agents, expect roughly **11-20 hours of elapsed work** because integration, deployment, and browser-to-browser testing cannot all be parallelized safely.
+The remaining Fly.io and Colyseus migration is estimated at **14-25 agent-hours** including writing failing tests first, implementation, passing regression tests, deployment, and live multiplayer verification. Server Tasks 01-08 are complete. With carefully divided agents, expect roughly **9-17 hours of elapsed work** because integration, deployment, and browser-to-browser testing cannot all be parallelized safely.
 
 The first complete migration should therefore be treated as roughly **4-7 focused agent working days**, including time for at least one failed deployment or integration pass. This assumes agents are writing the code and a human is available only for Fly.io account access, billing limits, secrets, and final live acceptance testing.
 
@@ -12,24 +12,13 @@ Juice work is estimated separately at **10-18 agent-hours**. The remaining indep
 
 ## Migration To Fly.io And Colyseus
 
-### Task 08: Add Reconnection And Ordering
-
-Estimate: **3-5 agent-hours**.
-
-- Add exponential reconnect with jitter and a sensible retry cap.
-- Resume the existing authenticated player session after a temporary disconnect.
-- Include round IDs and monotonically increasing sequence numbers in input and event processing.
-- Ignore duplicate, out-of-order, and stale-round messages.
-- Send a complete authoritative snapshot after resume, followed by normal deltas.
-- Define grace periods for temporary disconnects and deterministic behavior when the host does not return.
-- Write failing tests for dropped sockets, duplicate packets, reordered packets, reconnect during countdown, reconnect during play, and reconnect after elimination.
-
 ### Task 09: Add A Client Transport Adapter
 
 Estimate: **4-7 agent-hours**.
 
 - Put Colyseus behind a small client adapter so React does not directly own socket lifecycle or protocol parsing.
 - Expose stable operations and subscriptions for lobby actions, local input, shot intent, snapshots, events, reconnect state, and room closure.
+- Add exponential reconnect with jitter and a sensible retry cap, resuming with Colyseus' rotating token.
 - Keep the current Cloudflare adapter temporarily available behind a development flag for comparison and rollback.
 - Remove HTTP polling from the Colyseus path.
 - Ensure network updates do not force the entire React application to rerender at server tick frequency.

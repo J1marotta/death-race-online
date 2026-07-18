@@ -126,6 +126,34 @@ describe('Colyseus DeathRaceRoom scaffold', () => {
     expect(room.authorizedPlayer(host).connected).toBe(true)
     expect(host.reconnectionToken.length).toBeGreaterThanOrEqual(43)
     expect(host.reconnectionToken).not.toBe(originalToken)
+    expect(host.send).toHaveBeenCalledWith(
+      'snapshot',
+      expect.objectContaining({ type: 'snapshot', roomId: 'DRTEST' }),
+    )
+  })
+
+  it('resends public race state and only the reconnecting player private lane', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST' })
+    const host = client('session-host')
+    const guest = client('session-guest')
+    room.onJoin(host, { playerName: 'James' })
+    room.onJoin(guest, { playerName: 'Mia' })
+    room.authorizedPlayer(host).ready = true
+    room.authorizedPlayer(guest).ready = true
+    room.startCountdown(room.authorizedPlayer(host))
+    room.advanceSimulation(0, room.state.countdownEndsAt)
+    const ownLane = room.privateStateFor(guest).laneId
+    guest.send.mockClear()
+
+    room.markDisconnected(guest)
+    room.onReconnect(guest)
+
+    const snapshot = guest.send.mock.calls.find(([type]) => type === 'snapshot')[1]
+    const privateState = guest.send.mock.calls.find(([type]) => type === 'private-state')[1]
+    expect(snapshot.payload.phase).toBe('playing')
+    expect(JSON.stringify(snapshot.payload.racers)).not.toContain(room.authorizedPlayer(guest).id)
+    expect(privateState).toEqual({ playerId: room.authorizedPlayer(guest).id, laneId: ownLane })
   })
 
   it('removes a dropped player after the reconnection token expires', async () => {
@@ -142,6 +170,30 @@ describe('Colyseus DeathRaceRoom scaffold', () => {
     expect(room.state.hostPlayerId).toBe('')
     expect(room.state.phase).toBe('closed')
     expect(room.disconnect).toHaveBeenCalledOnce()
+  })
+
+  it('replaces an expired non-host racer with an NPC at the same progress', async () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST' })
+    const host = client('session-host')
+    const guest = client('session-guest')
+    room.onJoin(host, { playerName: 'James' })
+    room.onJoin(guest, { playerName: 'Mia' })
+    room.authorizedPlayer(host).ready = true
+    room.authorizedPlayer(guest).ready = true
+    room.startCountdown(room.authorizedPlayer(host))
+    room.advanceSimulation(0, room.state.countdownEndsAt)
+    const guestRuntime = room.runtimeByPlayerId.get(room.authorizedPlayer(guest).id)
+    guestRuntime.progress = 24
+    const laneId = guestRuntime.laneId
+    room.allowReconnection = vi.fn().mockRejectedValue(new Error('expired'))
+
+    await room.onDrop(guest)
+
+    const replacement = room.runtimeByPlayerId.get(`npc:${laneId}`)
+    expect(replacement.controllerType).toBe('npc')
+    expect(replacement.progress).toBe(24)
+    expect(room.state.players.size).toBe(1)
   })
 
   it('rejects a duplicate active room code and releases it on disposal', () => {

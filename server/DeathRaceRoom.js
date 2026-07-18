@@ -131,6 +131,20 @@ export class DeathRaceRoom extends Room {
     return { ok: false, error: code }
   }
 
+  sendSnapshot(client) {
+    const payload = createServerEnvelope(
+      SERVER_MESSAGE_TYPES.SNAPSHOT,
+      this.state.toJSON(),
+      {
+        roomId: this.state.roomCode,
+        roundId: this.state.round,
+        eventId: this.createEventId(),
+      },
+    )
+    client.send?.(SERVER_MESSAGE_TYPES.SNAPSHOT, payload)
+    return payload
+  }
+
   handleCommand(client, rawMessage) {
     const player = this.authorizedPlayer(client)
     if (!player) {
@@ -398,6 +412,9 @@ export class DeathRaceRoom extends Room {
       client.auth = { playerId: player.id }
       client.reconnectionToken = createResumeToken()
       player.connected = true
+      this.sendSnapshot(client)
+      const privateState = this.privateStateFor(client)
+      if (privateState) client.send?.(SERVER_MESSAGE_TYPES.PRIVATE_STATE, privateState)
     }
   }
 
@@ -424,7 +441,18 @@ export class DeathRaceRoom extends Room {
     const hostLeft = this.state.hostPlayerId === playerId
     this.playerIdBySession.delete(client.sessionId)
     this.lastSequenceByPlayerId.delete(playerId)
+    const runtime = this.runtimeByPlayerId.get(playerId)
     this.runtimeByPlayerId.delete(playerId)
+    if (!hostLeft && runtime && ['countdown', 'playing'].includes(this.state.phase)) {
+      const npc = createNpcRuntime({
+        laneId: runtime.laneId,
+        seed: `${this.state.roomCode}:${this.state.round}:replacement`,
+        nowMs: Date.now(),
+      })
+      npc.progress = runtime.progress
+      npc.eliminated = runtime.eliminated
+      this.runtimeByPlayerId.set(npc.playerId, npc)
+    }
     this.state.players.delete(playerId)
     if (hostLeft) {
       this.state.hostPlayerId = ''

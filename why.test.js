@@ -136,4 +136,27 @@ describe('WHY.html interactive page', () => {
     expect(diary.textContent).toContain('A Cutover Needs A Named Way Back')
     expect(diary.textContent).toContain('Delete The Retired Path After Production Proof')
   })
+
+  it('teaches the current technical specification and important code paths interactively', () => {
+    const window = loadWhyPage()
+    expect(window.document.getElementById('tech-specs')).toBeTruthy()
+    expect(window.document.getElementById('code-paths').textContent).toContain('Aim And Fire')
+    expect(window.document.getElementById('learning-lab')).toBeTruthy()
+    expect(window.document.querySelectorAll('.quiz-card')).toHaveLength(8)
+
+    const firstAnswer = window.document.querySelector('.quiz-card .quiz-option:nth-child(2)')
+    firstAnswer.click()
+    expect(window.document.getElementById('quizScore').textContent).toBe('1 of 1 answered correctly')
+    expect(window.document.querySelector('.quiz-feedback').textContent).toContain('Cloudflare Pages serves static')
+    window.document.getElementById('quizReset').click()
+    expect(window.document.getElementById('quizScore').textContent).toBe('0 of 0 answered correctly')
+  })
+
+  it('preserves Cloudflare history while distinguishing it from production', () => {
+    const window = loadWhyPage()
+    expect(window.document.getElementById('durable-object')).toBeTruthy()
+    expect(window.document.getElementById('costs')).toBeTruthy()
+    expect(window.document.getElementById('lobby-flow').textContent).toContain('Historical interactive trace')
+    expect(window.document.getElementById('live-play').textContent).toContain('Historical Cloudflare implementation')
+  })
 })

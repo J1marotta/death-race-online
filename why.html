@@ -573,9 +573,65 @@
   th, td { border: 1px solid var(--border); padding: 8px 14px; text-align: left; }
   th { color: var(--text-h); background: var(--panel); }
 
+  /* ---------- learning course ---------- */
+  .spec-grid, .path-grid, .quiz-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin: 18px 0;
+  }
+
+  .spec-card, .path-card, .quiz-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+    padding: 16px;
+  }
+
+  .spec-card h3, .path-card h3, .quiz-card h3 { margin-top: 0; }
+  .spec-card dl { display: grid; grid-template-columns: minmax(100px, 0.7fr) 1.3fr; gap: 6px 12px; margin: 0; }
+  .spec-card dt { color: var(--text-h); font: 700 12px/1.5 var(--mono); }
+  .spec-card dd { margin: 0; }
+
+  .path-card { border-top: 3px solid var(--blue); }
+  .path-card ol { padding-left: 22px; }
+  .path-card li { margin: 8px 0; }
+  .path-card code { color: var(--gold); }
+  .truth-owner { color: var(--green); font: 700 12px/1.5 var(--mono); }
+
+  .tutorial-checkpoint {
+    border-left: 3px solid var(--accent);
+    padding: 2px 0 2px 16px;
+    margin: 22px 0;
+  }
+
+  .quiz-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 18px 0;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+  }
+
+  .quiz-score { color: var(--text-h); font: 700 13px/1.4 var(--mono); }
+  .quiz-options { display: grid; gap: 8px; }
+  .quiz-option { text-align: left; width: 100%; }
+  .quiz-option.correct { border-color: var(--green); color: var(--green); }
+  .quiz-option.incorrect { border-color: var(--accent); color: #fca5a5; }
+  .quiz-feedback { min-height: 3.4em; margin: 12px 0 0; }
+  .quiz-feedback.good { color: var(--green); }
+  .quiz-feedback.bad { color: #fca5a5; }
+
+  .path-legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+  .path-legend span { border: 1px solid var(--border); padding: 3px 8px; font: 12px/1.5 var(--mono); }
+
   @media (max-width: 900px) {
     .layout { grid-template-columns: 1fr; }
     nav.toc { position: static; max-height: none; }
+    .spec-grid, .path-grid, .quiz-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -590,6 +646,10 @@
   <a href="#what-we-built">What We Built</a>
   <a href="#architecture">Architecture</a>
   <a href="#codebase-tour">Codebase Tour</a>
+  <a href="#tech-specs">Technical Specs</a>
+  <a href="#code-paths">Important Code Paths</a>
+  <a href="#learning-lab">Learning Tutorial</a>
+  <a href="#knowledge-check">Knowledge Check</a>
   <a href="#lobby-flow">How A Lobby Works</a>
   <a href="#live-play">How Live Play Works</a>
   <a href="#sprint-stamina">Why Sprint Costs Something</a>
@@ -609,7 +669,7 @@
   <a href="#migration">Why Fly.io And Colyseus</a>
   <a href="#migration-plan">The Migration Plan</a>
   <a href="#migration-diary">Migration Field Notes</a>
-  <a href="#next-juice">The Next Layer Of Juice</a>
+  <a href="#next-juice">The Finished Juice Layer</a>
   <a href="#prototype">Still Prototype-Shaped</a>
   <a href="#thinking">How Engineers Think</a>
   <a href="#lessons">Lessons To Carry Forward</a>
@@ -704,8 +764,239 @@
   <div class="note">Why <code class="inline">DeathRaceRoom</code> matters most: every consequential game fact is accepted or derived in one server-owned room, while focused simulation modules keep those rules testable without a socket.</div>
 </section>
 
+<section id="tech-specs">
+  <h2>Technical Specs: The Current Production System</h2>
+  <p>This is the short reference sheet to return to when the rest of the guide gets detailed. These values come from the current source and deployment configuration, not the retired Durable Object implementation.</p>
+  <div class="spec-grid">
+    <article class="spec-card">
+      <h3>Browser</h3>
+      <dl>
+        <dt>UI</dt><dd>React 19 rendered by <code class="inline">react-dom</code></dd>
+        <dt>Build</dt><dd>Vite 8, producing static hashed JS and CSS</dd>
+        <dt>Host</dt><dd>Cloudflare Pages; static files only</dd>
+        <dt>Transport</dt><dd>Colyseus SDK over one authenticated WebSocket</dd>
+        <dt>Production URL</dt><dd><code class="inline">death-race-online.pages.dev</code></dd>
+        <dt>Entry path</dt><dd><code class="inline">index.html → src/main.jsx → ColyseusApp.jsx</code></dd>
+      </dl>
+    </article>
+    <article class="spec-card">
+      <h3>Game Server</h3>
+      <dl>
+        <dt>Runtime</dt><dd>Node 22 in an Alpine Linux container</dd>
+        <dt>Framework</dt><dd>Colyseus 0.17 with WebSocket transport</dd>
+        <dt>Process</dt><dd>One Fly.io Machine in Sydney</dd>
+        <dt>Machine</dt><dd><code class="inline">shared-cpu-1x</code>, 256 MB RAM</dd>
+        <dt>Scaling</dt><dd>Zero idle machines; wake on connection</dd>
+        <dt>Health</dt><dd><code class="inline">GET /health</code> every 30 seconds</dd>
+      </dl>
+    </article>
+    <article class="spec-card">
+      <h3>Simulation Contract</h3>
+      <dl>
+        <dt>Room cap</dt><dd>20 connected humans; each race always renders 20 lanes</dd>
+        <dt>Tick</dt><dd>20 Hz server simulation, one step every 50 ms</dd>
+        <dt>Rate limit</dt><dd>30 client messages per second</dd>
+        <dt>Reconnect</dt><dd>45-second server grace and five client attempts</dd>
+        <dt>Idle expiry</dt><dd>30 minutes without player activity</dd>
+        <dt>Rounds</dt><dd>Host selects 3, 5, or 7</dd>
+      </dl>
+    </article>
+    <article class="spec-card">
+      <h3>Trust And Privacy</h3>
+      <dl>
+        <dt>Authority</dt><dd><code class="inline">DeathRaceRoom</code> owns position, stamina, shots, winners, scores, and phase</dd>
+        <dt>Public state</dt><dd>Roster, racers, crosshairs, phase, winner, and scoreboard</dd>
+        <dt>Private state</dt><dd>Your secret lane, bullet, stamina, and elimination details</dd>
+        <dt>Ordering</dt><dd>Protocol version + room ID + round ID + monotonic sequence</dd>
+        <dt>Events</dt><dd>Unique event IDs prevent replayed effects after reconnect</dd>
+        <dt>Persistence</dt><dd>None; rooms and scores disappear with the server session</dd>
+      </dl>
+    </article>
+  </div>
+  <div class="lesson">A technical specification is useful when it names limits and ownership. “Uses WebSockets” is trivia. “The browser sends intent at no more than 30 messages per second while a 20 Hz server owns movement” tells you how the system behaves.</div>
+</section>
+
+<section id="code-paths">
+  <h2>Important Code Paths: Follow The Evidence</h2>
+  <p>Most bugs become easier when you stop asking “which component looks wrong?” and ask “where did this fact enter the system, who was allowed to change it, and how did it reach this pixel?” Each card traces one complete path.</p>
+  <div class="path-legend">
+    <span>Browser intent</span><span>Protocol boundary</span><span>Server truth</span><span>Rendered projection</span>
+  </div>
+  <div class="path-grid">
+    <article class="path-card">
+      <h3>Create A Lobby</h3>
+      <p class="truth-owner">Truth owner: DeathRaceRoom</p>
+      <ol>
+        <li><code>ColyseusApp.jsx</code> validates the host name, creates a code, and calls <code>transport.create()</code>.</li>
+        <li><code>colyseusTransport.js</code> asks the Colyseus SDK to create room type <code>death-race</code>.</li>
+        <li><code>server/index.js</code> has registered that room name to <code>DeathRaceRoom</code>.</li>
+        <li><code>DeathRaceRoom.onCreate()</code> reserves the code, initializes schema state, and starts the 20 Hz simulation.</li>
+        <li><code>onJoin()</code> creates the first player and makes that player host.</li>
+        <li>Colyseus patches the schema back; the transport projects it; React renders the real roster.</li>
+      </ol>
+    </article>
+    <article class="path-card">
+      <h3>Join, Ready, Start</h3>
+      <p class="truth-owner">Truth owner: lobby phase rules</p>
+      <ol>
+        <li>The guest calls <code>joinById(roomCode)</code>; the server rejects duplicate names.</li>
+        <li>Ready clicks call <code>setReady()</code>, which wraps intent in a versioned command envelope.</li>
+        <li><code>handleCommand()</code> validates identity, protocol shape, room, round, and sequence before dispatch.</li>
+        <li>The start command is accepted only from the host and only when every connected player is ready.</li>
+        <li>The server writes <code>countdownEndsAt</code>; all clients derive the same 3-2-1-Go display from that deadline.</li>
+      </ol>
+    </article>
+    <article class="path-card">
+      <h3>Walk Or Run</h3>
+      <p class="truth-owner">Truth owner: simulation.js</p>
+      <ol>
+        <li>Keyboard handlers in <code>ColyseusApp.jsx</code> derive held-key intent: idle, walking, or running.</li>
+        <li><code>transport.move(mode)</code> sends only the desired mode, never a claimed position.</li>
+        <li><code>DeathRaceRoom</code> stores that intent in a private runtime object.</li>
+        <li>Every 50 ms, <code>advancePlayerRuntime()</code> applies legal speed, stamina drain, exhaustion, and finish bounds.</li>
+        <li>The room copies canonical progress to <code>RacerState</code>; the browser animates the received state.</li>
+      </ol>
+    </article>
+    <article class="path-card">
+      <h3>Aim And Fire</h3>
+      <p class="truth-owner">Truth owner: shooting.js</p>
+      <ol>
+        <li>Pointer movement becomes normalized aim coordinates and a shared crosshair update.</li>
+        <li>A click immediately produces local muzzle feedback, then sends <code>SHOT</code> with aim coordinates.</li>
+        <li>The room verifies phase, bullet ownership, identity, order, and payload bounds.</li>
+        <li><code>resolveShot()</code> performs server-side hit testing and refuses corpses and illegal self-hits.</li>
+        <li>The server consumes the bullet, eliminates the victim, awards a human kill, and emits one event ID.</li>
+        <li>Clients deduplicate that ID before playing hit, miss, KO, sound, and score effects.</li>
+      </ol>
+    </article>
+    <article class="path-card">
+      <h3>NPC Decision Cycle</h3>
+      <p class="truth-owner">Truth owner: npcSimulation.js</p>
+      <ol>
+        <li>At round setup, every unclaimed lane receives its own seeded NPC runtime.</li>
+        <li>Each runtime carries independent move and idle deadlines; there is no shared interval.</li>
+        <li><code>advanceNpcRuntime()</code> changes one NPC only when that NPC's deadline expires.</li>
+        <li>The same server tick and movement language update NPC progress, including long pauses and erratic runs.</li>
+        <li>The room, not a browser host, detects an NPC crossing and adjudicates the winner.</li>
+      </ol>
+    </article>
+    <article class="path-card">
+      <h3>Finish, Score, Next Round</h3>
+      <p class="truth-owner">Truth owner: DeathRaceRoom</p>
+      <ol>
+        <li>The simulation clamps and tests canonical progress against <code>FINISH_PROGRESS</code>.</li>
+        <li>The first valid finisher locks winner lane, type, name, and a unique winner event ID.</li>
+        <li>The room awards three winner points and moves to <code>roundOver</code> or <code>gameOver</code>.</li>
+        <li>React reveals humans and animates deltas, but the displayed final score remains server state.</li>
+        <li>Only the host can request the next round; the server resets round-owned state and increments <code>roundId</code>.</li>
+      </ol>
+    </article>
+    <article class="path-card">
+      <h3>Disconnect And Reconnect</h3>
+      <p class="truth-owner">Truth owner: server session identity</p>
+      <ol>
+        <li>An unexplained socket close makes <code>ColyseusTransport</code> attempt token-based reconnection with jittered backoff.</li>
+        <li>The room keeps the player for a 45-second grace period.</li>
+        <li>On success, the new connection is rebound to the same player and receives public plus private state.</li>
+        <li>A server <code>CLOSED</code> message marks intentional closure so the client does not reconnect forever.</li>
+        <li>If the host leaves, everyone disconnects, or activity expires, the room releases its code and disposes.</li>
+      </ol>
+    </article>
+    <article class="path-card">
+      <h3>Build And Deploy</h3>
+      <p class="truth-owner">Two deploys, one product</p>
+      <ol>
+        <li><code>vite build</code> turns React into <code>dist/</code>; Cloudflare Pages hosts those static files.</li>
+        <li><code>Dockerfile</code> packages only production server dependencies and authoritative server source.</li>
+        <li><code>fly.toml</code> starts that image in Sydney, routes HTTPS/WebSockets, and scales to zero.</li>
+        <li>The browser's production endpoint points directly to <code>wss://death-race-online-game.fly.dev</code>.</li>
+        <li><code>remoteSmoke.js</code> proves the two deployments compose by playing a real three-round hosted match.</li>
+      </ol>
+    </article>
+  </div>
+</section>
+
+<section id="learning-lab">
+  <h2>Learning Tutorial: Reconstruct The Program Yourself</h2>
+  <p>Read this in order once. The goal is not memorizing filenames. It is learning the questions that let you recover the architecture whenever the code changes.</p>
+  <div class="tutorial-checkpoint">
+    <h3>Lesson 1: Find Both Entry Points</h3>
+    <p>Start at <code class="inline">src/main.jsx</code>. It mounts <code class="inline">ColyseusApp</code>, so that is the browser's front door. Then start at <code class="inline">server/index.js</code>. It creates WebSocket transport, exposes health, registers <code class="inline">death-race</code>, and listens. Never try to understand a distributed app from only one entry point.</p>
+  </div>
+  <div class="tutorial-checkpoint">
+    <h3>Lesson 2: Draw The Trust Boundary</h3>
+    <p>Put <code class="inline">ColyseusApp.jsx</code> and <code class="inline">colyseusTransport.js</code> on the untrusted side. Put <code class="inline">DeathRaceRoom.js</code>, <code class="inline">simulation.js</code>, and <code class="inline">shooting.js</code> on the authoritative side. The browser may ask; the server decides. Cosmetic anticipation can be immediate, but a kill, score, finish, or identity reveal requires server evidence.</p>
+  </div>
+  <div class="tutorial-checkpoint">
+    <h3>Lesson 3: Trace One Command</h3>
+    <p>Pick <code class="inline">transport.shoot(x, y)</code>. Follow it into <code class="inline">command()</code>, inspect its envelope, then find <code class="inline">messages.command</code> and <code class="inline">handleCommand()</code> on the room. Notice how validation happens before dispatch. Finally follow the shot into <code class="inline">resolveShot()</code> and back through schema/event updates. This one trace teaches the pattern used by ready, settings, movement, aim, shooting, and next round.</p>
+  </div>
+  <div class="tutorial-checkpoint">
+    <h3>Lesson 4: Separate Schema From Runtime</h3>
+    <p><code class="inline">server/schema.js</code> describes synchronized facts. Runtime maps in <code class="inline">DeathRaceRoom</code> hold private mechanics such as exact stamina and NPC timers. Schema is the scoreboard visible around the stadium; runtime is the referee's notebook. Publishing every notebook detail would leak identities and waste bandwidth.</p>
+  </div>
+  <div class="tutorial-checkpoint">
+    <h3>Lesson 5: Understand Projection</h3>
+    <p>The transport combines synchronized public state with the connection's <code class="inline">private-state</code>, then <code class="inline">projectAuthoritativeState()</code> creates the view React consumes. This is the answer to “how can everyone see the race while only I know my lane?” Privacy is enforced before rendering, not by hiding a field with CSS.</p>
+  </div>
+  <div class="tutorial-checkpoint">
+    <h3>Lesson 6: Verify With Different Test Scales</h3>
+    <p>Simulation tests prove arithmetic. Room tests prove authority and phases. Transport tests prove ordering and reconnect behavior. React tests prove controls and rendering. The integration harness proves real SDK clients compose. <code class="inline">remoteSmoke.js</code> proves the deployed frontend's server dependency survives the actual internet boundary. A green unit test cannot stand in for the layer above it.</p>
+  </div>
+  <div class="tutorial-checkpoint">
+    <h3>Lesson 7: Diagnose By Ownership</h3>
+    <p>If a racer teleports, inspect snapshots, projection, and rendering. If a player moves too fast, inspect server simulation. If only one person sees the wrong score, inspect private/public merge and event deduplication. If nobody can connect, inspect Pages endpoint selection, Fly health, and WebSocket transport. Begin where the fact is owned, then walk outward.</p>
+  </div>
+  <div class="note">Practical exercise: open the code and trace one complete round without using search: create → join → ready → countdown → input → finish → next round. When you can name the authority check and state mutation at every arrow, you understand the core program.</div>
+</section>
+
+<section id="knowledge-check">
+  <h2>Knowledge Check: Can You Operate The System?</h2>
+  <p>Choose an answer for each scenario. The guide explains the reasoning immediately, because useful quizzes teach the mental model instead of merely producing a score.</p>
+  <div class="quiz-toolbar">
+    <span class="quiz-score" id="quizScore" aria-live="polite">0 of 0 answered correctly</span>
+    <button class="ui" id="quizReset" type="button">Reset quiz</button>
+  </div>
+  <div class="quiz-grid" id="quizGrid">
+    <article class="quiz-card" data-answer="1" data-explanation="Cloudflare Pages serves static HTML, JS, and CSS. The long-lived DeathRaceRoom and its WebSocket live in the Fly.io Node process.">
+      <h3>1. Where does a live lobby exist?</h3>
+      <div class="quiz-options"><button class="ui quiz-option">In the React component</button><button class="ui quiz-option">In a DeathRaceRoom on Fly.io</button><button class="ui quiz-option">In Cloudflare Pages storage</button></div><p class="quiz-feedback" aria-live="polite"></p>
+    </article>
+    <article class="quiz-card" data-answer="2" data-explanation="The browser sends movementMode only. advancePlayerRuntime applies legal speed and stamina on the server, so a client cannot claim progress 100.">
+      <h3>2. What should a movement command contain?</h3>
+      <div class="quiz-options"><button class="ui quiz-option">The player's new position</button><button class="ui quiz-option">Position plus a client timestamp</button><button class="ui quiz-option">Walking, running, or idle intent</button></div><p class="quiz-feedback" aria-live="polite"></p>
+    </article>
+    <article class="quiz-card" data-answer="0" data-explanation="Start with ColyseusTransport and its endpoint/reconnect status, then check Fly /health. Lobby UI cannot repair a failed network path.">
+      <h3>3. Pages loads, but nobody can create a lobby. First path?</h3>
+      <div class="quiz-options"><button class="ui quiz-option">Transport endpoint → Fly health → server logs</button><button class="ui quiz-option">Animal CSS → lane layout</button><button class="ui quiz-option">Score animation → audio graph</button></div><p class="quiz-feedback" aria-live="polite"></p>
+    </article>
+    <article class="quiz-card" data-answer="1" data-explanation="Private-state is sent per connection and merged with public schema in the transport. If it were public schema, every curious browser could inspect every secret lane.">
+      <h3>4. How does only your browser learn your lane?</h3>
+      <div class="quiz-options"><button class="ui quiz-option">CSS hides all other lane IDs</button><button class="ui quiz-option">A connection-private message is merged into your view</button><button class="ui quiz-option">The lane is derived from your username</button></div><p class="quiz-feedback" aria-live="polite"></p>
+    </article>
+    <article class="quiz-card" data-answer="2" data-explanation="Unique server event IDs let every client remember what it has processed. A state replay or reconnect can then restore truth without replaying the celebration.">
+      <h3>5. What stops a reconnect replaying a gunshot or win effect?</h3>
+      <div class="quiz-options"><button class="ui quiz-option">A longer animation delay</button><button class="ui quiz-option">Clearing React state on disconnect</button><button class="ui quiz-option">Deduplication by authoritative event ID</button></div><p class="quiz-feedback" aria-live="polite"></p>
+    </article>
+    <article class="quiz-card" data-answer="0" data-explanation="Every NPC runtime owns independent deadlines advanced by the room tick. A shared setInterval recreates synchronized move-pause cycles.">
+      <h3>6. How do NPCs avoid moving as one pack?</h3>
+      <div class="quiz-options"><button class="ui quiz-option">Independent per-NPC deadlines</button><button class="ui quiz-option">One interval with random speed</button><button class="ui quiz-option">Each browser simulates half of them</button></div><p class="quiz-feedback" aria-live="polite"></p>
+    </article>
+    <article class="quiz-card" data-answer="1" data-explanation="The server's first valid crossing locks the winner and emits winnerEventId. Client animation can celebrate that fact but cannot decide it.">
+      <h3>7. Which value proves a winner celebration is legitimate?</h3>
+      <div class="quiz-options"><button class="ui quiz-option">A racer touching the CSS finish line</button><button class="ui quiz-option">The server's winnerEventId</button><button class="ui quiz-option">The host's browser clock</button></div><p class="quiz-feedback" aria-live="polite"></p>
+    </article>
+    <article class="quiz-card" data-answer="2" data-explanation="The hosted smoke test uses real Colyseus clients against Fly through the deployed network and covers reconnect, shooting, three rounds, scoring, and disposal.">
+      <h3>8. What is the broadest automated production proof?</h3>
+      <div class="quiz-options"><button class="ui quiz-option">simulation.test.js</button><button class="ui quiz-option">ColyseusApp.test.jsx</button><button class="ui quiz-option">npm run smoke:fly</button></div><p class="quiz-feedback" aria-live="polite"></p>
+    </article>
+  </div>
+  <div class="lesson">You understand the system when you can predict where a change belongs. New movement rule? Server simulation. New immediate recoil? Client presentation. New shared outcome? Server event plus projected UI. New deployment failure? Follow the boundary between Pages and Fly.</div>
+</section>
+
 <section id="lobby-flow">
   <h2>How A Lobby Works</h2>
+  <p class="note">Historical interactive trace: this stepper preserves the original Cloudflare Worker + Durable Object lobby path. The production Colyseus path is the <strong>Create A Lobby</strong> card above. Compare them to see which responsibilities moved and which product rules stayed unchanged.</p>
   <p>This is the exact flow the lobby had to earn. Step through it — the difference between a fake lobby and a real lobby is that every step changes the <em>shared room snapshot</em>, not just your screen.</p>
   <div class="stepper" id="lobbyStepper">
     <div class="demo-controls">
@@ -734,6 +1025,7 @@
 
 <section id="live-play">
   <h2>How Live Play Works</h2>
+  <p class="note">Historical Cloudflare implementation: this chapter records the client-heavy live-play model before migration. Production now runs movement, NPCs, shooting, and finishing inside <code class="inline">DeathRaceRoom</code>; follow the current code-path cards above for today's behavior.</p>
   <p>During live play, every browser still renders its own scene. That keeps the UI fast and simple. But important events are shared through the room:</p>
   <ul>
     <li>Local movement sends input snapshots at 20Hz over the live socket.</li>
@@ -1597,9 +1889,9 @@ crosshairIdByPlayerId.set(playerId, crosshairId)</code></pre>
   <h2>What Is Still Prototype-Shaped</h2>
   <p>The game is real enough for friends to join and play, but it is not hardened like a competitive production game. Important caveats:</p>
   <ul>
-    <li>The client still renders and participates heavily in gameplay simulation, including all NPC simulation.</li>
-    <li>Hidden assignments are deterministic and client-derived — fine for friendly testing, not secure against inspection.</li>
-    <li>Human finishes and kills are adjudicated server-side, but identity is still just a player name, so it is not hardened against impersonation.</li>
+    <li>The server owns gameplay and NPC simulation, but it is one in-memory Node process with no database or multi-region room handoff.</li>
+    <li>Hidden assignments are server-generated and sent privately, but a determined player can still inspect their own browser's private lane data.</li>
+    <li>Finishes, kills, and scores are authoritative, but identity is still just a room-scoped player name with a reconnect token, not an account.</li>
     <li>No accounts or persistent player identity exist yet; mobile and tablet controls are deferred.</li>
   </ul>
   <p>That is not a failure. It is an honest stage. The project is now past fake multiplayer and into real playtest territory.</p>
@@ -1612,18 +1904,18 @@ crosshairIdByPlayerId.set(playerId, crosshairId)</code></pre>
     <li><strong>They separate design truth from work logs.</strong> <code class="inline">spec.md</code> says what the game should be, <code class="inline">todo.md</code> what remains, <code class="inline">progress.md</code> what happened, <code class="inline">WHY.md</code> why it is shaped this way. That split prevents stale plans from masquerading as current truth.</li>
     <li><strong>They replace fake features with honest features.</strong> The lobby improved when we stopped accepting "looks like a lobby" and demanded "a second browser can join this lobby by code."</li>
     <li><strong>They make bugs pay rent.</strong> Every serious bug became a regression test. A bug without a test is a story you might have to relive.</li>
-    <li><strong>They verify where the risk lives.</strong> Unit tests for local logic, Testing Library for UI, Worker tests plus real deploys for Cloudflare behavior — and two actual browser sessions against the deployed URL for "friends can join," because that was the user's real requirement.</li>
+    <li><strong>They verify where the risk lives.</strong> Unit tests cover simulation and protocol rules, Testing Library covers UI behavior, real Colyseus clients cover integration, and the hosted three-round smoke test covers Fly deployment — because “friends can join and finish a match” is the real requirement.</li>
   </ul>
 </section>
 
 <section id="lessons">
   <h2>Lessons To Carry Forward</h2>
   <h3>Multiplayer Is Mostly State Discipline</h3>
-  <p>The hard part is not opening a socket. The hard part is deciding who is allowed to change what, when, and how everyone else learns about it. In Death Race: the room owns the roster, readiness, shots, kills, and winners; the host controls phase transitions; clients render and send input. That boundary is what keeps the game understandable.</p>
+  <p>The hard part is not opening a socket. The hard part is deciding who is allowed to change what, when, and how everyone else learns about it. In Death Race, the room owns the roster, readiness, movement, NPCs, shots, kills, winners, and phases. The host may request start and next round, but the room validates and performs those transitions. Clients render and send intent.</p>
   <h3>The Backend Should Enforce The Rules</h3>
-  <p>A disabled button is nice. A backend check is necessary. The UI can hide <code class="inline">Start game</code> from guests, but the Worker still rejects non-host countdown requests. Frontend constraints help honest users. Backend constraints protect the state.</p>
+  <p>A disabled button is nice. A backend check is necessary. The UI can hide <code class="inline">Start game</code> from guests, but <code class="inline">DeathRaceRoom</code> still rejects a non-host countdown command. Frontend constraints help honest users. Server constraints protect shared state.</p>
   <h3>Small Modules Beat Grand Architecture</h3>
-  <p><code class="inline">roomState.js</code> is the right abstraction size: not a framework, just the shared room rules in one place. Easy to test, easy to import in the Worker, hard for frontend and backend rules to drift apart.</p>
+  <p><code class="inline">simulation.js</code>, <code class="inline">npcSimulation.js</code>, and <code class="inline">shooting.js</code> are the right abstraction size: focused rules with no socket dependency, called by one authoritative room and tested directly. Colyseus handles transport and lifecycle; these modules explain the game.</p>
   <h3>Write Tests For The Behavior You Fear Losing</h3>
   <p>The best regression tests came directly from scary bugs: "clicking anywhere gets a kill," "host leaves but room still exists," "CORS blocks the browser," "corpses teleport home." Those are not abstract correctness tests. They are memory aids: this hurt once, do not let it hurt again.</p>
 </section>
@@ -1631,10 +1923,10 @@ crosshairIdByPlayerId.set(playerId, crosshairId)</code></pre>
 <section id="pitfalls">
   <h2>Future Pitfalls And How To Avoid Them</h2>
   <ul>
-    <li><strong>Cheating and hidden information.</strong> Hidden identity is presentation-level secrecy today. For competitive play, hidden assignments and authoritative simulation must move deeper into the backend. Decide the trust model early.</li>
+    <li><strong>Cheating and hidden information.</strong> Secret lanes and simulation are server-owned now, but private state still reaches the owning browser and names are unauthenticated. Competitive play would require accounts, stronger abuse controls, and a deliberate spectator policy.</li>
     <li><strong>Latency and fairness.</strong> Distant players may need server timestamps or reconciliation around when a shot counts. Do not solve it before real playtests demand it — but do not forget it exists.</li>
-    <li><strong>Room cleanup.</strong> Heartbeats and alarms are the first layer; future work may need stronger reconnection and "rejoin as the same player" flows.</li>
-    <li><strong>State explosion.</strong> <code class="inline">App.jsx</code> can become too crowded as features arrive. Likely future extractions: gameplay simulation helpers, round transition hooks, input sync hooks, lobby and scoreboard components. Extract when the behavior has settled enough that the boundary is obvious.</li>
+    <li><strong>Room cleanup.</strong> Host departure, all-users-gone disposal, reconnect grace, and authoritative idle expiry exist. Future persistence must not accidentally turn short-lived party rooms into permanent server state.</li>
+    <li><strong>State explosion.</strong> <code class="inline">ColyseusApp.jsx</code> now carries menu, lobby, playfield, result, input, and effects. Future extractions should follow stable behavior boundaries such as lobby, race, results, and audio rather than inventing a framework around unsettled features.</li>
   </ul>
 </section>
 
@@ -1643,7 +1935,7 @@ crosshairIdByPlayerId.set(playerId, crosshairId)</code></pre>
   <p>Death Race is a party game with a race track, a referee, and a radio.</p>
   <ul>
     <li>The <strong>track</strong> is what players see.</li>
-    <li>The <strong>referee</strong> is the authoritative room simulation. Today it is split between clients and a Durable Object; the migration puts it in one Colyseus room.</li>
+    <li>The <strong>referee</strong> is the authoritative room simulation. The first architecture split it between clients and a Durable Object; production now puts it in one Colyseus room.</li>
     <li>The <strong>radio</strong> is the WebSocket carrying intentions toward the referee and official events back to everyone.</li>
   </ul>
   <p>When the game feels good, players should forget the referee and radio exist. They should only feel the tension of twenty racers, one secret identity, one bullet, and a finish line that suddenly feels much too far away.</p>
@@ -1927,6 +2219,53 @@ crosshairIdByPlayerId.set(playerId, crosshairId)</code></pre>
     juiceFlash.classList.remove('on')
     juiceKo.classList.remove('on')
   })
+
+  /* ---------- current architecture knowledge check ---------- */
+  const quizCards = Array.from(document.querySelectorAll('.quiz-card'))
+  const quizScore = document.getElementById('quizScore')
+
+  const updateQuizScore = () => {
+    const answered = quizCards.filter(card => card.dataset.answered === 'true').length
+    const correct = quizCards.filter(card => card.dataset.correct === 'true').length
+    quizScore.textContent = `${correct} of ${answered} answered correctly`
+  }
+
+  quizCards.forEach(card => {
+    const options = Array.from(card.querySelectorAll('.quiz-option'))
+    options.forEach((option, index) => {
+      option.addEventListener('click', () => {
+        if (card.dataset.answered === 'true') return
+        const answer = Number(card.dataset.answer)
+        const isCorrect = index === answer
+        card.dataset.answered = 'true'
+        card.dataset.correct = String(isCorrect)
+        option.classList.add(isCorrect ? 'correct' : 'incorrect')
+        options[answer].classList.add('correct')
+        options.forEach(button => { button.disabled = true })
+        const feedback = card.querySelector('.quiz-feedback')
+        feedback.className = `quiz-feedback ${isCorrect ? 'good' : 'bad'}`
+        feedback.textContent = `${isCorrect ? 'Correct.' : 'Not quite.'} ${card.dataset.explanation}`
+        updateQuizScore()
+      })
+    })
+  })
+
+  document.getElementById('quizReset').addEventListener('click', () => {
+    quizCards.forEach(card => {
+      delete card.dataset.answered
+      delete card.dataset.correct
+      card.querySelectorAll('.quiz-option').forEach(option => {
+        option.disabled = false
+        option.classList.remove('correct', 'incorrect')
+      })
+      const feedback = card.querySelector('.quiz-feedback')
+      feedback.className = 'quiz-feedback'
+      feedback.textContent = ''
+    })
+    updateQuizScore()
+  })
+
+  updateQuizScore()
 })()
 </script>
 </body>

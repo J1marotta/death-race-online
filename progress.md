@@ -1165,3 +1165,11 @@ Last updated: 2026-07-14
 - Fixed countdown phase-boundary mounting to consume the transport's retained full snapshot, preventing all racers from disappearing until the next state patch.
 - Kept the finish treatment as one straight checkered line by animating its internal pattern instead of reintroducing the previously removed extra flag block.
 - Extended the public three-round Fly smoke test to require a distinct authoritative winner event for every round.
+
+### task 113 : Turn The Interactive Guide Into A Program Course
+
+- Added a current production technical reference covering browser, server, simulation, deployment, trust, privacy, ordering, reconnect, and persistence boundaries.
+- Added eight end-to-end code-path maps for lobby creation, ready/start, movement, shooting, NPC decisions, finishing, reconnect, and deployment.
+- Added a seven-part tutorial that teaches how to recover the architecture from entry points, trace commands, identify authority, distinguish schema from runtime, and diagnose by ownership.
+- Added an eight-question interactive infrastructure and program-flow quiz with immediate explanations, scoring, and reset behavior.
+- Preserved the full Cloudflare Worker and Durable Object material, and labeled retired interactive traces as historical so readers can compare both architectures without mistaking them for production.

@@ -34,7 +34,24 @@ try {
   rooms.push(host)
   const guest = await guestClient.joinById(roomCode, { playerName: 'Smoke Guest' })
   rooms.push(guest)
+  host.onMessage('snapshot', () => {})
+  guest.onMessage('snapshot', () => {})
   await waitFor(() => host.state.players?.size === 2 && guest.state.players?.size === 2)
+  const guestPlayerId = [...guest.state.players.values()]
+    .find(player => player.connectionId === guest.sessionId)?.id
+  if (!guestPlayerId) throw new Error('Guest identity was not synchronized')
+
+  const reconnected = new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('Remote reconnect timed out')), 15000)
+    guest.onReconnect.once(() => {
+      clearTimeout(timeout)
+      resolve()
+    })
+  })
+  guest.connection.close()
+  await reconnected
+  await waitFor(() => guest.state.players.get(guestPlayerId)?.connected === true)
+
   let hostPrivate
   let guestPrivate
   host.onMessage('private-state', value => { hostPrivate = value })
@@ -55,6 +72,7 @@ try {
     players: host.state.players.size,
     racers: host.state.racers.size,
     phase: host.state.phase,
+    reconnect: 'passed',
   }))
 } finally {
   for (const room of rooms.reverse()) {

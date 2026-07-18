@@ -40,6 +40,35 @@ describe('multiplayer network regression', () => {
     expect(room.handleCommand(host, command(CLIENT_MESSAGE_TYPES.READY, { ready: false }, 3, 'LOADTEST', 2)).error).toBe('invalid-order')
   })
 
+  it('stays authoritative through latency, jitter, packet loss, duplication, and reordering', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'LOADTEST' })
+    const host = client('host')
+    room.onJoin(host, { playerName: 'James' })
+
+    const network = [
+      { arrivesAt: 190, packet: command(CLIENT_MESSAGE_TYPES.READY, { ready: false }, 2) },
+      { arrivesAt: 40, packet: command(CLIENT_MESSAGE_TYPES.READY, { ready: true }, 1) },
+      { arrivesAt: 120, packet: command(CLIENT_MESSAGE_TYPES.READY, { ready: true }, 1) },
+      { arrivesAt: 160, packet: command(CLIENT_MESSAGE_TYPES.READY, { ready: false }, 3) },
+      // Sequence 4 is intentionally lost before it reaches the server.
+      { arrivesAt: 310, packet: command(CLIENT_MESSAGE_TYPES.READY, { ready: true }, 5) },
+      { arrivesAt: 280, packet: command(CLIENT_MESSAGE_TYPES.READY, { ready: false }, 3) },
+    ].sort((left, right) => left.arrivesAt - right.arrivesAt)
+
+    const results = network.map(({ packet }) => room.handleCommand(host, packet))
+    expect(results).toEqual([
+      { ok: true },
+      { ok: false, error: 'invalid-order' },
+      { ok: true },
+      { ok: false, error: 'invalid-order' },
+      { ok: false, error: 'invalid-order' },
+      { ok: true },
+    ])
+    expect(room.authorizedPlayer(host).ready).toBe(true)
+    expect(room.lastSequenceByPlayerId.get(room.authorizedPlayer(host).id)).toBe(5)
+  })
+
   it('never exposes the private player-to-lane map through public snapshots or errors', () => {
     const room = new DeathRaceRoom()
     room.onCreate({ roomCode: 'LOADTEST' })

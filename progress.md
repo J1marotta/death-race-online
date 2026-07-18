@@ -1034,3 +1034,11 @@ Last updated: 2026-07-14
 - Added and ran `npm run smoke:fly` against `wss://death-race-online-game.fly.dev`, proving two public SDK clients can create, join by shared code, ready, receive distinct private lanes, start, synchronize 20 racers, and move authoritatively.
 - Replaced the timing-sensitive private session-on-join message with a synchronized public connection ID matched against the SDK's own session ID. Identity remains presentation state; server authorization still uses its private connection map, and no lane mapping is exposed.
 - Completed migration Task 10. Task 11 remote network and browser acceptance is next.
+
+### task 100 : Harden Fly Startup And Remote Network Regression
+
+- Removed the duplicate application-owned shutdown handlers and let Colyseus own its graceful SIGTERM lifecycle on Fly.
+- Increased the Fly health-check grace period to cover a cold Node/npm startup while retaining scale-to-zero for low idle cost.
+- Extended the public WebSocket smoke test to force an unexpected client disconnect, resume through the rotating reconnect token, and verify the same authenticated player returns connected.
+- Added a deterministic adverse-network regression with latency, jitter, duplication, reordering, and packet loss. The server accepts each monotonically newer command at most once and never trusts client timing or progress.
+- Task 11 remains open until this expanded suite passes against Fly and the flagged browser build completes its final laptop acceptance pass.

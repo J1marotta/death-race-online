@@ -9,7 +9,7 @@ export const SPRINT_REFILL_DELAY_MS = 1000
 export const SPRINT_REFILL_MS = 3000
 export const FINISH_PROGRESS = 93
 export const MAX_PROGRESS = 100
-export const COUNTDOWN_DURATION_MS = 2000
+export const COUNTDOWN_DURATION_MS = 3000
 
 const progressFor = (speed, milliseconds) => speed * (milliseconds / 1000)
 

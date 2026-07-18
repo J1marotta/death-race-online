@@ -1016,3 +1016,11 @@ Last updated: 2026-07-14
 - Published the speed multiplier in synchronized state and made the flagged client show a dimmed `Spectating` control bar instead of a misleading active bullet.
 - Added server and React tests for late joining, next-round promotion, private lane assignment, gameplay-input suppression, and 4x NPC progress.
 - Fly authentication is still the external deployment gate; the migration goal remains active.
+
+### task 98 : Restore The Agreed Lobby And Countdown Flow
+
+- Made lobby codes optional for hosts and generated six-character codes from an unambiguous uppercase alphabet; joining players still must enter the shared code.
+- Fixed the flagged lobby's display-name field so edits remain visible and submit through the authenticated rename command on blur.
+- Extended the authoritative countdown to three seconds and replaced the static migration overlay with a synchronized visible 3-2-1 sequence driven by the server deadline.
+- Added focused tests for deterministic code generation and editable authenticated names; existing create/join and countdown integration remains green.
+- Kept these changes behind the Colyseus flag while Fly authentication remains pending.

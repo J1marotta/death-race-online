@@ -1,10 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ColyseusTransport } from './multiplayer/colyseusTransport.js'
+import { createLobbyCode } from './multiplayer/lobbyCode.js'
 import './ColyseusApp.css'
 
 const emptyView = {
   phase: 'menu', players: [], racers: [], shots: [], round: 1, roundCount: 5,
   localLaneId: 0, localPlayerId: '', hostPlayerId: '', winner: null,
+}
+
+function Countdown({ endsAt }) {
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 100)
+    return () => window.clearInterval(timer)
+  }, [])
+  const remaining = Number.isFinite(endsAt) ? Math.max(1, Math.ceil((endsAt - now) / 1000)) : 3
+  return <div className='migration-countdown'>{remaining}</div>
 }
 
 function AuthoritativeRace({ transport, initialView }) {
@@ -42,7 +53,7 @@ function AuthoritativeRace({ transport, initialView }) {
   }
   return <>
     <section className='migration-track' ref={playfieldRef} onMouseMove={event => setAim(pointFromEvent(event))} onClick={shoot} aria-label='Race track'>
-      {raceView.phase === 'countdown' && <div className='migration-countdown'>Get ready</div>}
+      {raceView.phase === 'countdown' && <Countdown endsAt={raceView.countdownEndsAt} />}
       <div className='migration-finish' />
       {raceView.racers.map(racer => <div className='migration-lane' key={racer.laneId} data-lane={racer.laneId}>
         <div className={`migration-racer shape-${racer.laneId % 5} ${racer.eliminated ? 'eliminated' : ''}`} style={{ left: `${racer.progress}%` }} />
@@ -80,8 +91,9 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
     setBusy(true)
     setError('')
     try {
-      const code = roomCode.trim().toUpperCase()
+      const code = roomCode.trim().toUpperCase() || createLobbyCode()
       if (mode === 'create') {
+        setRoomCode(code)
         await transport.create({ roomCode: code, playerName: name, privacy, roundCount })
       } else {
         await transport.join({ roomCode: code, playerName: name })
@@ -102,7 +114,7 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
           <button type='button' className={mode === 'join' ? 'active' : ''} onClick={() => setMode('join')}>Join lobby</button>
         </div>
         <label>Your name<input value={name} onChange={event => setName(event.target.value)} maxLength={24} required /></label>
-        <label>Lobby code<input value={roomCode} onChange={event => setRoomCode(event.target.value)} maxLength={12} required /></label>
+        <label>Lobby code<input value={roomCode} onChange={event => setRoomCode(event.target.value)} maxLength={12} required={mode === 'join'} placeholder={mode === 'create' ? 'Generated automatically' : 'Enter shared code'} /></label>
         {mode === 'create' && <div className='migration-options'>
           <label>Privacy<select value={privacy} onChange={event => setPrivacy(event.target.value)}><option value='public'>Public</option><option value='private'>Private</option></select></label>
           <label>Rounds<select value={roundCount} onChange={event => setRoundCount(Number(event.target.value))}><option>3</option><option>5</option><option>7</option></select></label>
@@ -121,7 +133,7 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
     </header>
     {!playing && view.phase === 'lobby' && <section className='migration-lobby'>
       <div className='migration-actions'>
-        <label>Display name<input value={localPlayer?.name ?? name} onChange={event => setName(event.target.value)} onBlur={() => name.trim() && transport.rename(name)} /></label>
+        <label>Display name<input value={name} onChange={event => setName(event.target.value)} onBlur={() => name.trim() && transport.rename(name)} /></label>
         <button className='migration-primary' onClick={() => transport.setReady(!localPlayer?.ready)}>{localPlayer?.ready ? 'Not ready' : 'Ready'}</button>
         {isHost && <button disabled={!allReady} onClick={() => transport.startCountdown()}>Start game</button>}
       </div>

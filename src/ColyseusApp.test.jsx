@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import ColyseusApp from './ColyseusApp.jsx'
+import { createLobbyCode } from './multiplayer/lobbyCode.js'
 
 class FakeTransport {
   listeners = new Map()
@@ -29,6 +30,11 @@ const lobby = {
 describe('feature-flagged Colyseus React client', () => {
   afterEach(cleanup)
 
+  it('generates an easy-to-share lobby code for hosts', () => {
+    expect(createLobbyCode(() => 0)).toBe('AAAAAA')
+    expect(createLobbyCode(() => 0.999)).toBe('999999')
+  })
+
   it('creates a lobby through the transport with a loading state', async () => {
     const transport = new FakeTransport()
     render(<ColyseusApp transport={transport} />)
@@ -45,6 +51,17 @@ describe('feature-flagged Colyseus React client', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ready' }))
     expect(transport.setReady).toHaveBeenCalledWith(true)
     expect(screen.getByRole('button', { name: 'Start game' }).disabled).toBe(true)
+  })
+
+  it('lets the local player edit and submit their lobby display name', () => {
+    const transport = new FakeTransport()
+    render(<ColyseusApp transport={transport} />)
+    act(() => transport.emit('view', lobby))
+    const input = screen.getByLabelText('Display name')
+    fireEvent.change(input, { target: { value: 'Jules' } })
+    expect(input.value).toBe('Jules')
+    fireEvent.blur(input)
+    expect(transport.rename).toHaveBeenCalledWith('Jules')
   })
 
   it('renders authoritative racers and sends intent rather than progress', () => {

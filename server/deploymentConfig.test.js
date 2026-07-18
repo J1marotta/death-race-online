@@ -19,6 +19,7 @@ describe('Fly deployment package', () => {
     expect(config).toContain('min_machines_running = 0')
     expect(config).toContain('type = "connections"')
     expect(config).toContain('path = "/health"')
+    expect(config).toContain('grace_period = "15s"')
     expect(config).toContain('memory = "256mb"')
   })
 })

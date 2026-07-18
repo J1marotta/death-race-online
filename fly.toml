@@ -23,7 +23,7 @@ kill_timeout = "10s"
     hard_limit = 200
 
   [[http_service.checks]]
-    grace_period = "5s"
+    grace_period = "15s"
     interval = "30s"
     method = "GET"
     timeout = "3s"

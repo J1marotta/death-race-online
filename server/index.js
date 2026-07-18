@@ -31,12 +31,6 @@ export async function startGameServer({ port = DEFAULT_GAME_SERVER_PORT } = {}) 
 const launchedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (launchedDirectly) {
   const port = Number(process.env.PORT) || DEFAULT_GAME_SERVER_PORT
-  const server = await startGameServer({ port })
+  await startGameServer({ port })
   console.log(`Death Race Colyseus server listening on http://127.0.0.1:${port}`)
-
-  const shutdown = async () => {
-    await server.gameServer.gracefullyShutdown(false)
-  }
-  process.once('SIGINT', shutdown)
-  process.once('SIGTERM', shutdown)
 }

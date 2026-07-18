@@ -998,3 +998,12 @@ Last updated: 2026-07-14
 - Documented that Fly has no free tier and currently offers no billing alerts, plus the exact cost boundaries, deployment commands, frontend preview variables, and Cloudflare rollback procedure.
 - Added deployment configuration regression tests for production-only dependencies, non-root execution, health checks, region, memory, and scale-to-zero.
 - Docker Desktop is installed but its daemon was not running, so local image construction could not be verified. Both Fly's official Windows installer and Winget download stalled; Task 10 remains open until `flyctl` installation, account authentication, remote build, and health checks succeed.
+
+### task 96 : Add Multiplayer Network And Capacity Regression
+
+- Added maximum-room coverage for 20 connected humans, 20 unique private lanes, no NPC substitution, and no public identity mapping.
+- Added adversarial packet tests for duplicates, reordered sequences, stale/future rounds, wrong rooms, fabricated progress, and hidden lane data in snapshots and errors.
+- Added an end-to-end authoritative command loop covering ready, countdown, shot, elimination, kill point, finish, three winner points, next-round reset, bullet refill, and host disconnect cleanup.
+- Added disposal checks across 30 rooms, proving private session, ordering, and runtime maps are cleared and room codes are reusable.
+- Added a local capacity run of ten simultaneous 20-player rooms over 200 server ticks. It completed in 21 ms on this machine with heap growth below the conservative 128 MB test ceiling.
+- Fly CLI installation eventually completed through Winget, but no Fly access token is configured. Task 10 and the remote portions of Task 11 remain open pending user authentication, remote build, deployed health checks, and live latency tests.

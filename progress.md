@@ -1068,3 +1068,13 @@ Last updated: 2026-07-14
 - Added a physical stamina meter, loaded bullet pip, shared color-coded crosshairs, persistent KO labels, and an authoritative kill feed to the flagged client.
 - Added protocol, privacy, reconnect, and rendering regressions, including proof that public crosshair serialization contains no player ID, player name, or controlled lane.
 - Updated the interactive learning guide with the public/private/server-only state model and fixed its live caching policy while retaining immutable caching for hashed game assets.
+
+### task 104 : Restore Pixel Animals, Random Starts, And Join-First Entry
+
+- Replaced the migration placeholder geometry with all eight specified pixel-animal species and five pastel palettes, rendered from CSS pseudo-elements around one equal-sized hitbox.
+- Derived appearance from room, round, and lane only, ensuring humans and NPCs share the same visual vocabulary while every 20-racer field contains all species and palettes.
+- Added walk, idle, run, exhausted, dust, sweat, and corpse treatments driven only by authoritative movement and private local exhaustion state.
+- Randomized authoritative starting progress inside a narrow 1.5-3.5% band near the left edge so the field does not stack without creating a large starting advantage.
+- Changed the entry screen to open on Join lobby and put Host a game second because guests using a shared code are the common path.
+- Reworked movement regressions to assert legal server-derived progress deltas from randomized starts instead of assuming every racer starts at zero.
+- Added the appearance, fairness, and test-design lessons to `why.html` in the same commit.

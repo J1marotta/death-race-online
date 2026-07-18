@@ -57,10 +57,18 @@ describe('feature-flagged Colyseus React client', () => {
   it('creates a lobby through the transport with a loading state', async () => {
     const transport = new FakeTransport()
     render(<ColyseusApp transport={transport} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Host a game' }))
     fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'James' } })
     fireEvent.change(screen.getByLabelText('Lobby code'), { target: { value: 'drtest' } })
     fireEvent.click(screen.getAllByRole('button', { name: 'Create lobby' }).at(-1))
     return waitFor(() => expect(transport.create).toHaveBeenCalledWith(expect.objectContaining({ roomCode: 'DRTEST', playerName: 'James' })))
+  })
+
+  it('opens on the join flow because guests are the common case', () => {
+    render(<ColyseusApp transport={new FakeTransport()} />)
+    expect(screen.getByRole('tablist').querySelector('button').className).toContain('active')
+    expect(screen.getByRole('tablist').querySelector('button').textContent).toBe('Join lobby')
+    expect(screen.getByPlaceholderText('Enter shared code')).toBeTruthy()
   })
 
   it('shows readiness and host start without a scrolling action flow', () => {
@@ -95,6 +103,10 @@ describe('feature-flagged Colyseus React client', () => {
     act(() => transport.emit('meta', { ...playing, racers: [] }))
     act(() => transport.emit('view', playing))
     expect(screen.getByLabelText('Race track').querySelectorAll('.migration-racer')).toHaveLength(20)
+    const racers = [...document.querySelectorAll('.migration-racer')]
+    expect(new Set(racers.map(racer => racer.className.match(/shape-\d/)?.[0])).size).toBe(8)
+    expect(new Set(racers.map(racer => racer.className.match(/archetype-\w+/)?.[0])).size).toBe(5)
+    expect(racers.every(racer => racer.querySelector('.racer-head') && racer.querySelector('.racer-body'))).toBe(true)
     fireEvent.keyDown(window, { code: 'ArrowRight' })
     fireEvent.keyUp(window, { code: 'ArrowRight' })
     expect(transport.move.mock.calls).toEqual([['walking'], ['stopped']])

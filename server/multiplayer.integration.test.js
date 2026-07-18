@@ -72,12 +72,13 @@ describe('real two-client Colyseus flow', () => {
     expect(host.state.racers.size).toBe(20)
     expect([...host.state.racers.values()].every(racer => !('playerId' in racer))).toBe(true)
     await waitFor(() => host.state.phase === 'playing', 5000)
+    const startingProgress = guest.state.racers.get(String(hostPrivate.laneId)).progress
     send(host, CLIENT_MESSAGE_TYPES.INPUT, { movementMode: 'walking', progress: 100 }, 3)
     const hostRacer = await waitFor(() => {
       const racer = guest.state.racers.get(String(hostPrivate.laneId))
-      return racer?.progress > 0 ? racer : null
+      return racer?.progress > startingProgress ? racer : null
     })
-    expect(hostRacer.progress).toBeLessThan(2)
+    expect(hostRacer.progress - startingProgress).toBeLessThan(2)
     expect(hostRacer.movementMode).toBe('walking')
   }, 10000)
 })

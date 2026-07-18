@@ -194,6 +194,21 @@ describe('Colyseus DeathRaceRoom scaffold', () => {
     }))
   })
 
+  it('randomizes narrow starting positions near the left edge without stacking the field', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST' })
+    const host = client('session-host')
+    room.onJoin(host, { playerName: 'James' })
+    room.authorizedPlayer(host).ready = true
+    room.startCountdown(room.authorizedPlayer(host))
+
+    const starts = [...room.state.racers.values()].map(racer => racer.progress)
+    expect(starts).toHaveLength(20)
+    expect(Math.min(...starts)).toBeGreaterThanOrEqual(1.5)
+    expect(Math.max(...starts)).toBeLessThanOrEqual(3.5)
+    expect(new Set(starts).size).toBeGreaterThan(3)
+  })
+
   it('removes a dropped player after the reconnection token expires', async () => {
     const room = new DeathRaceRoom()
     room.onCreate({ roomCode: 'DRTEST' })
@@ -381,9 +396,11 @@ describe('Colyseus DeathRaceRoom scaffold', () => {
       ),
     )
     expect(result.ok).toBe(true)
-    room.advanceSimulation(1000, room.state.countdownEndsAt + 1000)
     const laneId = room.privateStateFor(host).laneId
-    expect(room.state.racers.get(String(laneId)).progress).toBe(WALK_PROGRESS_PER_SECOND)
+    const startingProgress = room.state.racers.get(String(laneId)).progress
+    room.advanceSimulation(1000, room.state.countdownEndsAt + 1000)
+    expect(room.state.racers.get(String(laneId)).progress - startingProgress)
+      .toBe(WALK_PROGRESS_PER_SECOND)
   })
 
   it('declares a winner only when server simulation crosses the finish', () => {

@@ -1,5 +1,5 @@
 import { Room } from '@colyseus/core'
-import { randomBytes, randomUUID } from 'node:crypto'
+import { randomBytes, randomInt, randomUUID } from 'node:crypto'
 import {
   CLIENT_MESSAGE_TYPES,
   SERVER_MESSAGE_TYPES,
@@ -31,6 +31,7 @@ const cleanPlayerName = value => {
 }
 
 const createResumeToken = () => randomBytes(32).toString('base64url')
+const createStartingProgress = () => randomInt(15, 36) / 10
 const activeRoomCodes = new Set()
 
 const normalizeRoomCode = value => {
@@ -282,13 +283,14 @@ export class DeathRaceRoom extends Room {
     const countdownEndsAt = Date.now() + COUNTDOWN_DURATION_MS
     players.forEach((current, index) => {
       const runtime = createPlayerRuntime({ playerId: current.id, laneId: lanes.get(current.id) })
+      runtime.progress = createStartingProgress()
       this.runtimeByPlayerId.set(current.id, runtime)
       const crosshairId = randomUUID()
       this.crosshairIdByPlayerId.set(current.id, crosshairId)
       current.hasBullet = true
       this.state.racers.set(String(runtime.laneId), new RacerState({
         laneId: runtime.laneId,
-        progress: 0,
+        progress: runtime.progress,
         movementMode: 'stopped',
         eliminated: false,
       }))
@@ -309,10 +311,11 @@ export class DeathRaceRoom extends Room {
         seed: `${this.state.roomCode}:${this.state.round}`,
         nowMs: countdownEndsAt,
       })
+      runtime.progress = createStartingProgress()
       this.runtimeByPlayerId.set(runtime.playerId, runtime)
       this.state.racers.set(String(laneId), new RacerState({
         laneId,
-        progress: 0,
+        progress: runtime.progress,
         movementMode: 'idle',
         eliminated: false,
       }))

@@ -17,14 +17,49 @@
 .migration-actions { align-items: end; padding: 14px; border: 1px solid var(--border); background: var(--panel); }
 .migration-roster { max-height: 62svh; overflow: auto; border: 1px solid var(--border); }
 .migration-roster div, .migration-scoreboard div { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
-.migration-track { position: relative; height: min(72svh, 720px); overflow: hidden; border: 1px solid var(--border); border-radius: 6px; background: #252a31; cursor: crosshair; }
+.migration-track { position: relative; height: min(72svh, 720px); overflow: visible; border: 1px solid var(--border); border-radius: 6px; background: #252a31; cursor: crosshair; }
 .migration-lane { position: relative; height: 5%; border-bottom: 1px solid rgba(255,255,255,.08); }
-.migration-racer { position: absolute; z-index: 2; top: 13%; width: 22px; height: 74%; translate: -50% 0; background: #f7f0df; transition: left 80ms linear; }
-.migration-racer.shape-1 { clip-path: polygon(50% 0,100% 100%,0 100%); }
-.migration-racer.shape-2 { border-radius: 50%; }
-.migration-racer.shape-3 { clip-path: polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%); }
-.migration-racer.shape-4 { rotate: 45deg; scale: .72; }
-.migration-racer.eliminated { rotate: 90deg; opacity: .45; }
+.migration-racer { position: absolute; z-index: 2; top: 50%; display: grid; grid-template-rows: 8px 10px; width: 20px; height: 21px; place-items: center; transform: translate(-50%,-50%) scale(1.08); transform-origin: center; border: 2px solid #111; background: var(--suit); image-rendering: pixelated; box-shadow: 2px 2px 0 rgba(0,0,0,.42), inset 0 -4px 0 rgba(0,0,0,.2); transition: left 80ms linear; }
+.migration-racer .racer-head { position: relative; width: 11px; height: 8px; margin-top: 1px; border-radius: 3px 3px 2px 2px; background: var(--head); }
+.migration-racer .racer-head::before { content: ''; position: absolute; top: 2px; left: 2px; width: 2px; height: 2px; background: #111; box-shadow: 5px 0 0 #111; }
+.migration-racer .racer-body { width: 11px; height: 8px; border-radius: 4px 4px 3px 3px; background: var(--head); box-shadow: inset 0 -2px 0 rgba(0,0,0,.08); }
+.migration-racer .racer-shadow { position: absolute; left: 3px; bottom: -5px; width: 18px; height: 3px; background: rgba(0,0,0,.32); }
+.migration-racer.shape-0::before { content: ''; position: absolute; top: -5px; left: 2px; width: 16px; height: 5px; background: var(--suit); clip-path: polygon(0 100%,20% 0,40% 100%,60% 100%,80% 0,100% 100%); }
+.migration-racer.shape-0::after { content: ''; position: absolute; top: 8px; left: -6px; width: 6px; height: 3px; border-radius: 2px 0 0 2px; background: var(--trim); }
+.migration-racer.shape-1::before { content: ''; position: absolute; top: -8px; left: 4px; width: 4px; height: 8px; border-radius: 2px 2px 0 0; background: var(--suit); box-shadow: 7px 0 0 var(--suit); }
+.migration-racer.shape-1::after { content: ''; position: absolute; top: 11px; left: -5px; width: 5px; height: 5px; border-radius: 50%; background: var(--head); }
+.migration-racer.shape-2::before { content: ''; position: absolute; top: -4px; left: 1px; width: 6px; height: 6px; border-radius: 50%; background: var(--suit); box-shadow: 11px 0 0 var(--suit); }
+.migration-racer.shape-2 .racer-head::after { content: ''; position: absolute; bottom: 1px; left: 4px; width: 4px; height: 3px; background: var(--trim); }
+.migration-racer.shape-3::before { content: ''; position: absolute; top: -7px; left: 1px; width: 18px; height: 7px; background: var(--suit); clip-path: polygon(0 100%,22% 0,44% 100%,56% 100%,78% 0,100% 100%); }
+.migration-racer.shape-3::after { content: ''; position: absolute; top: 8px; left: -8px; width: 8px; height: 4px; border-radius: 3px 0 0 3px; background: linear-gradient(90deg,var(--head) 0 3px,var(--suit) 3px); }
+.migration-racer.shape-4::before { content: ''; position: absolute; top: -4px; left: 2px; width: 6px; height: 6px; border-radius: 50%; background: var(--suit); box-shadow: 10px 0 0 var(--suit); }
+.migration-racer.shape-4::after { content: ''; position: absolute; top: -2px; left: 4px; width: 2px; height: 2px; border-radius: 50%; background: #111; box-shadow: 10px 0 0 #111; }
+.migration-racer.shape-4 .racer-head::before { display: none; }
+.migration-racer.shape-4 .racer-head::after { content: ''; position: absolute; bottom: 1px; left: 3px; width: 6px; height: 2px; background: #315942; }
+.migration-racer.shape-5::before { content: ''; position: absolute; top: -3px; left: 2px; width: 5px; height: 5px; border-radius: 2px 4px 0 4px; background: var(--suit); box-shadow: 11px 0 0 var(--suit); }
+.migration-racer.shape-5 .racer-head::after { content: ''; position: absolute; top: 4px; left: 3px; width: 6px; height: 4px; border-radius: 2px; background: var(--trim); }
+.migration-racer.shape-5::after { content: ''; position: absolute; top: 11px; left: -3px; width: 3px; height: 3px; border-radius: 50%; background: var(--trim); }
+.migration-racer.shape-6::before { content: ''; position: absolute; top: -4px; left: 8px; width: 3px; height: 4px; border-radius: 2px 2px 0 0; background: var(--trim); box-shadow: -3px 1px 0 var(--trim); }
+.migration-racer.shape-6 .racer-head::after { content: ''; position: absolute; top: 2px; right: -5px; width: 5px; height: 5px; background: var(--trim); clip-path: polygon(0 0,100% 50%,0 100%); }
+.migration-racer.shape-6::after { content: ''; position: absolute; top: 10px; left: -4px; width: 4px; height: 4px; background: var(--suit); clip-path: polygon(100% 0,0 50%,100% 100%); }
+.migration-racer.shape-7::before { content: ''; position: absolute; top: -6px; left: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--suit); box-shadow: 12px 0 0 var(--suit); }
+.migration-racer.shape-7 .racer-head::after { content: ''; position: absolute; top: 4px; right: -2px; width: 3px; height: 3px; border-radius: 50%; background: var(--trim); }
+.migration-racer.shape-7::after { content: ''; position: absolute; top: 12px; left: -8px; width: 8px; height: 2px; border-radius: 2px; background: var(--trim); }
+.migration-racer.archetype-peach { --head:#fdeacc; --suit:#f5a86a; --trim:#c96b34; }
+.migration-racer.archetype-sky { --head:#eaf6ff; --suit:#8ec8e8; --trim:#4a7fb5; }
+.migration-racer.archetype-mint { --head:#e9fbef; --suit:#8fd8ad; --trim:#3f9d6d; }
+.migration-racer.archetype-honey { --head:#fdf3cf; --suit:#f3cf5e; --trim:#c08a2d; }
+.migration-racer.archetype-berry { --head:#fbe7f1; --suit:#eba6c8; --trim:#b25585; }
+.migration-racer.walking, .migration-racer.idle { animation: migration-step 560ms ease-in-out infinite; }
+.migration-racer.running { animation: migration-step 330ms ease-in-out infinite; }
+.migration-racer .racer-dust, .migration-racer .racer-sweat { display: none; position: absolute; pointer-events: none; }
+.migration-racer.running .racer-dust { display: block; left: -8px; bottom: -1px; width: 4px; height: 4px; background: rgba(255,255,255,.5); animation: migration-dust 360ms steps(3,jump-none) infinite; }
+.migration-racer.winded { filter: saturate(.7); animation: migration-step 850ms ease-in-out infinite; }
+.migration-racer.winded .racer-sweat { display: block; top: -7px; right: -4px; width: 3px; height: 5px; background: #7dd3fc; animation: migration-sweat 700ms steps(4,jump-none) infinite; }
+.migration-racer.eliminated { opacity: .55; transform: translate(-50%,-30%) rotate(90deg) scale(1.08); animation: none; filter: saturate(.5); }
+@keyframes migration-step { 50% { transform: translate(-50%,-55%) scale(1.08); } }
+@keyframes migration-dust { to { transform: translate(-8px,-5px) scale(1.7); opacity: 0; } }
+@keyframes migration-sweat { from { opacity: 0; } 40% { opacity: 1; } to { transform: translateY(7px); opacity: 0; } }
 .migration-finish { position: absolute; z-index: 1; inset: 0 6% 0 auto; width: 12px; background: repeating-conic-gradient(#fff 0 25%, #111 0 50%) 0/12px 12px; }
 .migration-crosshair { position: absolute; z-index: 4; width: 24px; height: 24px; translate: -50% -50%; color: #ff6158; font: 900 24px/1 var(--mono); pointer-events: none; transition: left 50ms linear, top 50ms linear; }
 .migration-crosshair span { position: absolute; inset: 0; display: grid; place-items: center; }

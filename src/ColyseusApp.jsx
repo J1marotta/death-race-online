@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ColyseusTransport } from './multiplayer/colyseusTransport.js'
 import { createLobbyCode } from './multiplayer/lobbyCode.js'
 import { useGameAudio } from './multiplayer/useGameAudio.js'
+import { hashString } from './npcBehavior.js'
 import './ColyseusApp.css'
 
 const emptyView = {
@@ -9,6 +10,37 @@ const emptyView = {
   crosshairs: [], localLaneId: 0, localPlayerId: '', localCrosshairId: '',
   localStamina: 1, localExhausted: false, localEliminated: false,
   hostPlayerId: '', winner: null,
+}
+
+const SPECIES = ['Cat', 'Bunny', 'Bear', 'Fox', 'Frog', 'Pig', 'Chick', 'Mouse']
+const PALETTES = ['peach', 'sky', 'mint', 'honey', 'berry']
+
+function racerAppearance(roomCode, round, laneId) {
+  const seed = hashString(`${roomCode}:${round}:appearance`)
+  const speciesIndex = (laneId * 7 + (seed % SPECIES.length)) % SPECIES.length
+  const paletteIndex = (laneId * 3 + (Math.floor(seed / 8) % PALETTES.length)) % PALETTES.length
+  return {
+    species: SPECIES[speciesIndex],
+    shapeClass: `shape-${speciesIndex}`,
+    palette: PALETTES[paletteIndex],
+  }
+}
+
+function PixelRacer({ racer, roomCode, round, isLocal, localExhausted }) {
+  const appearance = racerAppearance(roomCode, round, racer.laneId)
+  const movementClass = racer.eliminated ? '' : racer.movementMode
+  return <div
+    className={`migration-racer archetype-${appearance.palette} ${appearance.shapeClass} ${movementClass} ${racer.eliminated ? 'eliminated' : ''} ${isLocal && localExhausted ? 'winded' : ''}`}
+    data-testid={`migration-racer-${racer.laneId}`}
+    style={{ left: `${racer.progress}%` }}
+    title={`${appearance.species} · ${appearance.palette}`}
+  >
+    <span className='racer-head' />
+    <span className='racer-body' />
+    <span className='racer-shadow' />
+    <span className='racer-dust' aria-hidden='true' />
+    <span className='racer-sweat' aria-hidden='true' />
+  </div>
 }
 
 function Countdown({ endsAt }) {
@@ -78,7 +110,7 @@ function AuthoritativeRace({ transport, initialView, playShot }) {
       {raceView.phase === 'countdown' && <Countdown endsAt={raceView.countdownEndsAt} />}
       <div className='migration-finish' />
       {raceView.racers.map(racer => <div className='migration-lane' key={racer.laneId} data-lane={racer.laneId}>
-        <div className={`migration-racer shape-${racer.laneId % 5} ${racer.eliminated ? 'eliminated' : ''}`} style={{ left: `${racer.progress}%` }} />
+        <PixelRacer racer={racer} roomCode={raceView.roomCode} round={raceView.round} isLocal={racer.laneId === raceView.localLaneId} localExhausted={raceView.localExhausted} />
         {raceView.shots.filter(shot => shot.hit && shot.laneId === racer.laneId).slice(-1).map(shot => <div className='migration-ko' key={shot.eventId} style={{ left: `${shot.impactX}%` }}>KO! <small>{shot.shooterName}</small></div>)}
       </div>)}
       {crosshairs.map(crosshair => <div
@@ -97,7 +129,7 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
   const [view, setView] = useState(emptyView)
   const [name, setName] = useState('')
   const [roomCode, setRoomCode] = useState('')
-  const [mode, setMode] = useState('create')
+  const [mode, setMode] = useState('join')
   const [privacy, setPrivacy] = useState('public')
   const [roundCount, setRoundCount] = useState(5)
   const [busy, setBusy] = useState(false)
@@ -139,8 +171,8 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
       <header><p>Death Race</p><h1>Enter the race</h1></header>
       <form className='migration-connect' onSubmit={connect}>
         <div className='migration-tabs' role='tablist'>
-          <button type='button' className={mode === 'create' ? 'active' : ''} onClick={() => setMode('create')}>Create lobby</button>
           <button type='button' className={mode === 'join' ? 'active' : ''} onClick={() => setMode('join')}>Join lobby</button>
+          <button type='button' className={mode === 'create' ? 'active' : ''} onClick={() => setMode('create')}>Host a game</button>
         </div>
         <label>Your name<input value={name} onChange={event => setName(event.target.value)} maxLength={24} required /></label>
         <label>Lobby code<input value={roomCode} onChange={event => setRoomCode(event.target.value)} maxLength={12} required={mode === 'join'} placeholder={mode === 'create' ? 'Generated automatically' : 'Enter shared code'} /></label>

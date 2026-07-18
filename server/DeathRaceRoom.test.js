@@ -364,6 +364,9 @@ describe('Colyseus DeathRaceRoom scaffold', () => {
 
     expect(room.state.phase).toBe('roundOver')
     expect(room.state.winnerLaneId).toBe(runtime.laneId)
+    expect(room.state.winnerName).toBe('James')
+    expect(room.state.winnerType).toBe('human')
+    expect(room.authorizedPlayer(host).score).toBe(3)
   })
 
   it('resolves shots from aim instead of a client-claimed victim', () => {
@@ -462,6 +465,49 @@ describe('Colyseus DeathRaceRoom scaffold', () => {
 
     expect(room.state.phase).toBe('roundOver')
     expect(room.state.winnerLaneId).toBe(npc.laneId)
+    expect(room.state.winnerType).toBe('npc')
+    expect(room.authorizedPlayer(host).score).toBe(0)
+  })
+
+  it('allows only the host to start a fresh secretly shuffled next round', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST', roundCount: 3 })
+    const host = client('session-host')
+    const guest = client('session-guest')
+    room.onJoin(host, { playerName: 'James' })
+    room.onJoin(guest, { playerName: 'Mia' })
+    room.authorizedPlayer(host).ready = true
+    room.authorizedPlayer(guest).ready = true
+    room.startCountdown(room.authorizedPlayer(host))
+    const firstLane = room.privateStateFor(host).laneId
+    room.state.phase = 'roundOver'
+    room.authorizedPlayer(host).hasBullet = false
+
+    expect(room.startNextRound(room.authorizedPlayer(guest))).toEqual({
+      ok: false,
+      error: 'host-only',
+      message: 'Only the host can continue',
+    })
+    expect(room.startNextRound(room.authorizedPlayer(host)).ok).toBe(true)
+    expect(room.state.round).toBe(2)
+    expect(room.state.phase).toBe('countdown')
+    expect(room.authorizedPlayer(host).hasBullet).toBe(true)
+    expect(room.state.racers.size).toBe(20)
+    expect(room.privateStateFor(host).laneId).toBeGreaterThan(0)
+    expect(firstLane).toBeGreaterThan(0)
+  })
+
+  it('moves the final round to game over without creating another race', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST', roundCount: 3 })
+    const host = client('session-host')
+    room.onJoin(host, { playerName: 'James' })
+    room.state.round = 3
+    room.state.phase = 'roundOver'
+
+    expect(room.startNextRound(room.authorizedPlayer(host))).toEqual({ ok: true, complete: true })
+    expect(room.state.phase).toBe('gameOver')
+    expect(room.state.round).toBe(3)
   })
 
   it('does not start while a player is inside the reconnection grace window', () => {

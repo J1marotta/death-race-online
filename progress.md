@@ -949,3 +949,13 @@ Last updated: 2026-07-14
 - Added dependency injection for sockets, timers, and randomness so transport behavior is deterministic in tests.
 - Added five adapter tests covering create/join, command ordering, push snapshots without polling, successful delayed resume, and retry-cap failure.
 - Kept the adapter unreferenced by React and production configuration. Task 09 remains open until the UI consumes authoritative state behind the migration flag and its integration tests pass.
+
+### task 91 : Complete The Authoritative Round Lifecycle
+
+- Added first-winner locking with public winner lane, name, and human/NPC type for result rendering.
+- Awarded three points to a human round winner while keeping NPC winner points at zero; kill scoring remains one point from the authoritative shot resolver.
+- Added host-only next-round commands that increment the round, reshuffle private human lanes, refill all bullets, replace the 20-racer field, and start a fresh authoritative countdown.
+- Added final-round transition to `gameOver` without accidentally creating another race.
+- Fixed resumed-client ordering by preserving its monotonically increasing command sequence instead of resetting it to zero after reconnect.
+- Added tests for human and NPC winner scoring, guest rejection, fresh round reset, and final match completion.
+- Task 09 remains in progress; the server contract now supports every round-loop operation the transport adapter needs.

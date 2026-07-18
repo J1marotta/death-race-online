@@ -69,6 +69,8 @@ export class DeathRaceRoom extends Room {
       round: 1,
       countdownEndsAt: 0,
       winnerLaneId: 0,
+      winnerName: '',
+      winnerType: '',
       hostPlayerId: '',
     })
     this.setSimulationInterval?.(deltaMs => this.advanceSimulation(deltaMs), SERVER_TICK_MS)
@@ -179,6 +181,8 @@ export class DeathRaceRoom extends Room {
       result = this.updateMovementIntent(player, message.payload.movementMode)
     } else if (message.type === CLIENT_MESSAGE_TYPES.SHOT) {
       result = this.fireShot(player, message.payload)
+    } else if (message.type === CLIENT_MESSAGE_TYPES.NEXT_ROUND) {
+      result = this.startNextRound(player)
     } else if (message.type === CLIENT_MESSAGE_TYPES.LEAVE) {
       const hostLeft = this.removePlayer(client)
       if (hostLeft) {
@@ -296,6 +300,8 @@ export class DeathRaceRoom extends Room {
     }
     this.state.countdownEndsAt = countdownEndsAt
     this.state.winnerLaneId = 0
+    this.state.winnerName = ''
+    this.state.winnerType = ''
     this.state.phase = 'countdown'
     return { ok: true }
   }
@@ -322,6 +328,22 @@ export class DeathRaceRoom extends Room {
       return { ok: false, error: 'invalid-input', message: 'Movement input is not available' }
     }
     return { ok: true }
+  }
+
+  startNextRound(player) {
+    if (this.state.phase !== 'roundOver') {
+      return { ok: false, error: 'wrong-phase', message: 'The round is not over' }
+    }
+    if (!this.isHost(player)) {
+      return { ok: false, error: 'host-only', message: 'Only the host can continue' }
+    }
+    if (this.state.round >= this.state.roundCount) {
+      this.state.phase = 'gameOver'
+      return { ok: true, complete: true }
+    }
+    this.state.round += 1
+    this.state.phase = 'lobby'
+    return this.startCountdown(player)
   }
 
   fireShot(player, { aimX, aimY }) {
@@ -391,6 +413,14 @@ export class DeathRaceRoom extends Room {
       }
       if (!runtime.eliminated && runtime.progress >= FINISH_PROGRESS) {
         this.state.winnerLaneId = runtime.laneId
+        this.state.winnerType = runtime.controllerType
+        if (runtime.controllerType === 'human') {
+          const winner = this.state.players.get(runtime.playerId)
+          this.state.winnerName = winner?.name ?? ''
+          if (winner) winner.score += 3
+        } else {
+          this.state.winnerName = `NPC ${runtime.laneId}`
+        }
         this.state.phase = 'roundOver'
         break
       }

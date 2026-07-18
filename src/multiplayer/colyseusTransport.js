@@ -114,7 +114,6 @@ export class ColyseusTransport {
       }
       try {
         const room = await this.client.reconnect(token)
-        this.sequence = 0
         return this.attach(room)
       } catch (error) {
         if (attempt === MAX_RECONNECT_ATTEMPTS - 1) {

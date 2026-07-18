@@ -4,24 +4,13 @@ This file tracks remaining implementation work only. Design decisions live in `s
 
 ## Delivery Estimate
 
-The remaining Fly.io and Colyseus migration is estimated at **26-45 agent-hours** including writing failing tests first, implementation, passing regression tests, deployment, and live multiplayer verification. Protocol, scaffold, authenticated sessions, lobby parity, and authoritative movement Tasks 01-05 are complete. With carefully divided agents, expect roughly **16-29 hours of elapsed work** because simulation, integration, deployment, and browser-to-browser testing cannot all be parallelized safely.
+The remaining Fly.io and Colyseus migration is estimated at **22-38 agent-hours** including writing failing tests first, implementation, passing regression tests, deployment, and live multiplayer verification. Protocol, scaffold, authenticated sessions, lobby parity, movement, and shooting Tasks 01-06 are complete. With carefully divided agents, expect roughly **14-25 hours of elapsed work** because simulation, integration, deployment, and browser-to-browser testing cannot all be parallelized safely.
 
 The first complete migration should therefore be treated as roughly **4-7 focused agent working days**, including time for at least one failed deployment or integration pass. This assumes agents are writing the code and a human is available only for Fly.io account access, billing limits, secrets, and final live acceptance testing.
 
 Juice work is estimated separately at **10-18 agent-hours**. The remaining independent NPC timing work is estimated at **4-7 agent-hours**, or less if it is implemented directly in the new authoritative Colyseus simulation instead of being fixed twice.
 
 ## Migration To Fly.io And Colyseus
-
-### Task 06: Make Shooting Server Authoritative
-
-Estimate: **4-7 agent-hours**.
-
-- Send shot intent with aim coordinates, round ID, and sequence number; do not send a claimed victim.
-- Resolve hit geometry against the server's authoritative racer positions.
-- Enforce one bullet, legal round phase, valid aim bounds, corpse protection, self-shot rules, and score attribution on the server.
-- Broadcast a canonical shot result containing shooter, victim lane, victim type, impact position, score change, and event ID.
-- Keep optimistic muzzle feedback local, but wait for the server result before applying death, score, or winner state.
-- Write failing tests for fabricated hits, duplicate shots, stale-round shots, NPC kills, human kills, self-kills, corpse shots, and simultaneous shots.
 
 ### Task 07: Move NPC Simulation And Winners To The Server
 

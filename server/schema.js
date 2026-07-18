@@ -6,6 +6,9 @@ export const PlayerState = schema({
   role: 'string',
   ready: 'boolean',
   connected: 'boolean',
+  score: 'number',
+  kills: 'number',
+  hasBullet: 'boolean',
 })
 
 export const RacerState = schema({
@@ -13,6 +16,17 @@ export const RacerState = schema({
   progress: 'number',
   movementMode: 'string',
   eliminated: 'boolean',
+})
+
+export const ShotState = schema({
+  eventId: 'string',
+  shooterName: 'string',
+  laneId: 'number',
+  victimName: 'string',
+  victimType: 'string',
+  impactX: 'number',
+  hit: 'boolean',
+  scored: 'boolean',
 })
 
 export const DeathRaceState = schema({
@@ -26,4 +40,5 @@ export const DeathRaceState = schema({
   hostPlayerId: 'string',
   players: { map: PlayerState, default: new MapSchema() },
   racers: { map: RacerState, default: new MapSchema() },
+  shots: { map: ShotState, default: new MapSchema() },
 })

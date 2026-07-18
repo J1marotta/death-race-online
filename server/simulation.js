@@ -23,6 +23,8 @@ export function createPlayerRuntime({ playerId, laneId }) {
     staminaMs: SPRINT_MAX_MS,
     exhausted: false,
     eliminated: false,
+    controllerType: 'human',
+    hasBullet: true,
     lastSprintAt: Number.NEGATIVE_INFINITY,
   }
 }

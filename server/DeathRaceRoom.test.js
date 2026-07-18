@@ -314,6 +314,70 @@ describe('Colyseus DeathRaceRoom scaffold', () => {
     expect(room.state.winnerLaneId).toBe(runtime.laneId)
   })
 
+  it('resolves shots from aim instead of a client-claimed victim', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST' })
+    const host = client('session-host')
+    const guest = client('session-guest')
+    room.onJoin(host, { playerName: 'James' })
+    room.onJoin(guest, { playerName: 'Mia' })
+    room.authorizedPlayer(host).ready = true
+    room.authorizedPlayer(guest).ready = true
+    room.startCountdown(room.authorizedPlayer(host))
+    room.advanceSimulation(0, room.state.countdownEndsAt)
+    const guestRuntime = room.runtimeByPlayerId.get(room.authorizedPlayer(guest).id)
+    guestRuntime.progress = 40
+    const aimY = ((guestRuntime.laneId - 0.5) / 20) * 100
+
+    const result = room.handleCommand(host, command(CLIENT_MESSAGE_TYPES.SHOT, {
+      aimX: 40,
+      aimY,
+      victimPlayerId: room.authorizedPlayer(host).id,
+      score: 999,
+    }))
+
+    expect(result.ok).toBe(true)
+    expect(result.event.victimName).toBe('Mia')
+    expect(room.authorizedPlayer(host).score).toBe(1)
+    expect(room.authorizedPlayer(host).kills).toBe(1)
+    expect(guestRuntime.eliminated).toBe(true)
+  })
+
+  it('spends one bullet on a miss and rejects a duplicate shot', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST' })
+    const host = client('session-host')
+    room.onJoin(host, { playerName: 'James' })
+    room.authorizedPlayer(host).ready = true
+    room.startCountdown(room.authorizedPlayer(host))
+    room.advanceSimulation(0, room.state.countdownEndsAt)
+
+    expect(room.handleCommand(host, command(CLIENT_MESSAGE_TYPES.SHOT, { aimX: 100, aimY: 100 })).ok).toBe(true)
+    expect(room.authorizedPlayer(host).hasBullet).toBe(false)
+    expect(
+      room.handleCommand(host, command(CLIENT_MESSAGE_TYPES.SHOT, { aimX: 0, aimY: 0 }, { sequence: 2 })),
+    ).toEqual({ ok: false, error: 'shot-unavailable' })
+  })
+
+  it('allows a self-shot but awards no score', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST' })
+    const host = client('session-host')
+    room.onJoin(host, { playerName: 'James' })
+    room.authorizedPlayer(host).ready = true
+    room.startCountdown(room.authorizedPlayer(host))
+    room.advanceSimulation(0, room.state.countdownEndsAt)
+    const runtime = room.runtimeByPlayerId.get(room.authorizedPlayer(host).id)
+    runtime.progress = 25
+    const aimY = ((runtime.laneId - 0.5) / 20) * 100
+
+    const result = room.handleCommand(host, command(CLIENT_MESSAGE_TYPES.SHOT, { aimX: 25, aimY }))
+    expect(result.event.hit).toBe(true)
+    expect(result.event.scored).toBe(false)
+    expect(room.authorizedPlayer(host).score).toBe(0)
+    expect(runtime.eliminated).toBe(true)
+  })
+
   it('does not start while a player is inside the reconnection grace window', () => {
     const room = new DeathRaceRoom()
     room.onCreate({ roomCode: 'DRTEST' })

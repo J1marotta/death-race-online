@@ -7,7 +7,7 @@ import {
   createServerEnvelope,
   validateClientMessage,
 } from '../src/multiplayer/protocol.js'
-import { DeathRaceState, PlayerState, RacerState } from './schema.js'
+import { DeathRaceState, PlayerState, RacerState, ShotState } from './schema.js'
 import {
   COUNTDOWN_DURATION_MS,
   FINISH_PROGRESS,
@@ -17,6 +17,7 @@ import {
   createPlayerRuntime,
   setMovementIntent,
 } from './simulation.js'
+import { resolveShot } from './shooting.js'
 
 export const DEATH_RACE_ROOM_NAME = 'death-race'
 export const MAX_ROOM_PLAYERS = 20
@@ -88,6 +89,9 @@ export class DeathRaceRoom extends Room {
       role: isHost ? 'host' : 'player',
       ready: false,
       connected: true,
+      score: 0,
+      kills: 0,
+      hasBullet: true,
     })
     this.playerIdBySession.set(client.sessionId, playerId)
     client.auth = { playerId }
@@ -158,6 +162,8 @@ export class DeathRaceRoom extends Room {
       result = this.startCountdown(player)
     } else if (message.type === CLIENT_MESSAGE_TYPES.INPUT) {
       result = this.updateMovementIntent(player, message.payload.movementMode)
+    } else if (message.type === CLIENT_MESSAGE_TYPES.SHOT) {
+      result = this.fireShot(player, message.payload)
     } else if (message.type === CLIENT_MESSAGE_TYPES.LEAVE) {
       const hostLeft = this.removePlayer(client)
       if (hostLeft) {
@@ -242,10 +248,12 @@ export class DeathRaceRoom extends Room {
     }
     this.runtimeByPlayerId.clear()
     this.state.racers.clear()
+    this.state.shots.clear()
     const lanes = assignSecretLanes(players.map(current => current.id))
     for (const current of players) {
       const runtime = createPlayerRuntime({ playerId: current.id, laneId: lanes.get(current.id) })
       this.runtimeByPlayerId.set(current.id, runtime)
+      current.hasBullet = true
       this.state.racers.set(String(runtime.laneId), new RacerState({
         laneId: runtime.laneId,
         progress: 0,
@@ -282,6 +290,52 @@ export class DeathRaceRoom extends Room {
       return { ok: false, error: 'invalid-input', message: 'Movement input is not available' }
     }
     return { ok: true }
+  }
+
+  fireShot(player, { aimX, aimY }) {
+    if (this.state.phase !== 'playing') {
+      return { ok: false, error: 'wrong-phase', message: 'Shooting is available after Go' }
+    }
+    const shooter = this.runtimeByPlayerId.get(player.id)
+    if (shooter) shooter.hasBullet = player.hasBullet
+    const result = resolveShot({ shooter, runtimes: this.runtimeByPlayerId, aimX, aimY })
+    if (!result.ok) {
+      return { ok: false, error: result.error, message: 'This player cannot shoot now' }
+    }
+    player.hasBullet = false
+    const victimPlayer = result.victim?.controllerType === 'human'
+      ? this.state.players.get(result.victim.playerId)
+      : undefined
+    if (result.scored) {
+      player.score += 1
+      player.kills += 1
+    }
+    if (result.victim) {
+      const racer = this.state.racers.get(String(result.victim.laneId))
+      if (racer) {
+        racer.eliminated = true
+        racer.movementMode = 'stopped'
+      }
+    }
+    const eventId = this.createEventId()
+    const event = new ShotState({
+      eventId,
+      shooterName: player.name,
+      laneId: result.laneId,
+      victimName: victimPlayer?.name ?? '',
+      victimType: result.hit ? (victimPlayer ? 'human' : 'npc') : 'none',
+      impactX: result.impactX,
+      hit: result.hit,
+      scored: result.scored,
+    })
+    this.state.shots.set(eventId, event)
+    const envelope = createServerEnvelope(SERVER_MESSAGE_TYPES.EVENT, event.toJSON(), {
+      roomId: this.state.roomCode,
+      roundId: this.state.round,
+      eventId,
+    })
+    this.broadcast?.(SERVER_MESSAGE_TYPES.EVENT, envelope)
+    return { ok: true, event }
   }
 
   advanceSimulation(deltaMs, nowMs = Date.now()) {

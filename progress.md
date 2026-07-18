@@ -906,3 +906,14 @@ Last updated: 2026-07-14
 - Added deterministic simulation and room integration tests for legal speed, sprint exhaustion and recovery, frame-rate independence, invalid input, eliminated racers, unique lanes, hidden identity, pre-Go movement, fabricated progress, and server-owned finish detection.
 - Kept the React client and Cloudflare Durable Object path unchanged. Prediction, interpolation, and correction are assigned to the future Colyseus client adapter, where they can be implemented without activating an incomplete backend.
 - Completed migration Task 05. Task 06, authoritative shooting, is next.
+
+### task 87 : Make Colyseus Shooting Authoritative
+
+- Added server-side aim geometry using normalized coordinates and the existing 3.5-progress hit window. The server derives the target lane and checks its own racer position; claimed victims, scores, or positions in a payload are ignored.
+- Made each player's one bullet server-owned and consumed it on the first valid shot, including misses. Eliminated players and duplicate shots are rejected.
+- Added authoritative elimination, corpse protection, self-elimination without score, and one point/kill for a fresh human opponent takedown.
+- Added canonical synchronized shot records and versioned event broadcasts with event ID, shooter name, lane, victim type/name, impact position, hit status, and scoring status.
+- Kept shot resolution generic across human and NPC runtimes so Task 07 can add authoritative NPCs without a second shooting implementation.
+- Added pure geometry and room-level security tests covering aim bounds, hit windows, misses, spent bullets, fabricated victims/scores, duplicate shots, self-shots, corpse shots, and server-owned scoring.
+- Kept the active Cloudflare frontend and Durable Object shooting path unchanged until the client adapter and live acceptance gates are complete.
+- Completed migration Task 06. Task 07, authoritative independent NPC simulation, is next.

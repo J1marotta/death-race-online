@@ -17,6 +17,8 @@ Death Race is a browser-playable hidden-identity racing/shooting game. A lobby h
 - Room codes are dashless single words (for example `DR7Q2K`) so they read cleanly and are easy to type or say out loud.
 - The title screen leads with a highlighted "Join a game" card (room code field plus join action) above the "Host a game" card, because guests are the common case.
 - The menu shows the join/host form beside an ambient, decorative race preview so the landing page sells the game at a glance instead of reading as a bare form. The preview is a client-only loop of looping racers that requires no server connection, is marked `aria-hidden`, is non-interactive, and collapses to a static field under reduced motion.
+- The host-only options (privacy and rounds) stay visible in both join and host modes and are merely disabled when joining, so toggling between the two tabs never changes the form's height or shifts controls.
+- Buttons carry the dark theme with soft (squircle, 10px) corners and a legible selected state: the active tab reads clearly instead of losing its label against a default control background.
 - The menu side panel fits inside its card without scrolling: no intro paragraph (the cards explain themselves) and compact card spacing.
 - Laptop-height space is a primary constraint: core menu and lobby actions must remain visible without scrolling, and growing content such as a full player roster should scroll only within its own bounded region.
 - Lobby control labels use sentence case, not uppercase.

@@ -81,6 +81,8 @@ The first result screenshot caught a visual regression too: finish-line flutter 
 
 Moving simulation authority to the server also quietly cost the landing page its charm. The old client ran the whole race locally, so it could paint a living playfield behind the menu; the authoritative client has no room state before a player joins, so the menu became a bare form. The fix was not to revert the migration but to add a client-only decorative preview: a looping crowd of racers that reuses the real racer markup, needs no server, and stays firmly on the presentation side of the authority boundary. A migration can strip a feature that was only ever incidental to the old architecture — restore it in a way that respects the new one.
 
+The same menu also exposed a quieter class of bug: styling that only works by accident. The tab buttons had no background of their own, so they borrowed the browser's default light control, and the active tab's cream label promptly vanished against it. The fix was to stop relying on the default — give the buttons the dark theme explicitly — and then the selected state has somewhere legible to live. While there, the host-only options now stay mounted and merely disable when joining, because mounting and unmounting a block to switch tabs makes the whole form jump; disabling keeps the layout still.
+
 ## How Good Engineers Approach This
 
 1. Write down the product invariant before choosing the implementation. Hidden identity means player-to-lane mappings must never enter public state.

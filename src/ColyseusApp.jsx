@@ -409,10 +409,10 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
         </div>
         <label>Your name<input value={name} onChange={event => setName(event.target.value)} maxLength={24} required /></label>
         <label>Lobby code<input value={roomCode} onChange={event => setRoomCode(event.target.value)} maxLength={12} required={mode === 'join'} placeholder={mode === 'create' ? 'Generated automatically' : 'Enter shared code'} /></label>
-        {mode === 'create' && <div className='migration-options'>
-          <label>Privacy<select value={privacy} onChange={event => setPrivacy(event.target.value)}><option value='public'>Public</option><option value='private'>Private</option></select></label>
-          <label>Rounds<select value={roundCount} onChange={event => setRoundCount(Number(event.target.value))}><option>3</option><option>5</option><option>7</option></select></label>
-        </div>}
+        <div className='migration-options'>
+          <label>Privacy<select value={privacy} disabled={mode === 'join'} onChange={event => setPrivacy(event.target.value)}><option value='public'>Public</option><option value='private'>Private</option></select></label>
+          <label>Rounds<select value={roundCount} disabled={mode === 'join'} onChange={event => setRoundCount(Number(event.target.value))}><option>3</option><option>5</option><option>7</option></select></label>
+        </div>
         {error && <p className='migration-error' role='alert'>{error}</p>}
         <button className='migration-primary' disabled={busy}>{busy ? 'Connecting...' : mode === 'create' ? 'Create lobby' : 'Join lobby'}</button>
         </form>

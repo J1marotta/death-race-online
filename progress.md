@@ -1181,3 +1181,6 @@ Last updated: 2026-07-14
 - Drove preview motion deterministically from a lane/tick function (no shared server state), remounting each racer on wrap so the CSS `left` transition never plays a reverse slide.
 - Made the preview `aria-hidden`, non-interactive, and reduced-motion aware (static field, no interval), and laid the menu out as a two-column preview-plus-form grid that collapses on narrow screens.
 - Added a React regression asserting the menu renders the ambient preview with a full lane field.
+- Fixed the disappearing selected-tab label by giving the shell buttons an explicit dark theme instead of relying on the browser's default light control, so the active tab's cream text no longer vanished against a light background.
+- Gave buttons soft corners (`corner-shape: squircle` with a 10px radius), inset the native select chevron off the right edge with a custom arrow, and tinted the active tab with the accent background.
+- Kept the host-only privacy and rounds options mounted in both modes and disabled them when joining, removing the layout jank that came from mounting and unmounting the options block when switching tabs.

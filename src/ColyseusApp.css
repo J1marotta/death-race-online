@@ -90,6 +90,7 @@
 .migration-finish { position: absolute; z-index: 1; inset: 0 6% 0 auto; width: 12px; background: repeating-conic-gradient(#fff 0 25%, #111 0 50%) 0/12px 12px; animation: migration-flag-flutter 720ms steps(2,end) infinite; }
 @keyframes migration-flag-flutter { to { background-position-y: 6px; } }
 .migration-crosshair { position: absolute; z-index: 4; width: 24px; height: 24px; translate: -50% -50%; color: #ff6158; font: 900 24px/1 var(--mono); pointer-events: none; transition: left 50ms linear, top 50ms linear; }
+.migration-crosshair.is-local { transition: none; }
 .migration-crosshair span { position: absolute; inset: 0; display: grid; place-items: center; }
 .migration-crosshair i { position: absolute; right: -3px; bottom: -2px; width: 4px; height: 9px; border: 1px solid #251b0b; background: #ffd34d; box-shadow: inset 0 -2px #bc7721; }
 .migration-crosshair.color-1 { color: #61d7ff; }

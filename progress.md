@@ -1184,3 +1184,10 @@ Last updated: 2026-07-14
 - Fixed the disappearing selected-tab label by giving the shell buttons an explicit dark theme instead of relying on the browser's default light control, so the active tab's cream text no longer vanished against a light background.
 - Gave buttons soft corners (`corner-shape: squircle` with a 10px radius), inset the native select chevron off the right edge with a custom arrow, and tinted the active tab with the accent background.
 - Kept the host-only privacy and rounds options mounted in both modes and disabled them when joining, removing the layout jank that came from mounting and unmounting the options block when switching tabs.
+
+### task 115 : Smooth Aiming And Fix The Audio Mix
+
+- Removed the 50ms position transition from the local player's own crosshair so it tracks the pointer one-to-one, while keeping the smoothing on other players' crosshairs where it hides the throttled network cadence.
+- Coalesced pointer-move handling into a single requestAnimationFrame update so fast mouse movement no longer re-renders the 20-lane track faster than the screen refreshes, and cancelled the pending frame on unmount.
+- Rebalanced the audio mix: the sine-pad chords, triangle melody, bass, footsteps, exhausted breathing, countdown, near-miss, and finish cues were all 10-50x quieter than the gunshot and effectively inaudible, so their gains were raised to sit clearly under the shot.
+- Resumed the audio context when the music starts so a phase change into play without a fresh user gesture no longer leaves the game silent.

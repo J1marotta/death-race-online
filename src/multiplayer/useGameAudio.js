@@ -25,6 +25,7 @@ export function useGameAudio(phase) {
     if (muted || musicRef.current) return
     const audio = context()
     if (!audio) return
+    void audio.resume?.()
     const chords = [
       [130.81, 164.81, 196, 246.94, 329.63, 65.41],
       [146.83, 174.61, 220, 261.63, 349.23, 73.42],
@@ -34,7 +35,7 @@ export function useGameAudio(phase) {
     const masterGain = audio.createGain()
     masterGain.gain.setValueAtTime(1, audio.currentTime)
     masterGain.connect(audio.destination)
-    const gains = [0.007, 0.007, 0.007, 0.006, 0.009, 0.012]
+    const gains = [0.03, 0.03, 0.03, 0.025, 0.045, 0.055]
     const oscillators = chords[0].map((frequency, index) => {
       const oscillator = audio.createOscillator()
       oscillator.type = index === 4 ? 'triangle' : 'sine'
@@ -62,7 +63,7 @@ export function useGameAudio(phase) {
       const stepGain = audio.createGain()
       step.type = 'triangle'
       step.frequency.setValueAtTime(atmosphere.movementMode === 'running' ? 105 : 82, audio.currentTime)
-      stepGain.gain.setValueAtTime(atmosphere.movementMode === 'running' ? 0.025 : 0.014, audio.currentTime)
+      stepGain.gain.setValueAtTime(atmosphere.movementMode === 'running' ? 0.06 : 0.038, audio.currentTime)
       stepGain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.055)
       step.connect(stepGain)
       stepGain.connect(audio.destination)
@@ -74,7 +75,7 @@ export function useGameAudio(phase) {
         breath.type = 'sine'
         breath.frequency.setValueAtTime(180, audio.currentTime)
         breath.frequency.exponentialRampToValueAtTime(95, audio.currentTime + 0.28)
-        breathGain.gain.setValueAtTime(0.012, audio.currentTime)
+        breathGain.gain.setValueAtTime(0.03, audio.currentTime)
         breathGain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.3)
         breath.connect(breathGain)
         breathGain.connect(audio.destination)
@@ -123,7 +124,7 @@ export function useGameAudio(phase) {
     thump.stop(startedAt + 0.25)
   }, [context, muted])
 
-  const playTone = useCallback((frequency, duration = 0.12, volume = 0.04, type = 'sine') => {
+  const playTone = useCallback((frequency, duration = 0.12, volume = 0.09, type = 'sine') => {
     if (muted) return
     const audio = context()
     if (!audio) return
@@ -142,17 +143,17 @@ export function useGameAudio(phase) {
 
   const playCountdownTone = useCallback(step => {
     const frequencies = { 3: 330, 2: 415, 1: 523, 0: 784 }
-    playTone(frequencies[step] ?? 330, step === 0 ? 0.28 : 0.11, step === 0 ? 0.065 : 0.035, 'triangle')
+    playTone(frequencies[step] ?? 330, step === 0 ? 0.28 : 0.11, step === 0 ? 0.16 : 0.09, 'triangle')
   }, [playTone])
 
   const playNearMiss = useCallback(() => {
-    playTone(980, 0.08, 0.025, 'triangle')
-    window.setTimeout(() => playTone(620, 0.1, 0.018, 'triangle'), 35)
+    playTone(980, 0.08, 0.06, 'triangle')
+    window.setTimeout(() => playTone(620, 0.1, 0.045, 'triangle'), 35)
   }, [playTone])
 
   const playFinish = useCallback(() => {
     ;[261.63, 329.63, 392, 523.25].forEach((frequency, index) => {
-      window.setTimeout(() => playTone(frequency, 0.55, 0.035, index === 3 ? 'triangle' : 'sine'), index * 55)
+      window.setTimeout(() => playTone(frequency, 0.55, 0.09, index === 3 ? 'triangle' : 'sine'), index * 55)
     })
   }, [playTone])
 

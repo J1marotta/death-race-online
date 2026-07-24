@@ -138,6 +138,8 @@ function AuthoritativeRace({ transport, initialView, audio, interactive = true }
   const reducedMotion = useReducedMotion()
   const playfieldRef = useRef(null)
   const lastAimSentAt = useRef(0)
+  const pendingAim = useRef(null)
+  const aimFrame = useRef(0)
   const heldKeysRef = useRef(new Set())
   const lastMovementRef = useRef('stopped')
   const localShotSequence = useRef(0)
@@ -263,14 +265,21 @@ function AuthoritativeRace({ transport, initialView, audio, interactive = true }
   const updateAim = event => {
     if (!interactive || raceView.phase !== 'playing') return
     if (localPlayer?.role === 'spectator') return
-    const nextAim = pointFromEvent(event)
-    setAim(nextAim)
-    const now = performance.now()
-    if (now - lastAimSentAt.current >= 50) {
-      lastAimSentAt.current = now
-      transport.aim(nextAim.x, nextAim.y)
-    }
+    pendingAim.current = pointFromEvent(event)
+    if (aimFrame.current) return
+    aimFrame.current = window.requestAnimationFrame(() => {
+      aimFrame.current = 0
+      const nextAim = pendingAim.current
+      if (!nextAim) return
+      setAim(nextAim)
+      const now = performance.now()
+      if (now - lastAimSentAt.current >= 50) {
+        lastAimSentAt.current = now
+        transport.aim(nextAim.x, nextAim.y)
+      }
+    })
   }
+  useEffect(() => () => { if (aimFrame.current) window.cancelAnimationFrame(aimFrame.current) }, [])
   const shoot = event => {
     if (!interactive || raceView.phase !== 'playing') return
     if (!localPlayer?.hasBullet || localPlayer.role === 'spectator') return
@@ -304,7 +313,7 @@ function AuthoritativeRace({ transport, initialView, audio, interactive = true }
         {raceView.shots.filter(shot => shot.hit && shot.laneId === racer.laneId).slice(-1).map(shot => <div className='migration-ko' key={shot.eventId} style={{ left: `${shot.impactX}%` }}>KO! <small>{shot.shooterName}</small></div>)}
       </div>)}
       {interactive && crosshairs.map(crosshair => <div
-        className={`migration-crosshair color-${crosshair.colorIndex} ${crosshair.hasBullet ? '' : 'spent'} ${localShotEffect && crosshair.id === raceView.localCrosshairId ? 'recoil' : ''}`}
+        className={`migration-crosshair color-${crosshair.colorIndex} ${crosshair.id === raceView.localCrosshairId ? 'is-local' : ''} ${crosshair.hasBullet ? '' : 'spent'} ${localShotEffect && crosshair.id === raceView.localCrosshairId ? 'recoil' : ''}`}
         key={crosshair.id}
         style={{ left: `${crosshair.aimX}%`, top: `${crosshair.aimY}%` }}
       ><span>+</span>{crosshair.hasBullet && <i aria-label='Loaded bullet' />}</div>)}

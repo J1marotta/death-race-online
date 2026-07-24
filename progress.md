@@ -1173,3 +1173,11 @@ Last updated: 2026-07-14
 - Added a seven-part tutorial that teaches how to recover the architecture from entry points, trace commands, identify authority, distinguish schema from runtime, and diagnose by ownership.
 - Added an eight-question interactive infrastructure and program-flow quiz with immediate explanations, scoring, and reset behavior.
 - Preserved the full Cloudflare Worker and Durable Object material, and labeled retired interactive traces as historical so readers can compare both architectures without mistaking them for production.
+
+### task 114 : Restore The Ambient Landing Preview
+
+- Diagnosed that the landing page lost its animated race preview during the Colyseus cutover: the old client ran the whole simulation locally and could paint a live playfield behind the menu, while the authoritative client has no room state before joining and rendered only the form.
+- Added a client-only `MenuPreview` that loops decorative racers across the full 20-lane track on the menu, reusing the existing `PixelRacer` markup and `migration-*` CSS so the landing sells the game again without any Fly.io traffic.
+- Drove preview motion deterministically from a lane/tick function (no shared server state), remounting each racer on wrap so the CSS `left` transition never plays a reverse slide.
+- Made the preview `aria-hidden`, non-interactive, and reduced-motion aware (static field, no interval), and laid the menu out as a two-column preview-plus-form grid that collapses on narrow screens.
+- Added a React regression asserting the menu renders the ambient preview with a full lane field.

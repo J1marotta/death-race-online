@@ -79,6 +79,8 @@ The first browser countdown also showed “3” over an empty track. The full sn
 
 The first result screenshot caught a visual regression too: finish-line flutter had added a separate checkered block above the straight line. The final version moves the checker pattern within the line itself, preserving atmosphere without reviving an element the design had already rejected.
 
+Moving simulation authority to the server also quietly cost the landing page its charm. The old client ran the whole race locally, so it could paint a living playfield behind the menu; the authoritative client has no room state before a player joins, so the menu became a bare form. The fix was not to revert the migration but to add a client-only decorative preview: a looping crowd of racers that reuses the real racer markup, needs no server, and stays firmly on the presentation side of the authority boundary. A migration can strip a feature that was only ever incidental to the old architecture — restore it in a way that respects the new one.
+
 ## How Good Engineers Approach This
 
 1. Write down the product invariant before choosing the implementation. Hidden identity means player-to-lane mappings must never enter public state.

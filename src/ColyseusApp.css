@@ -1,7 +1,10 @@
 .migration-shell { width: min(1200px, calc(100vw - 32px)); min-height: 100svh; margin: 0 auto; padding: 18px 0; }
 .migration-shell header p { margin: 0; color: var(--accent); font: 700 12px/1 var(--mono); text-transform: uppercase; }
 .migration-shell h1 { margin: 5px 0 0; color: var(--text-h); font-size: 34px; letter-spacing: 0; }
+.migration-menu { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 520px); gap: 16px; align-items: start; margin-top: 24px; }
 .migration-connect { display: grid; gap: 14px; width: min(520px, 100%); margin-top: 32px; padding: 20px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
+.migration-menu .migration-connect { width: 100%; margin-top: 0; }
+.migration-preview { height: min(60svh, 560px); cursor: default; pointer-events: none; }
 .migration-tabs, .migration-options, .migration-actions, .migration-topbar, .migration-summary, .migration-controls { display: flex; gap: 10px; }
 .migration-tabs button { flex: 1; }
 .migration-tabs .active { border-color: var(--accent); color: var(--text-h); }
@@ -150,5 +153,5 @@
 .migration-scoreboard i { display: inline-block; margin-left: 3px; color: #75e59a; font: 800 10px/1 var(--mono); }
 .migration-scoreboard div.earned { animation: migration-score-in 420ms ease-out both; animation-delay: calc(var(--row) * 70ms); }
 @keyframes migration-score-in { from { opacity: .45; transform: translateX(8px); background: rgba(117,229,154,.18); } }
-@media (max-width: 720px) { .migration-lobby, .migration-postround { grid-template-columns: 1fr; } .migration-actions, .migration-topbar, .migration-controls { flex-wrap: wrap; } .migration-track { height: 68svh; } }
+@media (max-width: 720px) { .migration-lobby, .migration-postround, .migration-menu { grid-template-columns: 1fr; } .migration-actions, .migration-topbar, .migration-controls { flex-wrap: wrap; } .migration-track { height: 68svh; } .migration-preview { height: 34svh; } }
 @media (prefers-reduced-motion: reduce) { .migration-track *, .migration-track, .migration-scoreboard div { animation-duration: .001ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important; } .migration-track.effect-shooter, .migration-track.effect-victim, .migration-hit-flash { animation: none; } }

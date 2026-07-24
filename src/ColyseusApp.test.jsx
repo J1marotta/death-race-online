@@ -81,6 +81,15 @@ describe('feature-flagged Colyseus React client', () => {
     expect(screen.getByPlaceholderText('Enter shared code')).toBeTruthy()
   })
 
+  it('greets guests with an ambient race preview instead of a bare form', () => {
+    render(<ColyseusApp transport={new FakeTransport()} />)
+    const preview = document.querySelector('.migration-preview')
+    expect(preview).toBeTruthy()
+    expect(preview.getAttribute('aria-hidden')).toBe('true')
+    expect(preview.querySelectorAll('.migration-lane')).toHaveLength(20)
+    expect(preview.querySelectorAll('.migration-racer')).toHaveLength(20)
+  })
+
   it('shows readiness and host start without a scrolling action flow', () => {
     const transport = new FakeTransport()
     render(<ColyseusApp transport={transport} />)

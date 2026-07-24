@@ -65,6 +65,48 @@ function PixelRacer({ racer, roomCode, round, isLocal, localExhausted, anticipat
   </div>
 }
 
+const PREVIEW_LANES = 20
+
+function previewMode(laneId, tick) {
+  const phase = (tick + laneId * 7) % 60
+  if (phase < 8) return 'idle'
+  if (phase < 40) return 'walking'
+  return 'running'
+}
+
+function buildPreviewRacers() {
+  return Array.from({ length: PREVIEW_LANES }, (_, index) => {
+    const laneId = index + 1
+    return { laneId, progress: (laneId * 37) % 88, movementMode: previewMode(laneId, 0), gen: 0 }
+  })
+}
+
+function MenuPreview() {
+  const reducedMotion = useReducedMotion()
+  const [racers, setRacers] = useState(buildPreviewRacers)
+  useEffect(() => {
+    if (reducedMotion) return undefined
+    let tick = 0
+    const timer = window.setInterval(() => {
+      tick += 1
+      setRacers(previous => previous.map(racer => {
+        const movementMode = previewMode(racer.laneId, tick)
+        const speed = movementMode === 'running' ? 1.3 : movementMode === 'walking' ? 0.55 : 0
+        const next = racer.progress + speed
+        if (next > 96) return { ...racer, movementMode, progress: -3, gen: racer.gen + 1 }
+        return { ...racer, movementMode, progress: next }
+      }))
+    }, 80)
+    return () => window.clearInterval(timer)
+  }, [reducedMotion])
+  return <section className='migration-track migration-preview' aria-hidden='true'>
+    <div className='migration-finish' />
+    {racers.map(racer => <div className='migration-lane' key={racer.laneId} data-lane={racer.laneId}>
+      <PixelRacer key={racer.gen} racer={racer} roomCode='LOBBY' round={1} isLocal={false} showReveal={false} />
+    </div>)}
+  </section>
+}
+
 function Countdown({ endsAt, onBeat }) {
   const [now, setNow] = useState(Date.now())
   const lastBeat = useRef(null)
@@ -358,7 +400,9 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
   if (view.phase === 'menu') {
     return <main className='migration-shell'>
       <header><p>Death Race</p><h1>Enter the race</h1></header>
-      <form className='migration-connect' onSubmit={connect}>
+      <div className='migration-menu'>
+        <MenuPreview />
+        <form className='migration-connect' onSubmit={connect}>
         <div className='migration-tabs' role='tablist'>
           <button type='button' className={mode === 'join' ? 'active' : ''} onClick={() => setMode('join')}>Join lobby</button>
           <button type='button' className={mode === 'create' ? 'active' : ''} onClick={() => setMode('create')}>Host a game</button>
@@ -371,7 +415,8 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
         </div>}
         {error && <p className='migration-error' role='alert'>{error}</p>}
         <button className='migration-primary' disabled={busy}>{busy ? 'Connecting...' : mode === 'create' ? 'Create lobby' : 'Join lobby'}</button>
-      </form>
+        </form>
+      </div>
     </main>
   }
 

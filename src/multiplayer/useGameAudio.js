@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+const MUSIC_PHASES = new Set(['lobby', 'countdown', 'playing'])
+
 export function useGameAudio(phase) {
   const [muted, setMuted] = useState(false)
+  const [volume, setVolume] = useState(0.7)
   const contextRef = useRef(null)
   const musicRef = useRef(null)
+  const masterRef = useRef(null)
+  const volumeRef = useRef(0.7)
+  const mutedRef = useRef(false)
   const atmosphereRef = useRef({ movementMode: 'stopped', exhausted: false, progress: 0 })
 
   const context = useCallback(() => {
@@ -12,6 +18,18 @@ export function useGameAudio(phase) {
     contextRef.current ??= new AudioContext()
     return contextRef.current
   }, [])
+
+  const master = useCallback(() => {
+    const audio = context()
+    if (!audio) return null
+    if (!masterRef.current) {
+      const gain = audio.createGain()
+      gain.gain.setValueAtTime(mutedRef.current ? 0 : volumeRef.current, audio.currentTime)
+      gain.connect(audio.destination)
+      masterRef.current = gain
+    }
+    return masterRef.current
+  }, [context])
 
   const stopMusic = useCallback(() => {
     if (!musicRef.current) return
@@ -34,7 +52,7 @@ export function useGameAudio(phase) {
     ]
     const masterGain = audio.createGain()
     masterGain.gain.setValueAtTime(1, audio.currentTime)
-    masterGain.connect(audio.destination)
+    masterGain.connect(master())
     const gains = [0.03, 0.03, 0.03, 0.025, 0.045, 0.055]
     const oscillators = chords[0].map((frequency, index) => {
       const oscillator = audio.createOscillator()
@@ -66,7 +84,7 @@ export function useGameAudio(phase) {
       stepGain.gain.setValueAtTime(atmosphere.movementMode === 'running' ? 0.06 : 0.038, audio.currentTime)
       stepGain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.055)
       step.connect(stepGain)
-      stepGain.connect(audio.destination)
+      stepGain.connect(master())
       step.start()
       step.stop(audio.currentTime + 0.06)
       if (atmosphere.exhausted && stepCount % 4 === 0) {
@@ -78,13 +96,13 @@ export function useGameAudio(phase) {
         breathGain.gain.setValueAtTime(0.03, audio.currentTime)
         breathGain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.3)
         breath.connect(breathGain)
-        breathGain.connect(audio.destination)
+        breathGain.connect(master())
         breath.start()
         breath.stop(audio.currentTime + 0.31)
       }
     }, 220)
     musicRef.current = { chordTimer, stepTimer, masterGain, oscillators }
-  }, [context, muted])
+  }, [context, master, muted])
 
   const playShot = useCallback(() => {
     if (muted) return
@@ -107,7 +125,7 @@ export function useGameAudio(phase) {
     crackGain.gain.exponentialRampToValueAtTime(0.001, startedAt + 0.2)
     crack.connect(filter)
     filter.connect(crackGain)
-    crackGain.connect(audio.destination)
+    crackGain.connect(master())
     crack.start(startedAt)
     crack.stop(startedAt + 0.21)
 
@@ -119,10 +137,10 @@ export function useGameAudio(phase) {
     thumpGain.gain.setValueAtTime(0.28, startedAt)
     thumpGain.gain.exponentialRampToValueAtTime(0.001, startedAt + 0.24)
     thump.connect(thumpGain)
-    thumpGain.connect(audio.destination)
+    thumpGain.connect(master())
     thump.start(startedAt)
     thump.stop(startedAt + 0.25)
-  }, [context, muted])
+  }, [context, master, muted])
 
   const playTone = useCallback((frequency, duration = 0.12, volume = 0.09, type = 'sine') => {
     if (muted) return
@@ -136,10 +154,10 @@ export function useGameAudio(phase) {
     gain.gain.setValueAtTime(volume, audio.currentTime)
     gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + duration)
     oscillator.connect(gain)
-    gain.connect(audio.destination)
+    gain.connect(master())
     oscillator.start()
     oscillator.stop(audio.currentTime + duration)
-  }, [context, muted])
+  }, [context, master, muted])
 
   const playCountdownTone = useCallback(step => {
     const frequencies = { 3: 330, 2: 415, 1: 523, 0: 784 }
@@ -168,7 +186,15 @@ export function useGameAudio(phase) {
   }, [])
 
   useEffect(() => {
-    if (phase === 'playing' && !muted) startMusic()
+    volumeRef.current = volume
+    mutedRef.current = muted
+    const gain = masterRef.current
+    const audio = contextRef.current
+    if (gain && audio) gain.gain.setValueAtTime(muted ? 0 : volume, audio.currentTime)
+  }, [muted, volume])
+
+  useEffect(() => {
+    if (MUSIC_PHASES.has(phase) && !muted) startMusic()
     else stopMusic()
   }, [muted, phase, startMusic, stopMusic])
 
@@ -189,10 +215,12 @@ export function useGameAudio(phase) {
   return useMemo(() => ({
     muted,
     toggleMuted,
+    volume,
+    setVolume,
     playCountdownTone,
     playFinish,
     playNearMiss,
     playShot,
     updateAtmosphere,
-  }), [muted, playCountdownTone, playFinish, playNearMiss, playShot, toggleMuted, updateAtmosphere])
+  }), [muted, playCountdownTone, playFinish, playNearMiss, playShot, setVolume, toggleMuted, updateAtmosphere, volume])
 }

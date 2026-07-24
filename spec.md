@@ -158,7 +158,8 @@ Movement keys never hijack typing: while an input field has focus they are ignor
 - The playfield and HUD must read well at `1200px` wide on a laptop.
 - Crosshairs, bullet indicators, dead bodies, winner state, and reveal highlights should be readable at a glance.
 - Light sound cues support key actions such as creating/joining lobbies, readying, starting, and saving a display name; firing gets the heavier gunshot treatment described in Juice And Feedback.
-- Live gameplay plays mellow elevator-style generated background music: soft sine-pad seventh chords, a gentle triangle melody, and a quiet bass note per chord change, with a mute toggle. The music, footsteps, and cue levels are balanced to stay clearly audible under the louder gunshot rather than sitting near silence, and the audio context is resumed whenever music starts so play is never silent when the phase changes without a fresh gesture.
+- The background music plays continuously from the lobby through the countdown and into live play, so the lobby is never silent and the music does not stop and restart at the start of a race: soft sine-pad seventh chords, a gentle triangle melody, and a quiet bass note per chord change. The music, footsteps, and cue levels are balanced to stay clearly audible under the louder gunshot rather than sitting near silence, and the audio context is resumed whenever music starts so play is never silent when the phase changes without a fresh gesture.
+- The room top bar carries the audio controls wherever it is shown (lobby, live play, and results): a mute toggle and a volume slider that drives a single master output gain, so changing the volume adjusts everything live and the slider is disabled while muted.
 
 ## Suggested State Model
 

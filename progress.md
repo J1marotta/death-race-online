@@ -1191,3 +1191,11 @@ Last updated: 2026-07-14
 - Coalesced pointer-move handling into a single requestAnimationFrame update so fast mouse movement no longer re-renders the 20-lane track faster than the screen refreshes, and cancelled the pending frame on unmount.
 - Rebalanced the audio mix: the sine-pad chords, triangle melody, bass, footsteps, exhausted breathing, countdown, near-miss, and finish cues were all 10-50x quieter than the gunshot and effectively inaudible, so their gains were raised to sit clearly under the shot.
 - Resumed the audio context when the music starts so a phase change into play without a fresh user gesture no longer leaves the game silent.
+
+### task 116 : Add Lobby Music And A Volume Control
+
+- Routed every sound (music pad, footsteps, breathing, gunshot, and cues) through a single lazily-created master output gain so a volume control can scale the whole mix live, including the sustained pad.
+- Added a volume slider beside the existing mute toggle in the room top bar, driving a 0-1 master level; the slider is disabled while muted and the top bar (and therefore both controls) already shows in the lobby.
+- Extended the music phases from playing-only to lobby, countdown, and playing so the lobby has ambient music and the track never stops and restarts the music at the start of a race.
+- Kept the music-intensity master gain created first inside `startMusic` so the master output node is created second, and updated the countdown regression to assert the beat tone by its distinct 330 Hz frequency now that chord voices also play during the countdown.
+- Added a React regression covering lobby music and the volume slider driving the master gain.

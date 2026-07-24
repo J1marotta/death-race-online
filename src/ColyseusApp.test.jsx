@@ -229,7 +229,7 @@ describe('feature-flagged Colyseus React client', () => {
     act(() => transport.emit('view', countdown))
     expect(screen.getByText('3')).toBeTruthy()
     expect(document.querySelectorAll('.migration-racer.anticipating')).toHaveLength(20)
-    expect(oscillators.at(-1).type).toBe('triangle')
+    expect(oscillators.some(oscillator => oscillator.frequency.setValueAtTime.mock.calls.some(([frequency]) => frequency === 330))).toBe(true)
     await act(() => vi.advanceTimersByTimeAsync(3000))
     act(() => transport.emit('view', { ...countdown, phase: 'playing' }))
     expect(screen.getByText('Go!')).toBeTruthy()
@@ -350,6 +350,20 @@ describe('feature-flagged Colyseus React client', () => {
     expect(oscillators).toHaveLength(afterMiss)
     expect(transport.move).not.toHaveBeenCalled()
     expect(transport.aim).not.toHaveBeenCalled()
+  })
+
+  it('plays music in the lobby and applies the volume control to the master output', () => {
+    const oscillators = []
+    const gains = []
+    installAudioContextMock(oscillators, gains)
+    const transport = new FakeTransport()
+    render(<ColyseusApp transport={transport} />)
+    act(() => transport.emit('view', lobby))
+    expect(oscillators.length).toBeGreaterThan(0)
+    const master = gains[1]
+    fireEvent.change(screen.getByLabelText('Volume'), { target: { value: '40' } })
+    expect(screen.getByLabelText('Volume').value).toBe('40')
+    expect(master.gain.setValueAtTime).toHaveBeenCalledWith(0.4, 0)
   })
 
   it('keeps a late-joining spectator from sending gameplay input', () => {

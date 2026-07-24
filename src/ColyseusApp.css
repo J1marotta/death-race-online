@@ -22,6 +22,9 @@
 .migration-summary { align-items: center; }
 .migration-summary span { padding: 8px 10px; border: 1px solid var(--border); border-radius: 5px; }
 .migration-sound { min-width: 92px; }
+.migration-audio { display: flex; align-items: center; gap: 10px; }
+.migration-volume { width: 96px; accent-color: var(--accent); cursor: pointer; }
+.migration-volume:disabled { opacity: .45; cursor: not-allowed; }
 .migration-lobby { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, .7fr); gap: 16px; }
 .migration-actions { align-items: end; padding: 14px; border: 1px solid var(--border); background: var(--panel); }
 .migration-roster { max-height: 62svh; overflow: auto; border: 1px solid var(--border); }

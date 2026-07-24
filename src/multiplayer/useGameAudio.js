@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-const MUSIC_PHASES = new Set(['lobby', 'countdown', 'playing'])
+const MUSIC_PHASES = new Set(['menu', 'lobby', 'countdown', 'playing'])
 
 export function useGameAudio(phase) {
   const [muted, setMuted] = useState(false)

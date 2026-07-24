@@ -90,6 +90,13 @@ describe('feature-flagged Colyseus React client', () => {
     expect(preview.querySelectorAll('.migration-racer')).toHaveLength(20)
   })
 
+  it('offers the mute and volume controls on the landing page', () => {
+    render(<ColyseusApp transport={new FakeTransport()} />)
+    expect(screen.getByText('Enter the race')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Mute sound' })).toBeTruthy()
+    expect(screen.getByLabelText('Volume')).toBeTruthy()
+  })
+
   it('shows readiness and host start without a scrolling action flow', () => {
     const transport = new FakeTransport()
     render(<ColyseusApp transport={transport} />)

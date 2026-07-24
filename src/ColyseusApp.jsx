@@ -107,6 +107,14 @@ function MenuPreview() {
   </section>
 }
 
+function AudioControls({ audio }) {
+  const { muted, toggleMuted, volume, setVolume } = audio
+  return <div className='migration-audio'>
+    <button className='migration-sound' type='button' onClick={toggleMuted} aria-label={muted ? 'Unmute sound' : 'Mute sound'}>{muted ? 'Sound off' : 'Sound on'}</button>
+    <input className='migration-volume' type='range' min='0' max='100' value={Math.round(volume * 100)} onChange={event => setVolume(Number(event.target.value) / 100)} disabled={muted} aria-label='Volume' />
+  </div>
+}
+
 function Countdown({ endsAt, onBeat }) {
   const [now, setNow] = useState(Date.now())
   const lastBeat = useRef(null)
@@ -336,7 +344,6 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
   const [roundBaseline, setRoundBaseline] = useState({ round: 0, players: {} })
   const celebratedWinners = useRef(new Set())
   const audio = useGameAudio(view.phase)
-  const { muted, toggleMuted, volume, setVolume } = audio
 
   useEffect(() => {
     const offView = transport.subscribe('meta', setView)
@@ -408,7 +415,10 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
 
   if (view.phase === 'menu') {
     return <main className='migration-shell'>
-      <header><p>Death Race</p><h1>Enter the race</h1></header>
+      <header className='migration-menu-head'>
+        <div><p>Death Race</p><h1>Enter the race</h1></div>
+        <AudioControls audio={audio} />
+      </header>
       <div className='migration-menu'>
         <MenuPreview />
         <form className='migration-connect' onSubmit={connect}>
@@ -444,10 +454,7 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
     <header className='migration-topbar'>
       <div><p>Death Race</p><h1>{playing ? `Round ${view.round}` : `Lobby ${view.roomCode}`}</h1></div>
       <div className='migration-summary'><span>{view.players.length} real players</span><span>Round {view.round} of {view.roundCount}</span></div>
-      <div className='migration-audio'>
-        <button className='migration-sound' type='button' onClick={toggleMuted} aria-label={muted ? 'Unmute sound' : 'Mute sound'}>{muted ? 'Sound off' : 'Sound on'}</button>
-        <input className='migration-volume' type='range' min='0' max='100' value={Math.round(volume * 100)} onChange={event => setVolume(Number(event.target.value) / 100)} disabled={muted} aria-label='Volume' />
-      </div>
+      <AudioControls audio={audio} />
     </header>
     {!playing && view.phase === 'lobby' && <section className='migration-lobby'>
       <div className='migration-actions'>

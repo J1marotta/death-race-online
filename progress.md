@@ -1199,3 +1199,9 @@ Last updated: 2026-07-14
 - Extended the music phases from playing-only to lobby, countdown, and playing so the lobby has ambient music and the track never stops and restarts the music at the start of a race.
 - Kept the music-intensity master gain created first inside `startMusic` so the master output node is created second, and updated the countdown regression to assert the beat tone by its distinct 330 Hz frequency now that chord voices also play during the countdown.
 - Added a React regression covering lobby music and the volume slider driving the master gain.
+
+### task 117 : Bring Audio To The Landing Page
+
+- Added `menu` to the music phases so the ambient landing preview also plays the background music; because of browser autoplay rules it begins on the first click or keypress, which the existing gesture-unlock already handles.
+- Extracted the mute toggle and volume slider into a shared `AudioControls` component and placed it in the landing page header as well as the room top bar, so both controls exist on every screen that has sound.
+- Added a React regression asserting the landing page exposes the mute and volume controls.

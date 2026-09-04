@@ -447,6 +447,11 @@ export class DeathRaceRoom extends Room {
     const victimPlayer = result.victim?.controllerType === 'human'
       ? this.state.players.get(result.victim.playerId)
       : undefined
+    if (result.hit && victimPlayer) {
+      victimPlayer.hasBullet = false
+      const victimCrosshair = this.state.crosshairs.get(this.crosshairIdByPlayerId.get(victimPlayer.id))
+      if (victimCrosshair) victimCrosshair.hasBullet = false
+    }
     if (result.scored) {
       player.score += 1
       player.kills += 1

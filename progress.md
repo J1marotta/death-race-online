@@ -1218,3 +1218,4 @@ Last updated: 2026-07-14
 - Gave all 20 racers unique crosshair colors (`index % 20` plus 12 new CSS hues) instead of 8 recycled ones.
 - Throttled `updateAtmosphere` to intensity-band changes and gave connection-lifecycle commands an explicit `use-connection` error.
 - Added 9 regression tests (multi-tick fast-forward, furthest winner, room-full, next-round prune, seeded determinism/fairness, reconnect guards, fresh-room reset); suite is 118 passing with lint/build clean.
+- Layer 4: eliminated victims now lose their bullet and dim their crosshair server-side (previously a dead player who never shot kept a bright loaded crosshair); pinned with a victim-dimming regression. `reconcileProgress`/`predictLocalProgress` remain tested utilities but are not wired into rendering — remote racers render authoritative state with CSS glide, so no change made there.

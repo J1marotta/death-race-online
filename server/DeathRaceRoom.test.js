@@ -475,6 +475,29 @@ describe('Colyseus DeathRaceRoom scaffold', () => {
     expect(guestRuntime.eliminated).toBe(true)
   })
 
+  it('dims the victim crosshair when a human is eliminated', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST' })
+    const host = client('session-host')
+    const guest = client('session-guest')
+    room.onJoin(host, { playerName: 'James' })
+    room.onJoin(guest, { playerName: 'Mia' })
+    room.authorizedPlayer(host).ready = true
+    room.authorizedPlayer(guest).ready = true
+    room.startCountdown(room.authorizedPlayer(host))
+    room.advanceSimulation(0, room.state.countdownEndsAt)
+    const guestRuntime = room.runtimeByPlayerId.get(room.authorizedPlayer(guest).id)
+    guestRuntime.progress = 40
+    const aimY = ((guestRuntime.laneId - 0.5) / 20) * 100
+
+    room.handleCommand(host, command(CLIENT_MESSAGE_TYPES.SHOT, { aimX: 40, aimY }))
+
+    const guestPlayer = room.authorizedPlayer(guest)
+    expect(guestPlayer.hasBullet).toBe(false)
+    const victimCrosshair = room.state.crosshairs.get(room.crosshairIdByPlayerId.get(guestPlayer.id))
+    expect(victimCrosshair.hasBullet).toBe(false)
+  })
+
   it('spends one bullet on a miss and rejects a duplicate shot', () => {
     const room = new DeathRaceRoom()
     room.onCreate({ roomCode: 'DRTEST' })

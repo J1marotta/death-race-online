@@ -178,11 +178,12 @@ export function useGameAudio(phase) {
   const updateAtmosphere = useCallback(next => {
     atmosphereRef.current = { ...atmosphereRef.current, ...next }
     const audio = contextRef.current
-    const masterGain = musicRef.current?.masterGain
-    if (audio && masterGain) {
-      const intensity = atmosphereRef.current.progress >= 66 ? 1.45 : atmosphereRef.current.progress >= 33 ? 1.18 : 1
-      masterGain.gain.setValueAtTime(intensity, audio.currentTime)
-    }
+    const music = musicRef.current
+    if (!audio || !music?.masterGain) return
+    const intensity = atmosphereRef.current.progress >= 66 ? 1.45 : atmosphereRef.current.progress >= 33 ? 1.18 : 1
+    if (music.intensity === intensity) return
+    music.intensity = intensity
+    music.masterGain.gain.setValueAtTime(intensity, audio.currentTime)
   }, [])
 
   useEffect(() => {

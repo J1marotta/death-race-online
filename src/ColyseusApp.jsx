@@ -137,7 +137,7 @@ function Countdown({ endsAt, onBeat }) {
 
 function AuthoritativeRace({ transport, initialView, audio, interactive = true }) {
   const [raceView, setRaceView] = useState(initialView)
-  const [aim, setAim] = useState({ laneId: 1, x: 0 })
+  const [aim, setAim] = useState({ laneId: 1, x: 0, y: 50 })
   const [pressedKeys, setPressedKeys] = useState({ walking: false, running: false })
   const [screenEffect, setScreenEffect] = useState(null)
   const [localShotEffect, setLocalShotEffect] = useState(null)
@@ -153,6 +153,9 @@ function AuthoritativeRace({ transport, initialView, audio, interactive = true }
   const localShotSequence = useRef(0)
   const processedEvents = useRef(new Set())
   useEffect(() => transport.subscribe('view', setRaceView), [transport])
+  useEffect(() => {
+    processedEvents.current.clear()
+  }, [raceView.round])
   const localPlayer = raceView.players.find(player => player.id === raceView.localPlayerId)
   useEffect(() => {
     if (!interactive) return undefined
@@ -161,8 +164,13 @@ function AuthoritativeRace({ transport, initialView, audio, interactive = true }
       const shot = envelope?.payload
       if (!shot?.eventId || processedEvents.current.has(shot.eventId)) return
       processedEvents.current.add(shot.eventId)
+      if (processedEvents.current.size > 300) {
+        const oldest = processedEvents.current.values().next().value
+        processedEvents.current.delete(oldest)
+      }
       if (!shot.hit && shot.shooterName === localPlayer?.name) {
         audio.playNearMiss()
+        window.clearTimeout(clearEffect)
         setServerShotEffect({ kind: 'miss', eventId: shot.eventId, x: shot.impactX, laneId: shot.laneId })
         clearEffect = window.setTimeout(() => setServerShotEffect(null), 320)
         return
@@ -277,6 +285,7 @@ function AuthoritativeRace({ transport, initialView, audio, interactive = true }
     if (aimFrame.current) return
     aimFrame.current = window.requestAnimationFrame(() => {
       aimFrame.current = 0
+      if (raceView.phase !== 'playing' || localPlayer?.role === 'spectator') return
       const nextAim = pendingAim.current
       if (!nextAim) return
       setAim(nextAim)
@@ -355,10 +364,14 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
   }, [transport])
 
   useEffect(() => {
-    if (view.phase === 'menu' || view.phase === 'closed') return undefined
+    if (view.phase === 'menu' || view.phase === 'closed') {
+      celebratedWinners.current.clear()
+      return undefined
+    }
     let timeout
     const leaveIdleRoom = () => {
       void transport.leave().catch(() => {})
+      celebratedWinners.current.clear()
       setView(emptyView)
     }
     const resetIdleTimeout = () => {
@@ -367,11 +380,15 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
     }
     resetIdleTimeout()
     window.addEventListener('pointerdown', resetIdleTimeout, true)
+    window.addEventListener('pointermove', resetIdleTimeout, true)
     window.addEventListener('keydown', resetIdleTimeout, true)
+    window.addEventListener('wheel', resetIdleTimeout, true)
     return () => {
       window.clearTimeout(timeout)
       window.removeEventListener('pointerdown', resetIdleTimeout, true)
+      window.removeEventListener('pointermove', resetIdleTimeout, true)
       window.removeEventListener('keydown', resetIdleTimeout, true)
+      window.removeEventListener('wheel', resetIdleTimeout, true)
     }
   }, [transport, view.phase])
 
@@ -400,8 +417,8 @@ export default function ColyseusApp({ transport: suppliedTransport }) {
     setError('')
     try {
       const code = roomCode.trim().toUpperCase() || createLobbyCode()
+      setRoomCode(code)
       if (mode === 'create') {
-        setRoomCode(code)
         await transport.create({ roomCode: code, playerName: name, privacy, roundCount })
       } else {
         await transport.join({ roomCode: code, playerName: name })

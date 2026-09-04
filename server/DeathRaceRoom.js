@@ -12,8 +12,9 @@ import {
   COUNTDOWN_DURATION_MS,
   FINISH_PROGRESS,
   SERVER_TICK_MS,
+  SPRINT_MAX_MS,
   advancePlayerRuntime,
-  assignSecretLanes,
+  assignSeededLanes,
   createPlayerRuntime,
   setMovementIntent,
 } from './simulation.js'
@@ -86,6 +87,10 @@ export class DeathRaceRoom extends Room {
   }
 
   onJoin(client, options = {}) {
+    const joinsActiveRound = this.state.phase !== 'lobby'
+    if (!joinsActiveRound && this.state.players.size >= MAX_ROOM_PLAYERS) {
+      throw new Error('The room is full')
+    }
     const isHost = this.state.players.size === 0
     const playerId = randomUUID()
     const playerName = cleanPlayerName(options.playerName)
@@ -95,7 +100,6 @@ export class DeathRaceRoom extends Room {
     if (nameTaken) {
       throw new Error('Player name is not available')
     }
-    const joinsActiveRound = this.state.phase !== 'lobby'
     const player = new PlayerState({
       id: playerId,
       connectionId: client.sessionId,
@@ -202,6 +206,12 @@ export class DeathRaceRoom extends Room {
         void this.closeAfterHostDeparture()
       }
       result = { ok: true }
+    } else if (
+      message.type === CLIENT_MESSAGE_TYPES.CREATE ||
+      message.type === CLIENT_MESSAGE_TYPES.JOIN ||
+      message.type === CLIENT_MESSAGE_TYPES.RESUME
+    ) {
+      return this.sendError(client, 'use-connection', 'Use the room connection to create, join, or resume')
     } else {
       return this.sendError(client, 'unsupported-command', 'Command is not available yet')
     }
@@ -246,10 +256,16 @@ export class DeathRaceRoom extends Room {
     if (!this.isHost(player)) {
       return { ok: false, error: 'host-only', message: 'Only the host can edit settings' }
     }
-    if (settings.privacy) {
+    if (settings.privacy !== undefined) {
+      if (settings.privacy !== 'public' && settings.privacy !== 'private') {
+        return { ok: false, error: 'invalid-settings', message: 'Unknown privacy setting' }
+      }
       this.state.privacy = settings.privacy
     }
-    if (settings.roundCount) {
+    if (settings.roundCount !== undefined) {
+      if (![3, 5, 7].includes(settings.roundCount)) {
+        return { ok: false, error: 'invalid-settings', message: 'Unknown round count' }
+      }
       this.state.roundCount = settings.roundCount
     }
     return { ok: true }
@@ -273,10 +289,13 @@ export class DeathRaceRoom extends Room {
       return { ok: false, error: 'host-only', message: 'Only the host can start' }
     }
     const players = [...this.state.players.values()]
-    if (
-      !players.length ||
-      players.some(current => !current.connected || !current.ready)
-    ) {
+    if (!players.length) {
+      return { ok: false, error: 'not-ready', message: 'Every player must be ready' }
+    }
+    if (players.length > MAX_ROOM_PLAYERS) {
+      return { ok: false, error: 'room-full', message: 'The room is full' }
+    }
+    if (players.some(current => !current.connected || !current.ready)) {
       return { ok: false, error: 'not-ready', message: 'Every player must be ready' }
     }
     this.runtimeByPlayerId.clear()
@@ -285,7 +304,8 @@ export class DeathRaceRoom extends Room {
     this.state.racers.clear()
     this.state.crosshairs.clear()
     this.state.shots.clear()
-    const lanes = assignSecretLanes(players.map(current => current.id), MAX_ROOM_PLAYERS)
+    const seed = `${this.state.roomCode}:${this.state.round}:${[...players.map(current => current.id)].sort().join(',')}`
+    const lanes = assignSeededLanes(players.map(current => current.id), MAX_ROOM_PLAYERS, seed)
     const countdownEndsAt = Date.now() + COUNTDOWN_DURATION_MS
     players.forEach((current, index) => {
       const runtime = createPlayerRuntime({ playerId: current.id, laneId: lanes.get(current.id) })
@@ -305,7 +325,7 @@ export class DeathRaceRoom extends Room {
         id: crosshairId,
         aimX: 0,
         aimY: 50,
-        colorIndex: index % 8,
+        colorIndex: index % 20,
         hasBullet: true,
       }))
       this.sendPrivateStateForPlayer(current.id)
@@ -323,7 +343,7 @@ export class DeathRaceRoom extends Room {
       this.state.racers.set(String(laneId), new RacerState({
         laneId,
         progress: runtime.progress,
-        movementMode: 'idle',
+        movementMode: 'stopped',
         eliminated: false,
         revealedName: '',
       }))
@@ -345,7 +365,7 @@ export class DeathRaceRoom extends Room {
       playerId: player.id,
       laneId: runtime.laneId,
       crosshairId: this.crosshairIdByPlayerId.get(player.id) ?? '',
-      stamina: runtime.staminaMs / 2000,
+      stamina: runtime.staminaMs / SPRINT_MAX_MS,
       exhausted: runtime.exhausted,
       eliminated: runtime.eliminated,
     } : undefined
@@ -394,11 +414,13 @@ export class DeathRaceRoom extends Room {
       this.state.phase = 'gameOver'
       return { ok: true, complete: true }
     }
-    for (const current of this.state.players.values()) {
-      if (current.connected) {
-        current.ready = true
-        if (current.role === 'spectator') current.role = 'player'
+    for (const current of [...this.state.players.values()]) {
+      if (!current.connected) {
+        this.pruneDisconnectedPlayer(current.id)
+        continue
       }
+      current.ready = true
+      if (current.role === 'spectator') current.role = 'player'
     }
     this.state.round += 1
     this.state.phase = 'lobby'
@@ -475,8 +497,14 @@ export class DeathRaceRoom extends Room {
 
     for (const runtime of this.runtimeByPlayerId.values()) {
       if (runtime.controllerType === 'npc') {
-        const npcNow = runtime.lastUpdatedAt + (nowMs - runtime.lastUpdatedAt) * this.state.speedMultiplier
-        advanceNpcRuntime(runtime, npcNow)
+        const elapsed = nowMs - runtime.lastUpdatedAt
+        if (elapsed > 0 && this.state.speedMultiplier !== 1) {
+          const scaledNow = runtime.lastUpdatedAt + elapsed * this.state.speedMultiplier
+          advanceNpcRuntime(runtime, scaledNow)
+          runtime.lastUpdatedAt = nowMs
+        } else {
+          advanceNpcRuntime(runtime, nowMs)
+        }
       } else {
         advancePlayerRuntime(runtime, deltaMs, nowMs)
         if (nowMs - (this.lastPrivateStateSentAt.get(runtime.playerId) ?? 0) >= 100) {
@@ -490,26 +518,30 @@ export class DeathRaceRoom extends Room {
         racer.movementMode = runtime.movementMode
         racer.eliminated = runtime.eliminated
       }
-      if (!runtime.eliminated && runtime.progress >= FINISH_PROGRESS) {
-        this.state.winnerEventId = this.createEventId()
-        this.state.winnerLaneId = runtime.laneId
-        this.state.winnerType = runtime.controllerType
-        if (runtime.controllerType === 'human') {
-          const winner = this.state.players.get(runtime.playerId)
-          this.state.winnerName = winner?.name ?? ''
-          if (winner) winner.score += 3
-        } else {
-          this.state.winnerName = `NPC ${runtime.laneId}`
-        }
-        for (const candidate of this.runtimeByPlayerId.values()) {
-          if (candidate.controllerType !== 'human') continue
-          const revealedRacer = this.state.racers.get(String(candidate.laneId))
-          const revealedPlayer = this.state.players.get(candidate.playerId)
-          if (revealedRacer) revealedRacer.revealedName = revealedPlayer?.name ?? 'Player'
-        }
-        this.state.phase = 'roundOver'
-        break
+    }
+    let winner = null
+    for (const runtime of this.runtimeByPlayerId.values()) {
+      if (runtime.eliminated || runtime.progress < FINISH_PROGRESS) continue
+      if (!winner || runtime.progress > winner.progress) winner = runtime
+    }
+    if (winner) {
+      this.state.winnerEventId = this.createEventId()
+      this.state.winnerLaneId = winner.laneId
+      this.state.winnerType = winner.controllerType
+      if (winner.controllerType === 'human') {
+        const winningPlayer = this.state.players.get(winner.playerId)
+        this.state.winnerName = winningPlayer?.name ?? ''
+        if (winningPlayer) winningPlayer.score += 3
+      } else {
+        this.state.winnerName = `NPC ${winner.laneId}`
       }
+      for (const candidate of this.runtimeByPlayerId.values()) {
+        if (candidate.controllerType !== 'human') continue
+        const revealedRacer = this.state.racers.get(String(candidate.laneId))
+        const revealedPlayer = this.state.players.get(candidate.playerId)
+        if (revealedRacer) revealedRacer.revealedName = revealedPlayer?.name ?? 'Player'
+      }
+      this.state.phase = 'roundOver'
     }
   }
 
@@ -547,6 +579,20 @@ export class DeathRaceRoom extends Room {
         await this.closeAfterHostDeparture()
       }
     }
+  }
+
+  pruneDisconnectedPlayer(playerId) {
+    for (const [sessionId, mappedId] of this.playerIdBySession.entries()) {
+      if (mappedId === playerId) this.playerIdBySession.delete(sessionId)
+    }
+    this.lastSequenceByPlayerId.delete(playerId)
+    this.lastPrivateStateSentAt.delete(playerId)
+    const crosshairId = this.crosshairIdByPlayerId.get(playerId)
+    if (crosshairId) this.state.crosshairs.delete(crosshairId)
+    this.crosshairIdByPlayerId.delete(playerId)
+    this.runtimeByPlayerId.delete(playerId)
+    this.state.players.delete(playerId)
+    if (this.state.hostPlayerId === playerId) this.state.hostPlayerId = ''
   }
 
   removePlayer(client) {

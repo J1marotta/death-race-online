@@ -37,6 +37,7 @@ export class ColyseusTransport {
     this.lastMetaSignature = ''
     this.currentView = null
     this.listeners = new Map()
+    this.reconnecting = false
   }
 
   subscribe(type, listener) {
@@ -85,10 +86,20 @@ export class ColyseusTransport {
   }
 
   attach(room) {
+    const freshRoom = this.roomId !== room.roomId
     this.room = room
     this.roomId = room.roomId
     this.closedIntentionally = false
     this.serverClosed = false
+    this.reconnecting = false
+    if (freshRoom) {
+      this.roundId = 1
+      this.sequence = 0
+      this.latestState = null
+      this.privateState = null
+      this.currentView = null
+      this.lastMetaSignature = ''
+    }
     room.onStateChange(state => {
       const snapshot = state?.toJSON ? state.toJSON() : state
       const players = snapshot?.players instanceof Map
@@ -154,6 +165,13 @@ export class ColyseusTransport {
   nextRound() { this.command(CLIENT_MESSAGE_TYPES.NEXT_ROUND) }
 
   async reconnect(token) {
+    if (!token) {
+      this.emit('status', 'disconnected')
+      this.emit('error', { code: 'reconnect-failed', message: 'Missing reconnection token' })
+      return null
+    }
+    if (this.reconnecting) return null
+    this.reconnecting = true
     this.emit('status', 'reconnecting')
     for (let attempt = 0; attempt < MAX_RECONNECT_ATTEMPTS; attempt += 1) {
       if (attempt > 0) {
@@ -166,6 +184,7 @@ export class ColyseusTransport {
         return this.attach(room)
       } catch (error) {
         if (attempt === MAX_RECONNECT_ATTEMPTS - 1) {
+          this.reconnecting = false
           this.emit('status', 'disconnected')
           this.emit('error', { code: 'reconnect-failed', message: error.message })
         }
@@ -176,10 +195,16 @@ export class ColyseusTransport {
 
   async leave() {
     this.closedIntentionally = true
+    this.reconnecting = false
     if (this.room) {
-      this.command(CLIENT_MESSAGE_TYPES.LEAVE)
+      try {
+        this.command(CLIENT_MESSAGE_TYPES.LEAVE)
+      } catch {
+        // Socket already gone; server onLeave still cleans up.
+      }
       await this.room.leave()
     }
     this.room = null
+    this.roomId = ''
   }
 }

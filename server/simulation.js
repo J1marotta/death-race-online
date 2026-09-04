@@ -109,3 +109,24 @@ export function assignSecretLanes(playerIds, laneCount = 20, pickIndex = randomI
   }
   return new Map(playerIds.map((playerId, index) => [playerId, lanes[index]]))
 }
+
+const hashSeedToUint32 = value => {
+  let result = 2166136261
+  for (const character of value) {
+    result ^= character.charCodeAt(0)
+    result = Math.imul(result, 16777619)
+  }
+  return result >>> 0
+}
+
+export function createSeededPicker(seed) {
+  let state = hashSeedToUint32(seed) || 1
+  return upperBound => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0
+    return Math.floor((state / 0x100000000) * upperBound)
+  }
+}
+
+export function assignSeededLanes(playerIds, laneCount = 20, seed = '') {
+  return assignSecretLanes(playerIds, laneCount, createSeededPicker(seed))
+}

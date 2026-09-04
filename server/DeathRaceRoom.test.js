@@ -663,6 +663,124 @@ describe('Colyseus DeathRaceRoom scaffold', () => {
     expect(room.disconnect).toHaveBeenCalledOnce()
   })
 
+  it('keeps NPC fast-forward stable across consecutive ticks', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST', roundCount: 3 })
+    const host = client('session-host')
+    room.onJoin(host, { playerName: 'James' })
+    room.authorizedPlayer(host).ready = true
+    room.startCountdown(room.authorizedPlayer(host))
+    room.advanceSimulation(0, room.state.countdownEndsAt)
+    room.runtimeByPlayerId.get(room.authorizedPlayer(host).id).eliminated = true
+    const npc = [...room.runtimeByPlayerId.values()].find(runtime => runtime.controllerType === 'npc')
+    npc.behaviorMode = 'walking'
+    npc.modeEndsAt = room.state.countdownEndsAt + 100000
+    const before = npc.progress
+    const t0 = room.state.countdownEndsAt
+
+    room.advanceSimulation(100, t0 + 100)
+    const firstGain = npc.progress - before
+    room.advanceSimulation(100, t0 + 200)
+    const secondGain = npc.progress - before - firstGain
+
+    expect(room.state.speedMultiplier).toBe(4)
+    expect(firstGain).toBeGreaterThan(1)
+    expect(secondGain).toBeGreaterThan(1)
+    expect(npc.lastUpdatedAt).toBe(t0 + 200)
+  })
+
+  it('declares the furthest finisher when several cross together', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST' })
+    const host = client('session-host')
+    room.onJoin(host, { playerName: 'James' })
+    room.authorizedPlayer(host).ready = true
+    room.startCountdown(room.authorizedPlayer(host))
+    room.advanceSimulation(0, room.state.countdownEndsAt)
+    const runtimes = [...room.runtimeByPlayerId.values()]
+    runtimes[0].progress = FINISH_PROGRESS + 2
+    runtimes[1].progress = FINISH_PROGRESS + 5
+
+    room.advanceSimulation(50, room.state.countdownEndsAt + 50)
+
+    expect(room.state.phase).toBe('roundOver')
+    expect(room.state.winnerLaneId).toBe(runtimes[1].laneId)
+  })
+
+  it('rejects lobby joins beyond twenty players', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST' })
+    for (let index = 0; index < 20; index += 1) {
+      room.onJoin(client(`session-${index}`), { playerName: `Player${index}` })
+    }
+    expect(() => room.onJoin(client('session-over'), { playerName: 'Overflow' })).toThrow(
+      'The room is full',
+    )
+  })
+
+  it('prunes disconnected players when the host starts the next round', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST', roundCount: 3 })
+    const host = client('session-host')
+    const guest = client('session-guest')
+    room.onJoin(host, { playerName: 'James' })
+    room.onJoin(guest, { playerName: 'Mia' })
+    room.authorizedPlayer(host).ready = true
+    room.authorizedPlayer(guest).ready = true
+    room.startCountdown(room.authorizedPlayer(host))
+    room.advanceSimulation(0, room.state.countdownEndsAt)
+    const guestId = room.authorizedPlayer(guest).id
+    room.markDisconnected(guest)
+    room.state.phase = 'roundOver'
+
+    expect(room.startNextRound(room.authorizedPlayer(host)).ok).toBe(true)
+    expect(room.state.players.get(guestId)).toBeUndefined()
+    expect(room.state.phase).toBe('countdown')
+  })
+
+  it('assigns deterministic seeded lanes that reshuffle by round', () => {
+    const first = new DeathRaceRoom()
+    first.onCreate({ roomCode: 'DRTEST' })
+    const host = client('session-host')
+    const guest = client('session-guest')
+    first.onJoin(host, { playerName: 'James' })
+    first.onJoin(guest, { playerName: 'Mia' })
+    first.authorizedPlayer(host).ready = true
+    first.authorizedPlayer(guest).ready = true
+    first.startCountdown(first.authorizedPlayer(host))
+    const roundOne = [first.privateStateFor(host).laneId, first.privateStateFor(guest).laneId]
+    first.state.phase = 'roundOver'
+    first.startNextRound(first.authorizedPlayer(host))
+    const roundTwo = [first.privateStateFor(host).laneId, first.privateStateFor(guest).laneId]
+
+    expect(new Set(roundOne).size).toBe(2)
+    expect(new Set(roundTwo).size).toBe(2)
+    for (const laneId of [...roundOne, ...roundTwo]) {
+      expect(laneId).toBeGreaterThanOrEqual(1)
+      expect(laneId).toBeLessThanOrEqual(20)
+    }
+  })
+
+  it('rejects connection-lifecycle messages sent as commands', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST' })
+    const host = client('session-host')
+    room.onJoin(host, { playerName: 'James' })
+
+    expect(
+      room.handleCommand(
+        host,
+        command(CLIENT_MESSAGE_TYPES.CREATE, { playerName: 'James', privacy: 'public', roundCount: 5 }),
+      ).error,
+    ).toBe('use-connection')
+    expect(
+      room.handleCommand(
+        host,
+        command(CLIENT_MESSAGE_TYPES.JOIN, { playerName: 'James' }, { sequence: 1 }),
+      ).error,
+    ).toBe('use-connection')
+  })
+
   it('rejects wrong-room, stale, duplicate, and wrong-phase commands', () => {
     const room = new DeathRaceRoom()
     room.onCreate({ roomCode: 'DRTEST' })

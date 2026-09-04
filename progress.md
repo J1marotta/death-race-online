@@ -1205,3 +1205,16 @@ Last updated: 2026-07-14
 - Added `menu` to the music phases so the ambient landing preview also plays the background music; because of browser autoplay rules it begins on the first click or keypress, which the existing gesture-unlock already handles.
 - Extracted the mute toggle and volume slider into a shared `AudioControls` component and placed it in the landing page header as well as the room top bar, so both controls exist on every screen that has sound.
 - Added a React regression asserting the landing page exposes the mute and volume controls.
+
+### task 118 : Authoritative Race Bug Sweep And Regression Pinning
+
+- Fixed the NPC 4x fast-forward clock: scaled time was stored in `lastUpdatedAt`, so the next tick ran backwards. NPCs now advance by the scaled delta and reset the clock to real time; verified stable across consecutive ticks.
+- Fixed winner selection: the tick loop broke on the first finisher in Map order (host-biased ties). The server now syncs all racers first, then declares the furthest progress past the finish.
+- Capped lobbies at 20: lobby joins beyond the lane count now throw `The room is full`, with a defensive `room-full` guard in `startCountdown`.
+- Unblocked next rounds: `startNextRound` prunes disconnected players instead of stranding the host for the 45s grace window; initial countdown still requires the full roster.
+- Implemented the spec's seeded lane shuffle (FNV-1a + LCG from high bits, seed `roomCode:round:sortedIds`): deterministic per round, reshuffles by round, fair across 400 rooms.
+- Hardened the transport: fresh-room attach resets round/sequence/state, reconnect rejects missing tokens and parallel attempts, and leave survives a dead socket.
+- Fixed client glitches: local aim defaults to `y: 50`, rAF aim re-checks phase/role, miss effects clear pending hit timers, join normalizes the code field, winner sounds reset per match, and idle reset covers pointermove/wheel.
+- Gave all 20 racers unique crosshair colors (`index % 20` plus 12 new CSS hues) instead of 8 recycled ones.
+- Throttled `updateAtmosphere` to intensity-band changes and gave connection-lifecycle commands an explicit `use-connection` error.
+- Added 9 regression tests (multi-tick fast-forward, furthest winner, room-full, next-round prune, seeded determinism/fairness, reconnect guards, fresh-room reset); suite is 118 passing with lint/build clean.

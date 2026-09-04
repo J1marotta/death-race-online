@@ -114,6 +114,40 @@ describe('Colyseus client transport', () => {
     expect(transport.client.reconnect).toHaveBeenCalledTimes(MAX_RECONNECT_ATTEMPTS)
   })
 
+  it('rejects reconnection without a token and ignores parallel attempts', async () => {
+    const statuses = []
+    const errors = []
+    const transport = new ColyseusTransport({
+      client: { reconnect: vi.fn().mockResolvedValue(fakeRoom()) },
+      schedule: callback => callback(),
+      random: () => 0.5,
+    })
+    transport.subscribe('status', status => statuses.push(status))
+    transport.subscribe('error', error => errors.push(error))
+    await transport.reconnect(undefined)
+    expect(statuses).toEqual(['disconnected'])
+    expect(errors.at(-1).code).toBe('reconnect-failed')
+    expect(transport.client.reconnect).not.toHaveBeenCalled()
+
+    transport.reconnecting = true
+    await transport.reconnect('token')
+    expect(transport.client.reconnect).not.toHaveBeenCalled()
+  })
+
+  it('resets per-room state when attaching a fresh room', async () => {
+    const first = fakeRoom('ROOMONE')
+    const second = fakeRoom('ROOMTWO')
+    const transport = new ColyseusTransport({ client: { create: vi.fn() } })
+    await transport.attach(first)
+    transport.sequence = 9
+    transport.roundId = 3
+    await transport.attach(second)
+    expect(transport.roomId).toBe('ROOMTWO')
+    expect(transport.sequence).toBe(0)
+    expect(transport.roundId).toBe(1)
+    expect(transport.latestState).toBeNull()
+  })
+
   it('surfaces a server-owned room closure without starting reconnection', async () => {
     const room = fakeRoom()
     const reconnect = vi.fn()

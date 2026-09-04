@@ -6,6 +6,7 @@ import {
   WALK_PROGRESS_PER_SECOND,
   advancePlayerRuntime,
   assignSecretLanes,
+  assignSeededLanes,
   createPlayerRuntime,
   eliminatePlayerRuntime,
   setMovementIntent,
@@ -90,6 +91,26 @@ describe('authoritative movement simulation', () => {
 
     expect(new Set(assignments.values()).size).toBe(4)
     expect([...assignments.keys()]).toEqual(['a', 'b', 'c', 'd'])
+  })
+
+  it('assigns seeded lanes deterministically and fairly from high bits', () => {
+    const first = assignSeededLanes(['a', 'b', 'c'], 20, 'DRTEST:1:a,b,c')
+    const second = assignSeededLanes(['a', 'b', 'c'], 20, 'DRTEST:1:a,b,c')
+    const otherRound = assignSeededLanes(['a', 'b', 'c'], 20, 'DRTEST:2:a,b,c')
+
+    expect([...first.values()]).toEqual([...second.values()])
+    expect([...first.values()]).not.toEqual([...otherRound.values()])
+
+    const counts = new Map()
+    for (let index = 0; index < 400; index += 1) {
+      const lane = assignSeededLanes(['host'], 20, `R${index}:1:host`).get('host')
+      counts.set(lane, (counts.get(lane) ?? 0) + 1)
+    }
+    expect(counts.size).toBe(20)
+    for (const count of counts.values()) {
+      expect(count).toBeGreaterThan(5)
+      expect(count).toBeLessThan(40)
+    }
   })
 
   it('can cross the server finish threshold without exceeding the track maximum', () => {

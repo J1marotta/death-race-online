@@ -1225,3 +1225,9 @@ Last updated: 2026-07-14
 - Found the client quit retrying after ~15s (5 attempts) while the server holds the 45s grace window, stranding manual rejoiners on `Player name is not available`. Raised `MAX_RECONNECT_ATTEMPTS` to 8 so backoff covers ~63s past the grace window; pinned with a delay-sum regression.
 - Found a pending `reconnect()` could `attach()` after `leave()`, resurrecting a room the user closed. Added a `sessionGeneration` counter bumped on fresh-room attach and leave; the loop aborts when stale and leaves stray rooms it won too late. Pinned with a leave-during-reconnect regression.
 - Verified layer 5 needs no changes: 10-room × 20-human × 200-tick simulation stays in budget, smoke sequencing is per-player ordered, and the spawn-vs-hit-window boundary is inclusive-safe. Suite is 121 passing with lint/build clean.
+
+### task 120 : Wall-Clock Tick And Stall Caps
+
+- Found humans advanced on fixed-interval `deltaMs` while NPCs advanced on wall-clock elapsed, so an event-loop stall permanently short-changed humans; uncapped NPC elapsed also teleported the pack after long stalls (a new regression test caught the unscaled path at +83 progress).
+- `advanceSimulation` now derives human `dt` from the wall clock (`lastTickAt`, clamped 0–1000ms) and caps NPC elapsed at 1000ms on both the scaled and unscaled paths, never rewinding clocks on skew. `lastTickAt` resets on countdown start, Go, and dispose.
+- Extended the 20-human regression with a 20-unique-crosshair assertion. Suite is 122 passing with lint/build clean.

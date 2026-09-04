@@ -712,6 +712,29 @@ describe('Colyseus DeathRaceRoom scaffold', () => {
     expect(npc.lastUpdatedAt).toBe(t0 + 200)
   })
 
+  it('caps simulation progress after an event-loop stall instead of teleporting', () => {
+    const room = new DeathRaceRoom()
+    room.onCreate({ roomCode: 'DRTEST', roundCount: 3 })
+    const host = client('session-host')
+    room.onJoin(host, { playerName: 'James' })
+    room.authorizedPlayer(host).ready = true
+    room.startCountdown(room.authorizedPlayer(host))
+    room.advanceSimulation(0, room.state.countdownEndsAt)
+    const human = room.runtimeByPlayerId.get(room.authorizedPlayer(host).id)
+    room.updateMovementIntent(room.authorizedPlayer(host), 'walking')
+    const npc = [...room.runtimeByPlayerId.values()].find(runtime => runtime.controllerType === 'npc')
+    npc.behaviorMode = 'walking'
+    npc.modeEndsAt = room.state.countdownEndsAt + 1000000
+    const humanBefore = human.progress
+    const npcBefore = npc.progress
+
+    room.advanceSimulation(50, room.state.countdownEndsAt + 30000)
+
+    expect(human.progress - humanBefore).toBeLessThanOrEqual(5 + 1e-9)
+    expect(npc.progress - npcBefore).toBeLessThanOrEqual(3 * 1.12 + 1e-9)
+    expect(room.state.phase).toBe('playing')
+  })
+
   it('declares the furthest finisher when several cross together', () => {
     const room = new DeathRaceRoom()
     room.onCreate({ roomCode: 'DRTEST' })

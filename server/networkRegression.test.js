@@ -25,6 +25,7 @@ describe('multiplayer network regression', () => {
     expect(new Set(privateLanes).size).toBe(20)
     expect([...room.runtimeByPlayerId.values()].every(runtime => runtime.controllerType === 'human')).toBe(true)
     expect(room.state.racers.size).toBe(20)
+    expect(new Set([...room.state.crosshairs.values()].map(crosshair => crosshair.colorIndex)).size).toBe(20)
   })
 
   it('rejects duplicated, reordered, stale, future, and wrong-room packets', () => {

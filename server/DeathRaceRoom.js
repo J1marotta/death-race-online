@@ -56,6 +56,7 @@ export class DeathRaceRoom extends Room {
   lastPrivateStateSentAt = new Map()
   eventSequence = 0
   lastActivityAt = Date.now()
+  lastTickAt = null
   closing = false
   messages = {
     command: (client, message) => this.handleCommand(client, message),
@@ -301,6 +302,7 @@ export class DeathRaceRoom extends Room {
     this.runtimeByPlayerId.clear()
     this.crosshairIdByPlayerId.clear()
     this.lastPrivateStateSentAt.clear()
+    this.lastTickAt = null
     this.state.racers.clear()
     this.state.crosshairs.clear()
     this.state.shots.clear()
@@ -492,8 +494,14 @@ export class DeathRaceRoom extends Room {
     if (this.state.phase === 'countdown') {
       if (nowMs < this.state.countdownEndsAt) return
       this.state.phase = 'playing'
+      this.lastTickAt = nowMs
     }
     if (this.state.phase !== 'playing') return
+
+    const wallDt = this.lastTickAt === null ? deltaMs : nowMs - this.lastTickAt
+    this.lastTickAt = nowMs
+    const humanDt = Math.min(Math.max(0, wallDt), 1000)
+    const npcElapsedCap = 1000
 
     const humansAlive = [...this.runtimeByPlayerId.values()].some(
       runtime => runtime.controllerType === 'human' && !runtime.eliminated,
@@ -502,16 +510,19 @@ export class DeathRaceRoom extends Room {
 
     for (const runtime of this.runtimeByPlayerId.values()) {
       if (runtime.controllerType === 'npc') {
-        const elapsed = nowMs - runtime.lastUpdatedAt
-        if (elapsed > 0 && this.state.speedMultiplier !== 1) {
+        const elapsed = Math.min(Math.max(0, nowMs - runtime.lastUpdatedAt), npcElapsedCap)
+        if (elapsed <= 0) {
+          advanceNpcRuntime(runtime, runtime.lastUpdatedAt)
+        } else if (this.state.speedMultiplier !== 1) {
           const scaledNow = runtime.lastUpdatedAt + elapsed * this.state.speedMultiplier
           advanceNpcRuntime(runtime, scaledNow)
           runtime.lastUpdatedAt = nowMs
         } else {
-          advanceNpcRuntime(runtime, nowMs)
+          advanceNpcRuntime(runtime, runtime.lastUpdatedAt + elapsed)
+          runtime.lastUpdatedAt = nowMs
         }
       } else {
-        advancePlayerRuntime(runtime, deltaMs, nowMs)
+        advancePlayerRuntime(runtime, humanDt, nowMs)
         if (nowMs - (this.lastPrivateStateSentAt.get(runtime.playerId) ?? 0) >= 100) {
           this.sendPrivateStateForPlayer(runtime.playerId)
           this.lastPrivateStateSentAt.set(runtime.playerId, nowMs)
@@ -666,5 +677,6 @@ export class DeathRaceRoom extends Room {
     this.runtimeByPlayerId.clear()
     this.crosshairIdByPlayerId.clear()
     this.lastPrivateStateSentAt.clear()
+    this.lastTickAt = null
   }
 }

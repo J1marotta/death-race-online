@@ -148,6 +148,37 @@ describe('Colyseus client transport', () => {
     expect(transport.latestState).toBeNull()
   })
 
+  it('keeps retrying past the server reconnection grace window', async () => {
+    const delays = []
+    const transport = new ColyseusTransport({
+      client: { reconnect: vi.fn().mockRejectedValue(new Error('offline')) },
+      schedule: (callback, delay) => { delays.push(delay); callback() },
+      random: () => 0.5,
+    })
+    transport.subscribe('status', () => {})
+    transport.subscribe('error', () => {})
+    await transport.reconnect('token')
+    expect(transport.client.reconnect).toHaveBeenCalledTimes(MAX_RECONNECT_ATTEMPTS)
+    expect(delays.reduce((total, delay) => total + delay, 0)).toBeGreaterThanOrEqual(45000)
+  })
+
+  it('aborts a pending reconnect when the user leaves', async () => {
+    const room = fakeRoom()
+    let resolveReconnect
+    const reconnect = vi.fn().mockReturnValue(new Promise(resolve => { resolveReconnect = resolve }))
+    const transport = new ColyseusTransport({
+      client: { create: vi.fn().mockResolvedValue(room), reconnect },
+      schedule: callback => callback(),
+      random: () => 0.5,
+    })
+    await transport.create({ roomCode: 'DRTEST', playerName: 'James' })
+    const pending = transport.reconnect('resume-token')
+    await transport.leave()
+    resolveReconnect(fakeRoom('OTHER'))
+    expect(await pending).toBeNull()
+    expect(transport.room).toBeNull()
+  })
+
   it('surfaces a server-owned room closure without starting reconnection', async () => {
     const room = fakeRoom()
     const reconnect = vi.fn()

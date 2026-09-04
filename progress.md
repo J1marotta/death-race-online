@@ -1219,3 +1219,9 @@ Last updated: 2026-07-14
 - Throttled `updateAtmosphere` to intensity-band changes and gave connection-lifecycle commands an explicit `use-connection` error.
 - Added 9 regression tests (multi-tick fast-forward, furthest winner, room-full, next-round prune, seeded determinism/fairness, reconnect guards, fresh-room reset); suite is 118 passing with lint/build clean.
 - Layer 4: eliminated victims now lose their bullet and dim their crosshair server-side (previously a dead player who never shot kept a bright loaded crosshair); pinned with a victim-dimming regression. `reconcileProgress`/`predictLocalProgress` remain tested utilities but are not wired into rendering — remote racers render authoritative state with CSS glide, so no change made there.
+
+### task 119 : Reconnect Window And Zombie-Reattach Guard
+
+- Found the client quit retrying after ~15s (5 attempts) while the server holds the 45s grace window, stranding manual rejoiners on `Player name is not available`. Raised `MAX_RECONNECT_ATTEMPTS` to 8 so backoff covers ~63s past the grace window; pinned with a delay-sum regression.
+- Found a pending `reconnect()` could `attach()` after `leave()`, resurrecting a room the user closed. Added a `sessionGeneration` counter bumped on fresh-room attach and leave; the loop aborts when stale and leaves stray rooms it won too late. Pinned with a leave-during-reconnect regression.
+- Verified layer 5 needs no changes: 10-room × 20-human × 200-tick simulation stays in budget, smoke sequencing is per-player ordered, and the spawn-vs-hit-window boundary is inclusive-safe. Suite is 121 passing with lint/build clean.

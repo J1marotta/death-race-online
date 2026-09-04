@@ -8,7 +8,7 @@ import { projectAuthoritativeState } from './authoritativeView.js'
 
 export const DEFAULT_COLYSEUS_ENDPOINT = 'ws://127.0.0.1:2567'
 export const PRODUCTION_COLYSEUS_ENDPOINT = 'wss://death-race-online-game.fly.dev'
-export const MAX_RECONNECT_ATTEMPTS = 5
+export const MAX_RECONNECT_ATTEMPTS = 8
 
 export function getColyseusEndpoint() {
   return import.meta.env.VITE_COLYSEUS_URL || (import.meta.env.PROD
@@ -38,6 +38,7 @@ export class ColyseusTransport {
     this.currentView = null
     this.listeners = new Map()
     this.reconnecting = false
+    this.sessionGeneration = 0
   }
 
   subscribe(type, listener) {
@@ -93,6 +94,7 @@ export class ColyseusTransport {
     this.serverClosed = false
     this.reconnecting = false
     if (freshRoom) {
+      this.sessionGeneration += 1
       this.roundId = 1
       this.sequence = 0
       this.latestState = null
@@ -172,15 +174,22 @@ export class ColyseusTransport {
     }
     if (this.reconnecting) return null
     this.reconnecting = true
+    const generation = this.sessionGeneration
     this.emit('status', 'reconnecting')
     for (let attempt = 0; attempt < MAX_RECONNECT_ATTEMPTS; attempt += 1) {
+      if (generation !== this.sessionGeneration) return null
       if (attempt > 0) {
         const jitter = 0.75 + this.random() * 0.5
         const delay = Math.round(500 * (2 ** (attempt - 1)) * jitter)
         await new Promise(resolve => this.schedule(resolve, delay))
       }
+      if (generation !== this.sessionGeneration) return null
       try {
         const room = await this.client.reconnect(token)
+        if (generation !== this.sessionGeneration) {
+          await room.leave?.().catch(() => {})
+          return null
+        }
         return this.attach(room)
       } catch (error) {
         if (attempt === MAX_RECONNECT_ATTEMPTS - 1) {
@@ -196,6 +205,7 @@ export class ColyseusTransport {
   async leave() {
     this.closedIntentionally = true
     this.reconnecting = false
+    this.sessionGeneration += 1
     if (this.room) {
       try {
         this.command(CLIENT_MESSAGE_TYPES.LEAVE)
